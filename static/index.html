@@ -9,14 +9,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0A1622;
-    --surface: #122336;
-    --surface-2: #1B3349;
-    --ice: #EAF3F7;
-    --ice-dim: #9BB4C4;
-    --red: #E13C3C;
-    --gold: #FFB81C;
-    --border: #25415A;
+    /* Фирменные цвета NHL: чёрный, серебро, синий, красный */
+    --bg: #0A0A0A;
+    --surface: #161616;
+    --surface-2: #232323;
+    --silver: #E6E9EA;
+    --silver-dim: #9CA3AA;
+    --blue: #1F5FCE;
+    --red: #C8102E;
+    --border: #2C2C2C;
   }
 
   * { box-sizing: border-box; }
@@ -24,7 +25,7 @@
   body {
     margin: 0;
     background: var(--bg);
-    color: var(--ice);
+    color: var(--silver);
     font-family: 'Inter', sans-serif;
     -webkit-font-smoothing: antialiased;
     padding-bottom: 24px;
@@ -32,8 +33,8 @@
 
   header {
     padding: 20px 16px 14px;
-    border-bottom: 1px solid var(--border);
-    background: linear-gradient(180deg, #0E1F30 0%, var(--bg) 100%);
+    border-bottom: 2px solid var(--blue);
+    background: linear-gradient(180deg, #141414 0%, var(--bg) 100%);
   }
 
   header h1 {
@@ -46,6 +47,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    color: var(--silver);
   }
 
   header h1 .dot {
@@ -57,7 +59,7 @@
   }
 
   header .sub {
-    color: var(--ice-dim);
+    color: var(--silver-dim);
     font-size: 12px;
   }
 
@@ -75,7 +77,7 @@
     flex: 1;
     background: var(--surface);
     border: 1px solid var(--border);
-    color: var(--ice-dim);
+    color: var(--silver-dim);
     padding: 10px 8px;
     border-radius: 10px;
     font-family: 'Oswald', sans-serif;
@@ -86,9 +88,9 @@
   }
 
   nav button.active {
-    color: var(--bg);
-    background: var(--gold);
-    border-color: var(--gold);
+    color: #fff;
+    background: var(--blue);
+    border-color: var(--blue);
     font-weight: 700;
   }
 
@@ -104,13 +106,13 @@
   .date-row .label {
     font-family: 'Roboto Mono', monospace;
     font-size: 13px;
-    color: var(--ice-dim);
+    color: var(--silver-dim);
   }
 
   .date-row button {
     background: var(--surface);
     border: 1px solid var(--border);
-    color: var(--ice);
+    color: var(--silver);
     width: 34px;
     height: 34px;
     border-radius: 8px;
@@ -148,18 +150,10 @@
     letter-spacing: 0.04em;
   }
 
-  .badge {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    background: var(--surface-2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Oswald', sans-serif;
-    font-weight: 700;
-    font-size: 11px;
-    color: var(--gold);
+  .team-logo {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
     flex-shrink: 0;
   }
 
@@ -172,20 +166,22 @@
     font-family: 'Roboto Mono', monospace;
     font-weight: 700;
     font-size: 22px;
-    color: var(--ice);
+    color: var(--silver);
   }
 
   .score-box .status {
     font-size: 10px;
-    color: var(--gold);
+    color: var(--red);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     margin-top: 2px;
   }
 
+  /* ----- Standings ----- */
+
   .standings-row {
     display: grid;
-    grid-template-columns: 28px 1fr 32px 32px 32px 40px;
+    grid-template-columns: 24px 24px 1fr 32px 32px 32px 40px;
     gap: 6px;
     align-items: center;
     padding: 8px 0;
@@ -197,7 +193,12 @@
 
   .standings-row .rank {
     font-family: 'Roboto Mono', monospace;
-    color: var(--ice-dim);
+    color: var(--silver-dim);
+  }
+
+  .standings-row .team-logo {
+    width: 22px;
+    height: 22px;
   }
 
   .standings-row .name {
@@ -209,22 +210,22 @@
   .standings-row .num {
     font-family: 'Roboto Mono', monospace;
     text-align: center;
-    color: var(--ice-dim);
+    color: var(--silver-dim);
   }
 
   .standings-row .pts {
     font-family: 'Roboto Mono', monospace;
     font-weight: 700;
     text-align: center;
-    color: var(--gold);
+    color: var(--blue);
   }
 
   .standings-head {
     display: grid;
-    grid-template-columns: 28px 1fr 32px 32px 32px 40px;
+    grid-template-columns: 24px 24px 1fr 32px 32px 32px 40px;
     gap: 6px;
     font-size: 10px;
-    color: var(--ice-dim);
+    color: var(--silver-dim);
     text-transform: uppercase;
     letter-spacing: 0.06em;
     padding-bottom: 6px;
@@ -232,16 +233,110 @@
 
   .standings-head .num, .standings-head .pts { text-align: center; }
 
+  /* ----- Players / leaders ----- */
+
+  .cat-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .cat-row button {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--silver-dim);
+    padding: 8px 6px;
+    border-radius: 8px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .cat-row button.active {
+    color: #fff;
+    background: var(--red);
+    border-color: var(--red);
+    font-weight: 700;
+  }
+
+  .player-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .player-row:last-child { border-bottom: none; }
+
+  .player-row .rank {
+    font-family: 'Roboto Mono', monospace;
+    color: var(--silver-dim);
+    width: 20px;
+    flex-shrink: 0;
+    text-align: center;
+  }
+
+  .player-row .headshot {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--surface-2);
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+
+  .player-row .info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .player-row .pname {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .player-row .pteam {
+    font-size: 11px;
+    color: var(--silver-dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+  }
+
+  .player-row .pteam .team-logo {
+    width: 16px;
+    height: 16px;
+  }
+
+  .player-row .pvalue {
+    font-family: 'Roboto Mono', monospace;
+    font-weight: 700;
+    font-size: 20px;
+    color: var(--blue);
+    flex-shrink: 0;
+  }
+
   .empty {
     text-align: center;
-    color: var(--ice-dim);
+    color: var(--silver-dim);
     font-size: 13px;
     padding: 30px 0;
   }
 
   .loading {
     text-align: center;
-    color: var(--ice-dim);
+    color: var(--silver-dim);
     font-size: 13px;
     padding: 30px 0;
     font-family: 'Roboto Mono', monospace;
@@ -252,12 +347,13 @@
 
 <header>
   <h1><span class="dot"></span>NHL LIVE</h1>
-  <div class="sub">Расписание, результаты и таблица NHL</div>
+  <div class="sub">Расписание, результаты, таблица и статистика NHL</div>
 </header>
 
 <nav>
   <button id="tab-schedule" class="active">Матчи</button>
   <button id="tab-standings">Таблица</button>
+  <button id="tab-players">Игроки</button>
 </nav>
 
 <main>
@@ -273,9 +369,21 @@
   <div id="view-standings" style="display:none">
     <div class="card">
       <div class="standings-head">
-        <div>#</div><div>Команда</div><div class="num">И</div><div class="num">О</div><div class="num">П</div><div class="pts">Очки</div>
+        <div></div><div></div><div>Команда</div><div class="num">И</div><div class="num">О</div><div class="num">П</div><div class="pts">Очки</div>
       </div>
       <div id="standings-body"><div class="loading">Загрузка...</div></div>
+    </div>
+  </div>
+
+  <div id="view-players" style="display:none">
+    <div class="cat-row">
+      <button data-cat="points" class="active">Очки</button>
+      <button data-cat="goals">Голы</button>
+      <button data-cat="assists">Передачи</button>
+      <button data-cat="plusMinus">+/-</button>
+    </div>
+    <div class="card">
+      <div id="players-body"><div class="loading">Загрузка...</div></div>
     </div>
   </div>
 </main>
@@ -285,9 +393,8 @@
   tg?.ready();
   tg?.expand();
 
-  // Базовый адрес API. При локальном тестировании через ngrok
-  // фронтенд и backend раздаются с одного домена, поэтому используем
-  // относительный путь.
+  // Базовый адрес API. Фронтенд и backend раздаются с одного домена,
+  // поэтому используем относительный путь.
   const API_BASE = "";
 
   let currentDate = new Date();
@@ -299,6 +406,8 @@
   function fmtLabel(d) {
     return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "short", weekday: "short" });
   }
+
+  // ----- Матчи -----
 
   async function loadSchedule() {
     const games = document.getElementById("games");
@@ -350,7 +459,7 @@
       <div class="card">
         <div class="game-row">
           <div class="team">
-            <div class="badge">${away.abbrev}</div>
+            <img class="team-logo" src="${away.logo}" alt="${away.abbrev}" onerror="this.style.display='none'">
             <div class="abbr">${away.abbrev}</div>
           </div>
           <div class="score-box">
@@ -359,12 +468,14 @@
           </div>
           <div class="team right">
             <div class="abbr">${home.abbrev}</div>
-            <div class="badge">${home.abbrev}</div>
+            <img class="team-logo" src="${home.logo}" alt="${home.abbrev}" onerror="this.style.display='none'">
           </div>
         </div>
       </div>
     `;
   }
+
+  // ----- Таблица -----
 
   async function loadStandings() {
     const body = document.getElementById("standings-body");
@@ -378,6 +489,7 @@
       body.innerHTML = rows.map((t, i) => `
         <div class="standings-row">
           <div class="rank">${i + 1}</div>
+          <img class="team-logo" src="${t.teamLogo}" alt="" onerror="this.style.visibility='hidden'">
           <div class="name">${t.teamAbbrev?.default ?? ""}</div>
           <div class="num">${t.gamesPlayed}</div>
           <div class="num">${t.wins}</div>
@@ -390,6 +502,52 @@
     }
   }
 
+  // ----- Игроки -----
+
+  const catLabels = {
+    points: "ОЧК",
+    goals: "Г",
+    assists: "П",
+    plusMinus: "+/-",
+  };
+
+  let currentCat = "points";
+
+  async function loadPlayers() {
+    const body = document.getElementById("players-body");
+    body.innerHTML = '<div class="loading">Загрузка...</div>';
+
+    try {
+      const res = await fetch(`${API_BASE}/api/leaders/${currentCat}`);
+      const data = await res.json();
+      const list = data[currentCat] || [];
+
+      if (list.length === 0) {
+        body.innerHTML = '<div class="empty">Нет данных</div>';
+        return;
+      }
+
+      body.innerHTML = list.map((p, i) => `
+        <div class="player-row">
+          <div class="rank">${i + 1}</div>
+          <img class="headshot" src="${p.headshot}" alt="" onerror="this.style.visibility='hidden'">
+          <div class="info">
+            <div class="pname">${p.firstName?.default ?? ""} ${p.lastName?.default ?? ""}</div>
+            <div class="pteam">
+              <img class="team-logo" src="${p.teamLogo}" alt="" onerror="this.style.display='none'">
+              ${p.teamAbbrev ?? ""}
+            </div>
+          </div>
+          <div class="pvalue">${p.value ?? ""}</div>
+        </div>
+      `).join("");
+    } catch (e) {
+      body.innerHTML = '<div class="empty">Не удалось загрузить данные</div>';
+    }
+  }
+
+  // ----- Навигация -----
+
   document.getElementById("prev-day").onclick = () => {
     currentDate.setDate(currentDate.getDate() - 1);
     loadSchedule();
@@ -401,14 +559,29 @@
 
   document.getElementById("tab-schedule").onclick = () => switchTab("schedule");
   document.getElementById("tab-standings").onclick = () => switchTab("standings");
+  document.getElementById("tab-players").onclick = () => switchTab("players");
 
   function switchTab(tab) {
     document.getElementById("tab-schedule").classList.toggle("active", tab === "schedule");
     document.getElementById("tab-standings").classList.toggle("active", tab === "standings");
+    document.getElementById("tab-players").classList.toggle("active", tab === "players");
+
     document.getElementById("view-schedule").style.display = tab === "schedule" ? "" : "none";
     document.getElementById("view-standings").style.display = tab === "standings" ? "" : "none";
+    document.getElementById("view-players").style.display = tab === "players" ? "" : "none";
+
     if (tab === "standings") loadStandings();
+    if (tab === "players") loadPlayers();
   }
+
+  document.querySelectorAll(".cat-row button").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll(".cat-row button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentCat = btn.dataset.cat;
+      loadPlayers();
+    };
+  });
 
   loadSchedule();
 </script>
