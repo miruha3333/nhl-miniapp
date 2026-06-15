@@ -142,6 +142,9 @@
     align-items: center;
   }
 
+  .standings-head .sortable { cursor: pointer; text-decoration: underline dotted; color: var(--silver); transition: color 0.15s; }
+  .standings-head .sortable:hover { color: #fff; }
+
   .standings-head .num, .standings-head .pts, .standings-head .diff { text-align: center; }
 
   .standings-row {
@@ -276,7 +279,15 @@
   <div id="view-standings" style="display:none">
     <div class="card">
       <div class="standings-head">
-        <div></div><div></div><div>Команда</div><div class="num">И</div><div class="num">В</div><div class="num">ОТ</div><div class="num">П</div><div class="num">ЗШ</div><div class="num">ПШ</div><div class="diff">+/-</div><div class="pts">Очки</div>
+        <div></div><div></div><div>Команда</div>
+        <div class="num sortable" data-sort="gamesPlayed">И</div>
+        <div class="num sortable" data-sort="wins">В</div>
+        <div class="num sortable" data-sort="otLosses">ОТ</div>
+        <div class="num sortable" data-sort="losses">П</div>
+        <div class="num sortable" data-sort="goalFor">ЗШ</div>
+        <div class="num sortable" data-sort="goalAgainst">ПШ</div>
+        <div class="diff sortable" data-sort="goalDifferential">+/-</div>
+        <div class="pts sortable" data-sort="points">Очки</div>
       </div>
       <div id="standings-body"><div class="loading">Загрузка...</div></div>
     </div>
@@ -312,10 +323,28 @@
   let currentTeamSortKey = "points"; 
   let currentTeamSortAsc = false;
   
+  let currentStandingsData = [];
+  let standingsSortKey = "points";
+  let standingsSortAsc = false;
+
   let lastMainTab = "schedule";
   let currentDate = new Date();
   let currentCat = "points";
   let currentLimit = 25;
+
+  // Инициализация сортировки таблицы
+  document.querySelectorAll(".standings-head .sortable").forEach(th => {
+    th.onclick = () => {
+      const key = th.dataset.sort;
+      if (standingsSortKey === key) {
+        standingsSortAsc = !standingsSortAsc;
+      } else {
+        standingsSortKey = key;
+        standingsSortAsc = false;
+      }
+      renderStandings();
+    };
+  });
 
   function openDetail() {
     document.getElementById("view-schedule").style.display = "none";
@@ -343,19 +372,23 @@
     }[c]));
   }
 
-  // --- Поиск имени в Boxscore (ИСПРАВЛЕНО ДЛЯ ШТРАФОВ) ---
+  // --- ИСПРАВЛЕННЫЙ Поиск имени в Boxscore ---
   function findNameInBoxscore(box, playerId) {
-    if (!playerId || !box || !box.playerByGameStats) return "";
+    if (!playerId || !box) return "";
+    const targetId = String(playerId);
+    const statsContainer = box.playerByGameStats || box.boxscore?.playerByGameStats;
+    if (!statsContainer) return "";
+
     const teams = ['awayTeam', 'homeTeam'];
     const positions = ['forwards', 'defense', 'goalies'];
     
     for (const t of teams) {
-      const teamData = box.playerByGameStats[t];
+      const teamData = statsContainer[t];
       if (!teamData) continue;
       for (const pos of positions) {
         const list = teamData[pos];
         if (!list || !Array.isArray(list)) continue;
-        const found = list.find(p => p.playerId === playerId || p.id === playerId);
+        const found = list.find(p => String(p.playerId) === targetId || String(p.id) === targetId);
         if (found) {
           if (found.name?.default) return found.name.default;
           if (found.playerName?.default) return found.playerName.default;
@@ -364,14 +397,6 @@
       }
     }
     return "";
-  }
-
-  function getPlayerName(obj) {
-    if (!obj) return "Игрок";
-    if (typeof obj === "string") return obj;
-    if (obj.default) return obj.default;
-    if (obj.playerName) return typeof obj.playerName === 'string' ? obj.playerName : (obj.playerName.default || "Игрок");
-    return "Игрок";
   }
 
   function switchTab(tab) {
@@ -471,7 +496,7 @@
   document.getElementById("prev-day").onclick = () => { currentDate.setDate(currentDate.getDate() - 1); loadSchedule(); };
   document.getElementById("next-day").onclick = () => { currentDate.setDate(currentDate.getDate() + 1); loadSchedule(); };
 
-  // ----- ТУРНИРНАЯ ТАБЛИЦА -----
+  // ----- ТУРНИРНАЯ ТАБЛИЦА (С сортировкой) -----
   async function loadStandings() {
     const body = document.getElementById("standings-body");
     body.innerHTML = '<div class="loading">Загрузка...</div>';
@@ -479,38 +504,61 @@
     try {
       const res = await fetch(`${API_BASE}/api/standings`);
       const data = await res.json();
-      const rows = data.standings || [];
-
-      body.innerHTML = rows.map((t, i) => {
-        const gf = t.goalFor ?? 0;
-        const ga = t.goalAgainst ?? 0;
-        const diff = t.goalDifferential ?? (gf - ga);
-        const formattedDiff = diff > 0 ? `+${diff}` : diff;
-        const tName = t.teamName?.default || t.teamAbbrev?.default || t.teamAbbrev || "";
-
-        return `
-          <div class="standings-row" data-team="${t.teamAbbrev?.default || t.teamAbbrev || ""}" data-name="${escapeHtml(tName)}" data-logo="${t.teamLogo || ""}">
-            <div class="rank">${i + 1}</div>
-            <img class="team-logo" src="${t.teamLogo}" alt="" onerror="this.style.visibility='hidden'">
-            <div class="name">${t.teamAbbrev?.default || t.teamAbbrev || ""}</div>
-            <div class="num">${t.gamesPlayed ?? 0}</div>
-            <div class="num">${t.wins ?? 0}</div>
-            <div class="num">${t.otLosses ?? 0}</div>
-            <div class="num">${t.losses ?? 0}</div>
-            <div class="num">${gf}</div>
-            <div class="num">${ga}</div>
-            <div class="diff" style="color: ${diff >= 0 ? '#2ecc71' : '#e74c3c'}">${formattedDiff}</div>
-            <div class="pts">${t.points ?? 0}</div>
-          </div>
-        `;
-      }).join("");
-
-      body.querySelectorAll(".standings-row").forEach(el => {
-        el.addEventListener("click", () => openTeamDetail(el.dataset.team, el.dataset.name, el.dataset.logo));
-      });
+      currentStandingsData = data.standings || [];
+      renderStandings();
     } catch (e) {
       body.innerHTML = '<div class="empty">Не удалось загрузить таблицу</div>';
     }
+  }
+
+  function renderStandings() {
+    const body = document.getElementById("standings-body");
+    if (!currentStandingsData.length) {
+       body.innerHTML = '<div class="empty">Нет данных</div>';
+       return;
+    }
+
+    let arr = [...currentStandingsData];
+    arr.sort((a, b) => {
+      let valA = a[standingsSortKey] ?? 0;
+      let valB = b[standingsSortKey] ?? 0;
+
+      // Ручной расчет для полей, которых может не быть напрямую в объекте
+      if (standingsSortKey === 'goalDifferential') {
+          valA = a.goalDifferential ?? ((a.goalFor ?? 0) - (a.goalAgainst ?? 0));
+          valB = b.goalDifferential ?? ((b.goalFor ?? 0) - (b.goalAgainst ?? 0));
+      }
+
+      return standingsSortAsc ? valA - valB : valB - valA;
+    });
+
+    body.innerHTML = arr.map((t, i) => {
+      const gf = t.goalFor ?? 0;
+      const ga = t.goalAgainst ?? 0;
+      const diff = t.goalDifferential ?? (gf - ga);
+      const formattedDiff = diff > 0 ? `+${diff}` : diff;
+      const tName = t.teamName?.default || t.teamAbbrev?.default || t.teamAbbrev || "";
+
+      return `
+        <div class="standings-row" data-team="${t.teamAbbrev?.default || t.teamAbbrev || ""}" data-name="${escapeHtml(tName)}" data-logo="${t.teamLogo || ""}">
+          <div class="rank">${i + 1}</div>
+          <img class="team-logo" src="${t.teamLogo}" alt="" onerror="this.style.visibility='hidden'">
+          <div class="name">${t.teamAbbrev?.default || t.teamAbbrev || ""}</div>
+          <div class="num">${t.gamesPlayed ?? 0}</div>
+          <div class="num">${t.wins ?? 0}</div>
+          <div class="num">${t.otLosses ?? 0}</div>
+          <div class="num">${t.losses ?? 0}</div>
+          <div class="num">${gf}</div>
+          <div class="num">${ga}</div>
+          <div class="diff" style="color: ${diff >= 0 ? '#2ecc71' : '#e74c3c'}">${formattedDiff}</div>
+          <div class="pts">${t.points ?? 0}</div>
+        </div>
+      `;
+    }).join("");
+
+    body.querySelectorAll(".standings-row").forEach(el => {
+      el.addEventListener("click", () => openTeamDetail(el.dataset.team, el.dataset.name, el.dataset.logo));
+    });
   }
 
   // ----- ЛИДЕРЫ ЛИГИ -----
@@ -780,7 +828,7 @@
       });
       if (!anyGoals) html += '<div class="empty">Голов пока не было</div>';
 
-      // --- ИСПРАВЛЕНИЕ: Вывод имени игрока в штрафах ---
+      // --- ИСПРАВЛЕНИЕ: Продвинутый вывод имени игрока в штрафах ---
       const penalties = landing?.summary?.penalties || [];
       html += '<div class="section-title">Штрафы</div>';
 
@@ -791,11 +839,27 @@
         anyPenalties = true;
         const periodNum = period.periodDescriptor?.number;
         html += `<div class="period-label">${periodNum ? periodNum + "-й период" : "Период"}</div>`;
+        
         list.forEach(pen => {
-          // Ищем имя в боксскоре по committedByPlayerId, иначе собираем из объекта pen
-          let violatorName = findNameInBoxscore(box, pen.committedByPlayerId);
+          let violatorName = "";
+          
+          // 1. Пытаемся найти по ID, если API его отдало
+          if (pen.committedByPlayerId) {
+            violatorName = findNameInBoxscore(box, pen.committedByPlayerId);
+          }
+          // 2. Если не нашло (или ID вообще нет), берем текстовое имя прямо из объекта штрафа (API часто дает именно его)
           if (!violatorName) {
-            violatorName = pen.playerName?.default || `${nameStr(pen.firstName)} ${nameStr(pen.lastName)}`.trim() || "Игрок";
+            violatorName = pen.committedByPlayer || pen.playerName?.default;
+          }
+          // 3. Последняя попытка - собрать из firstName / lastName
+          if (!violatorName) {
+            const fn = nameStr(pen.firstName);
+            const ln = nameStr(pen.lastName);
+            if (fn || ln) violatorName = `${fn} ${ln}`.trim();
+          }
+          // 4. Если всё глухо
+          if (!violatorName) {
+            violatorName = "Игрок";
           }
           
           const penDesc = pen.penaltyDescriptionDefault || pen.descKey || "Штраф";
@@ -872,6 +936,13 @@
       const birthPlace = [nameStr(p.birthCity), p.birthCountry].filter(Boolean).join(", ");
       const pos = p.positionCode || p.position || "";
 
+      // Формируем текст для драфта
+      let draftText = "На драфте не выбран";
+      if (p.draftDetails) {
+        const d = p.draftDetails;
+        draftText = `Выбран командой «${d.teamAbbrev || ""}» в ${d.year} году (раунд ${d.round}, общий номер ${d.overallPick})`;
+      }
+
       let html = `
         <div class="detail-head">
           <img class="headshot" src="${p.headshot || ""}" alt="" onerror="this.style.visibility='hidden'">
@@ -889,6 +960,7 @@
           <div><div class="label">Рост</div><div class="value">${p.heightInCentimeters ? p.heightInCentimeters + " см" : "—"}</div></div>
           <div><div class="label">Вес</div><div class="value">${p.weightInKilograms ? p.weightInKilograms + " кг" : "—"}</div></div>
           <div><div class="label">Хват</div><div class="value">${val(p.shootsCatches)}</div></div>
+          <div style="grid-column: 1 / -1;"><div class="label">Драфт</div><div class="value">${escapeHtml(draftText)}</div></div>
         </div>
       `;
 
@@ -924,12 +996,9 @@
         `;
       }
 
-      // --- ИСПРАВЛЕНИЕ: Вывод истории карьеры ТОЛЬКО в NHL ---
       html += '<div class="section-title">История карьеры в NHL</div>';
       
-      // Проверяем наличие массива seasonTotals
       if (p.seasonTotals && Array.isArray(p.seasonTotals)) {
-        // Фильтруем данные, чтобы оставить только записи лиги NHL
         const nhlHistory = p.seasonTotals.filter(s => s.leagueAbbrev === "NHL");
 
         if (nhlHistory.length === 0) {
