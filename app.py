@@ -64,7 +64,7 @@ async def fetch_with_cache(cache_key: str, url: str, ttl: int) -> dict:
         )
     }
 
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
         resp = await client.get(url, headers=headers)
         resp.raise_for_status()
         data = resp.json()
