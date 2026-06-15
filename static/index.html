@@ -324,6 +324,7 @@
     document.getElementById("view-detail").style.display = "";
     document.getElementById("main-nav").style.display = "none";
     document.getElementById("detail-body").innerHTML = '<div class="loading">Загрузка...</div>';
+    window.scrollTo(0, 0);
   }
 
   function nameStr(n) {
@@ -342,7 +343,7 @@
     }[c]));
   }
 
-  // Поиск имени по ID во всем боксскоре (Решает баг "Неизвестный игрок")
+  // --- Поиск имени в Boxscore (ИСПРАВЛЕНО ДЛЯ ШТРАФОВ) ---
   function findNameInBoxscore(box, playerId) {
     if (!playerId || !box || !box.playerByGameStats) return "";
     const teams = ['awayTeam', 'homeTeam'];
@@ -363,6 +364,14 @@
       }
     }
     return "";
+  }
+
+  function getPlayerName(obj) {
+    if (!obj) return "Игрок";
+    if (typeof obj === "string") return obj;
+    if (obj.default) return obj.default;
+    if (obj.playerName) return typeof obj.playerName === 'string' ? obj.playerName : (obj.playerName.default || "Игрок");
+    return "Игрок";
   }
 
   function switchTab(tab) {
@@ -462,7 +471,7 @@
   document.getElementById("prev-day").onclick = () => { currentDate.setDate(currentDate.getDate() - 1); loadSchedule(); };
   document.getElementById("next-day").onclick = () => { currentDate.setDate(currentDate.getDate() + 1); loadSchedule(); };
 
-  // ----- ТУРНИРНАЯ ТАБЛИЦА (ИСПРАВЛЕНЫ КЛЮЧИ НА ШАЙБЫ) -----
+  // ----- ТУРНИРНАЯ ТАБЛИЦА -----
   async function loadStandings() {
     const body = document.getElementById("standings-body");
     body.innerHTML = '<div class="loading">Загрузка...</div>';
@@ -473,7 +482,6 @@
       const rows = data.standings || [];
 
       body.innerHTML = rows.map((t, i) => {
-        // Исправлено: заменено на нативные ключи API NHL без буквы s (goalFor, goalAgainst)
         const gf = t.goalFor ?? 0;
         const ga = t.goalAgainst ?? 0;
         const diff = t.goalDifferential ?? (gf - ga);
@@ -558,7 +566,7 @@
     };
   });
 
-  // ----- ДЕТАЛИ КЛУБА (СЕЗОН И ПЛЕЙ-ОФФ РАЗДЕЛЕНЫ) -----
+  // ----- ДЕТАЛИ КЛУБА -----
   async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
     openDetail();
     try {
@@ -601,7 +609,7 @@
 
     document.getElementById("btn-team-po").onclick = () => {
       currentTeamType = "playoff";
-      document.getElementById("btn-team-po").classList.add("add", "active");
+      document.getElementById("btn-team-po").classList.add("active");
       document.getElementById("btn-team-reg").classList.remove("active");
       buildTeamTablesBlock();
     };
@@ -620,14 +628,12 @@
     let filteredSkaters = [...(dataset.skaters || [])];
     let filteredGoalies = [...(dataset.goalies || [])];
 
-    // Сортировка полевых
     filteredSkaters.sort((a, b) => {
       let valA = a[currentTeamSortKey] ?? (currentTeamSortKey === "penaltyMinutes" ? a.penaltyMinutes : 0) ?? 0;
       let valB = b[currentTeamSortKey] ?? (currentTeamSortKey === "penaltyMinutes" ? b.penaltyMinutes : 0) ?? 0;
       return currentTeamSortAsc ? valA - valB : valB - valA;
     });
 
-    // Сортировка вратарей по играм
     filteredGoalies.sort((a, b) => (b.gamesPlayed ?? 0) - (a.gamesPlayed ?? 0));
 
     let html = '<div class="section-title">Полевые игроки</div>';
@@ -651,7 +657,6 @@
             <tbody>
       `;
       html += filteredSkaters.map(p => {
-        // Исправлен ключ штрафных минут в команде: penaltyMinutes вместо pim
         const pMinutes = p.penaltyMinutes ?? p.pim ?? 0;
         return `
           <tr class="clickable-row" data-player-id="${p.playerId}">
@@ -743,7 +748,6 @@
       const landing = await landingRes.json();
       const box = await boxRes.json();
 
-      // Блок голов
       const scoring = landing?.summary?.scoring || [];
       html += '<div class="section-title">Голы</div>';
 
@@ -776,7 +780,7 @@
       });
       if (!anyGoals) html += '<div class="empty">Голов пока не было</div>';
 
-      // Блок штрафов (Решен баг Неизвестного игрока через поиск в боксскоре)
+      // --- ИСПРАВЛЕНИЕ: Вывод имени игрока в штрафах ---
       const penalties = landing?.summary?.penalties || [];
       html += '<div class="section-title">Штрафы</div>';
 
@@ -788,6 +792,7 @@
         const periodNum = period.periodDescriptor?.number;
         html += `<div class="period-label">${periodNum ? periodNum + "-й период" : "Период"}</div>`;
         list.forEach(pen => {
+          // Ищем имя в боксскоре по committedByPlayerId, иначе собираем из объекта pen
           let violatorName = findNameInBoxscore(box, pen.committedByPlayerId);
           if (!violatorName) {
             violatorName = pen.playerName?.default || `${nameStr(pen.firstName)} ${nameStr(pen.lastName)}`.trim() || "Игрок";
@@ -807,7 +812,6 @@
       });
       if (!anyPenalties) html += '<div class="empty">Штрафов не зафиксировано</div>';
 
-      // Блок вратарей
       html += '<div class="section-title">Вратари</div>';
       const awayGoalies = box?.playerByGameStats?.awayTeam?.goalies || [];
       const homeGoalies = box?.playerByGameStats?.homeTeam?.goalies || [];
@@ -855,7 +859,7 @@
     body.innerHTML = html;
   }
 
-  // ----- ДЕТАЛИ ИГРОКА И ЕГО КАРЬЕРА (ИСПРАВЛЕНЫ ПОЗИЦИИ) -----
+  // ----- ДЕТАЛИ ИГРОКА И ЕГО КАРЬЕРА -----
   async function openPlayerDetail(playerId) {
     openDetail();
     const body = document.getElementById("detail-body");
@@ -866,11 +870,9 @@
 
       const name = `${nameStr(p.firstName)} ${nameStr(p.lastName)}`;
       const birthPlace = [nameStr(p.birthCity), p.birthCountry].filter(Boolean).join(", ");
-      
-      // Исправлено: Считывание позиции через positionCode лиги
       const pos = p.positionCode || p.position || "";
 
-      html = `
+      let html = `
         <div class="detail-head">
           <img class="headshot" src="${p.headshot || ""}" alt="" onerror="this.style.visibility='hidden'">
           <div>
@@ -922,37 +924,43 @@
         `;
       }
 
-      // Возвращена и исправлена история карьеры хоккеиста в лиге
+      // --- ИСПРАВЛЕНИЕ: Вывод истории карьеры ТОЛЬКО в NHL ---
       html += '<div class="section-title">История карьеры в NHL</div>';
-      const history = p.seasonTotals || [];
-      const nhlHistory = history.filter(s => s.leagueAbbrev === "NHL");
+      
+      // Проверяем наличие массива seasonTotals
+      if (p.seasonTotals && Array.isArray(p.seasonTotals)) {
+        // Фильтруем данные, чтобы оставить только записи лиги NHL
+        const nhlHistory = p.seasonTotals.filter(s => s.leagueAbbrev === "NHL");
 
-      if (nhlHistory.length === 0) {
-        html += '<div class="empty">История выступлений в NHL отсутствует</div>';
-      } else {
-        const regularSeasonRows = nhlHistory.filter(s => s.gameTypeCode === 2);
-        const playoffRows = nhlHistory.filter(s => s.gameTypeCode === 3);
-
-        html += `<div class="table-scroll"><table class="stat-table"><thead><tr>`;
-        html += `<th>Сезон</th><th>Клуб</th><th>И</th>`;
-        if (pos === "G") {
-          html += `<th>В</th><th>П</th><th>%ОБ</th><th>ГКИ</th>`;
+        if (nhlHistory.length === 0) {
+          html += '<div class="empty">История выступлений в NHL отсутствует</div>';
         } else {
-          html += `<th>Г</th><th>П</th><th>О</th><th>+/-</th><th>Штр</th>`;
-        }
-        html += `</tr></thead><tbody>`;
+          const regularSeasonRows = nhlHistory.filter(s => s.gameTypeId === 2 || s.gameTypeCode === 2);
+          const playoffRows = nhlHistory.filter(s => s.gameTypeId === 3 || s.gameTypeCode === 3);
 
-        if (regularSeasonRows.length > 0) {
-          html += `<tr class="playoff-header-row"><td colspan="${pos === 'G' ? 7 : 8}">Регулярный сезон</td></tr>`;
-          regularSeasonRows.forEach(s => { html += renderCareerRow(s, pos); });
-        }
+          html += `<div class="table-scroll"><table class="stat-table"><thead><tr>`;
+          html += `<th>Сезон</th><th>Клуб</th><th>И</th>`;
+          if (pos === "G") {
+            html += `<th>В</th><th>П</th><th>%ОБ</th><th>ГКИ</th>`;
+          } else {
+            html += `<th>Г</th><th>П</th><th>О</th><th>+/-</th><th>Штр</th>`;
+          }
+          html += `</tr></thead><tbody>`;
 
-        if (playoffRows.length > 0) {
-          html += `<tr class="playoff-header-row playoff-border"><td colspan="${pos === 'G' ? 7 : 8}">Плей-офф</td></tr>`;
-          playoffRows.forEach(s => { html += renderCareerRow(s, pos); });
-        }
+          if (regularSeasonRows.length > 0) {
+            html += `<tr class="playoff-header-row"><td colspan="${pos === 'G' ? 7 : 8}">Регулярный сезон</td></tr>`;
+            regularSeasonRows.forEach(s => { html += renderCareerRow(s, pos); });
+          }
 
-        html += `</tbody></table></div>`;
+          if (playoffRows.length > 0) {
+            html += `<tr class="playoff-header-row playoff-border"><td colspan="${pos === 'G' ? 7 : 8}">Плей-офф</td></tr>`;
+            playoffRows.forEach(s => { html += renderCareerRow(s, pos); });
+          }
+
+          html += `</tbody></table></div>`;
+        }
+      } else {
+         html += '<div class="empty">История выступлений недоступна</div>';
       }
 
       body.innerHTML = html;
