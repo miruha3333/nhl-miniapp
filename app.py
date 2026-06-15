@@ -56,8 +56,16 @@ async def fetch_with_cache(cache_key: str, url: str, ttl: int) -> dict:
     if cached and (now - cached[0]) < ttl:
         return cached[1]
 
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        )
+    }
+
     async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(url)
+        resp = await client.get(url, headers=headers)
         resp.raise_for_status()
         data = resp.json()
 
