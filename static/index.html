@@ -6,7 +6,7 @@
 <title>NHL Live</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght=500;700&family=Inter:wght=400;500;600&family=Roboto+Mono:wght=500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
   :root {
     /* Фирменные цвета NHL: чёрный, серебро, синий, красный */
@@ -141,11 +141,7 @@
     gap: 10px;
   }
 
-  .team.right {
-    justify-content: flex-end;
-    text-align: right;
-    flex-direction: row;
-  }
+  .team.right { justify-content: flex-end; text-align: right; }
 
   .team .abbr {
     font-family: 'Oswald', sans-serif;
@@ -171,12 +167,10 @@
   .score-box.clickable {
     cursor: pointer;
     transition: background 0.15s;
-    border: 1px solid var(--border);
-    background: var(--surface-2);
   }
 
   .score-box.clickable:active {
-    background: #333;
+    background: var(--surface-2);
   }
 
   .score-box .score {
@@ -198,12 +192,12 @@
 
   .standings-row {
     display: grid;
-    grid-template-columns: 24px 24px 1fr 28px 28px 28px 28px 32px 32px 40px;
-    gap: 4px;
+    grid-template-columns: 24px 24px 1fr 30px 30px 30px 32px 32px 32px 42px;
+    gap: 6px;
     align-items: center;
     padding: 10px 0;
     border-bottom: 1px solid var(--border);
-    font-size: 12px;
+    font-size: 13px;
     cursor: pointer;
   }
 
@@ -233,6 +227,12 @@
     color: var(--silver-dim);
   }
 
+  .standings-row .diff {
+    font-family: 'Roboto Mono', monospace;
+    text-align: center;
+    font-size: 12px;
+  }
+
   .standings-row .pts {
     font-family: 'Roboto Mono', monospace;
     font-weight: 700;
@@ -242,51 +242,19 @@
 
   .standings-head {
     display: grid;
-    grid-template-columns: 24px 24px 1fr 28px 28px 28px 28px 32px 32px 40px;
-    gap: 4px;
+    grid-template-columns: 24px 24px 1fr 30px 30px 30px 32px 32px 32px 42px;
+    gap: 6px;
     font-size: 10px;
     color: var(--silver-dim);
     text-transform: uppercase;
     letter-spacing: 0.06em;
     padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
   }
 
-  .standings-head .num, .standings-head .pts { text-align: center; }
+  .standings-head .num, .standings-head .pts, .standings-head .diff { text-align: center; }
 
   /* ----- Players / leaders ----- */
-
-  .mode-select-row {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 10px;
-  }
-
-  .toggle-group {
-    display: flex;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    padding: 2px;
-    border-radius: 8px;
-  }
-
-  .toggle-group button {
-    background: transparent;
-    border: none;
-    color: var(--silver-dim);
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-family: 'Oswald', sans-serif;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    cursor: pointer;
-  }
-
-  .toggle-group button.active {
-    background: var(--surface-2);
-    color: #fff;
-    font-weight: 700;
-  }
 
   .cat-row {
     display: flex;
@@ -432,6 +400,14 @@
     margin-bottom: 12px;
   }
 
+  .detail-head-game {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
   .detail-head {
     display: flex;
     align-items: center;
@@ -439,9 +415,10 @@
     margin-bottom: 14px;
   }
 
-  .detail-head img.team-logo {
+  .detail-head img.team-logo, .detail-head-game img.team-logo {
     width: 48px;
     height: 48px;
+    object-fit: contain;
   }
 
   .detail-head img.headshot {
@@ -453,18 +430,20 @@
     border: 1px solid var(--border);
   }
 
-  .detail-head .title {
+  .detail-head .title, .detail-head-game .title {
     font-family: 'Oswald', sans-serif;
     font-weight: 700;
     font-size: 19px;
     letter-spacing: 0.03em;
     text-transform: uppercase;
+    text-align: center;
   }
 
-  .detail-head .subtitle {
+  .detail-head .subtitle, .detail-head-game .subtitle {
     font-size: 12px;
     color: var(--silver-dim);
     margin-top: 2px;
+    text-align: center;
   }
 
   .section-title {
@@ -523,11 +502,11 @@
     font-weight: 600;
   }
 
-  .stat-table tbody tr {
+  .stat-table tbody tr.clickable-row {
     cursor: pointer;
   }
 
-  .stat-table tbody tr:active { background: var(--surface-2); }
+  .stat-table tbody tr.clickable-row:active { background: var(--surface-2); }
 
   .stat-table .num { font-family: 'Roboto Mono', monospace; color: var(--silver-dim); }
 
@@ -609,19 +588,13 @@
   <div id="view-standings" style="display:none">
     <div class="card">
       <div class="standings-head">
-        <div></div><div></div><div>Команда</div><div class="num">И</div><div class="num">В</div><div class="num">ОТ</div><div class="num">П</div><div class="num">ШЗ</div><div class="num">ШП</div><div class="pts">Очки</div>
+        <div></div><div></div><div>Команда</div><div class="num">И</div><div class="num">В</div><div class="num">ОТ</div><div class="num">П</div><div class="num">ЗШ</div><div class="num">ПШ</div><div class="diff">+/-</div><div class="pts">Очки</div>
       </div>
       <div id="standings-body"><div class="loading">Загрузка...</div></div>
     </div>
   </div>
 
   <div id="view-players" style="display:none">
-    <div class="mode-select-row">
-      <div class="toggle-group">
-        <button id="btn-mode-regular" class="active">Сезон</button>
-        <button id="btn-mode-playoffs">Плей-офф</button>
-      </div>
-    </div>
     <div class="cat-row">
       <button data-cat="points" class="active">Очки</button>
       <button data-cat="goals">Голы</button>
@@ -733,7 +706,7 @@
 
       games.innerHTML = list.map(renderGame).join("");
 
-      // Кликабельный счёт открывает детали матча
+      // Кликабельный счёт открывает детали матча, только если матч начался
       games.querySelectorAll(".score-box.clickable").forEach(el => {
         el.addEventListener("click", () => openGameDetail(
           el.dataset.gameId, el.dataset.away, el.dataset.home,
@@ -813,20 +786,28 @@
       const data = await res.json();
       const rows = data.standings || [];
 
-      body.innerHTML = rows.map((t, i) => `
-        <div class="standings-row" data-team="${t.teamAbbrev?.default ?? ""}" data-name="${escapeHtml(nameStr(t.teamName))}" data-logo="${t.teamLogo ?? ""}">
-          <div class="rank">${i + 1}</div>
-          <img class="team-logo" src="${t.teamLogo}" alt="" onerror="this.style.visibility='hidden'">
-          <div class="name">${t.teamAbbrev?.default ?? ""}</div>
-          <div class="num">${val(t.gamesPlayed)}</div>
-          <div class="num">${val(t.wins)}</div>
-          <div class="num">${val(t.otLosses)}</div>
-          <div class="num">${val(t.losses)}</div>
-          <div class="num">${val(t.goalsFor)}</div>
-          <div class="num">${val(t.goalsAgainst)}</div>
-          <div class="pts">${val(t.points)}</div>
-        </div>
-      `).join("");
+      body.innerHTML = rows.map((t, i) => {
+        const gf = t.goalsFor ?? 0;
+        const ga = t.goalsAgainst ?? 0;
+        const diff = t.goalDifferential ?? (gf - ga);
+        const formattedDiff = diff > 0 ? `+${diff}` : diff;
+
+        return `
+          <div class="standings-row" data-team="${t.teamAbbrev?.default ?? ""}" data-name="${escapeHtml(nameStr(t.teamName))}" data-logo="${t.teamLogo ?? ""}">
+            <div class="rank">${i + 1}</div>
+            <img class="team-logo" src="${t.teamLogo}" alt="" onerror="this.style.visibility='hidden'">
+            <div class="name">${t.teamAbbrev?.default ?? ""}</div>
+            <div class="num">${t.gamesPlayed}</div>
+            <div class="num">${t.wins}</div>
+            <div class="num">${t.otLosses ?? 0}</div>
+            <div class="num">${t.losses}</div>
+            <div class="num">${gf}</div>
+            <div class="num">${ga}</div>
+            <div class="diff" style="color: ${diff >= 0 ? '#2ecc71' : '#e74c3c'}">${formattedDiff}</div>
+            <div class="pts">${t.points}</div>
+          </div>
+        `;
+      }).join("");
 
       body.querySelectorAll(".standings-row").forEach(el => {
         el.addEventListener("click", () => openTeamDetail(
@@ -842,14 +823,13 @@
 
   let currentCat = "points";
   let currentLimit = 25;
-  let currentGameType = "regular"; // regular или playoffs
 
   async function loadPlayers() {
     const body = document.getElementById("players-body");
     body.innerHTML = '<div class="loading">Загрузка...</div>';
 
     try {
-      const res = await fetch(`${API_BASE}/api/leaders/${currentCat}?limit=${currentLimit}&game_type=${currentGameType}`);
+      const res = await fetch(`${API_BASE}/api/leaders/${currentCat}?limit=${currentLimit}`);
       const data = await res.json();
       const list = data[currentCat] || [];
 
@@ -899,22 +879,6 @@
     };
   });
 
-  document.getElementById("btn-mode-regular").onclick = function() {
-    this.classList.add("active");
-    document.getElementById("btn-mode-playoffs").classList.remove("active");
-    currentGameType = "regular";
-    currentLimit = 25;
-    loadPlayers();
-  };
-
-  document.getElementById("btn-mode-playoffs").onclick = function() {
-    this.classList.add("active");
-    document.getElementById("btn-mode-regular").classList.remove("active");
-    currentGameType = "playoffs";
-    currentLimit = 25;
-    loadPlayers();
-  };
-
   // ----- Детали: состав команды -----
 
   async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
@@ -946,7 +910,7 @@
           <th>Игрок</th><th>И</th><th>Г</th><th>П</th><th>О</th><th>+/-</th><th>Штр</th>
         </tr></thead><tbody>`;
         html += skaters.map(p => `
-          <tr data-player-id="${p.playerId}">
+          <tr class="clickable-row" data-player-id="${p.playerId}">
             <td>${escapeHtml(nameStr(p.firstName))} ${escapeHtml(nameStr(p.lastName))}</td>
             <td class="num">${val(p.gamesPlayed)}</td>
             <td class="num">${val(p.goals)}</td>
@@ -967,7 +931,7 @@
           <th>Игрок</th><th>И</th><th>В</th><th>П</th><th>%ОБ</th><th>ГКИ</th>
         </tr></thead><tbody>`;
         html += goalies.map(p => `
-          <tr data-player-id="${p.playerId}">
+          <tr class="clickable-row" data-player-id="${p.playerId}">
             <td>${escapeHtml(nameStr(p.firstName))} ${escapeHtml(nameStr(p.lastName))}</td>
             <td class="num">${val(p.gamesPlayed)}</td>
             <td class="num">${val(p.wins)}</td>
@@ -996,13 +960,13 @@
     const body = document.getElementById("detail-body");
 
     let html = `
-      <div class="detail-head">
+      <div class="detail-head-game">
         <img class="team-logo" src="${awayLogo}" alt="" onerror="this.style.visibility='hidden'">
         <div>
           <div class="title">${awayAbbrev} — ${homeAbbrev}</div>
           <div class="subtitle">Статистика матча</div>
         </div>
-        <img class="team-logo" src="${homeLogo}" alt="" onerror="this.style.visibility='hidden'" style="margin-left:auto">
+        <img class="team-logo" src="${homeLogo}" alt="" onerror="this.style.visibility='hidden'">
       </div>
     `;
 
@@ -1026,13 +990,21 @@
         const periodNum = period.periodDescriptor?.number;
         html += `<div class="period-label">${periodNum ? periodNum + "-й период" : "Период"}</div>`;
         goals.forEach(goal => {
-          const assists = (goal.assists || []).map(a => escapeHtml(nameStr(a.name))).join(", ");
+          const scorerName = `${nameStr(goal.firstName)} ${nameStr(goal.lastName)}`;
+          const assistsArr = [];
+          if (goal.assists && Array.isArray(goal.assists)) {
+            goal.assists.forEach(ast => {
+              assistsArr.push(`${nameStr(ast.firstName)} ${nameStr(ast.lastName)}`);
+            });
+          }
+          const assists = assistsArr.join(", ");
+
           html += `
             <div class="goal-row">
               <div class="time">${val(goal.timeInPeriod)}</div>
               <div class="desc">
-                <div class="scorer">${escapeHtml(nameStr(goal.name))} (${escapeHtml(goal.teamAbbrev ?? "")})</div>
-                ${assists ? `<div class="assists">Передачи: ${assists}</div>` : ""}
+                <div class="scorer">${escapeHtml(scorerName)} (${escapeHtml(goal.teamAbbrev?.default ?? goal.teamAbbrev ?? "")})</div>
+                ${assists ? `<div class="assists">Передачи: ${escapeHtml(assists)}</div>` : ""}
               </div>
               <div class="scoreline">${val(goal.awayScore)} : ${val(goal.homeScore)}</div>
             </div>
@@ -1055,12 +1027,14 @@
         const periodNum = period.periodDescriptor?.number;
         html += `<div class="period-label">${periodNum ? periodNum + "-й период" : "Период"}</div>`;
         list.forEach(pen => {
+          const violator = `${nameStr(pen.firstName)} ${nameStr(pen.lastName)}`;
+          const penDesc = pen.penaltyDescriptionDefault ?? pen.descKey ?? "Штраф";
           html += `
             <div class="goal-row">
               <div class="time">${val(pen.timeInPeriod)}</div>
               <div class="desc">
-                <div class="scorer">${escapeHtml(pen.committedByPlayer ?? "")} (${escapeHtml(pen.teamAbbrev ?? "")})</div>
-                <div class="assists">${escapeHtml(pen.descKey ?? "")} — ${val(pen.duration)} мин</div>
+                <div class="scorer">${escapeHtml(violator)} (${escapeHtml(pen.teamAbbrev?.default ?? pen.teamAbbrev ?? "")})</div>
+                <div class="assists">${escapeHtml(penDesc)} — ${val(pen.duration)} мин</div>
               </div>
             </div>
           `;
@@ -1086,7 +1060,7 @@
           <tr>
             <td>${escapeHtml(nameStr(gk.name))}</td>
             <td class="num">${val(gk.saveShotsAgainst)}</td>
-            <td class="num">${val(gk.savePctg)}</td>
+            <td class="num">${typeof gk.savePctg === 'number' ? gk.savePctg.toFixed(3) : val(gk.savePctg)}</td>
           </tr>
         `).join("");
         html += "</tbody></table></div>";
@@ -1098,7 +1072,7 @@
     body.innerHTML = html;
   }
 
-  // ----- Детали: карточка игрока -----
+  // ----- Детали: карточка игрока и карьера -----
 
   async function openPlayerDetail(playerId) {
     openDetail();
@@ -1131,11 +1105,12 @@
         </div>
       `;
 
+      // Раздел: Статистика текущего сезона
       const subSeason = p.featuredStats?.regularSeason?.subSeason;
       html += '<div class="section-title">Статистика в этом сезоне</div>';
 
       if (!subSeason) {
-        html += '<div class="empty">Статистика недоступна</div>';
+        html += '<div class="empty">Статистика текущего сезона недоступна</div>';
       } else if (p.position === "G") {
         html += `<div class="table-scroll"><table class="stat-table"><thead><tr>
           <th>И</th><th>В</th><th>П</th><th>%ОБ</th><th>ГКИ</th>
@@ -1157,6 +1132,53 @@
           <td class="num">${val(subSeason.plusMinus)}</td>
           <td class="num">${val(subSeason.pim)}</td>
         </tr></tbody></table></div>`;
+      }
+
+      // Раздел: Полная статистика карьеры по сезонам
+      html += '<div class="section-title">История карьеры в NHL</div>';
+      const history = p.seasonTotals || [];
+      const nhlHistory = history.filter(s => s.leagueAbbrev === "NHL");
+
+      if (nhlHistory.length === 0) {
+        html += '<div class="empty">История выступлений в NHL отсутствует</div>';
+      } else {
+        html += `<div class="table-scroll"><table class="stat-table"><thead><tr>
+          <th>Сезон</th><th>Клуб</th><th>И</th>`;
+        if (p.position === "G") {
+          html += `<th>В</th><th>П</th><th>%ОБ</th><th>ГКИ</th>`;
+        } else {
+          html += `<th>Г</th><th>П</th><th>О</th><th>+/-</th><th>Штр</th>`;
+        }
+        html += `</tr></thead><tbody>`;
+
+        html += nhlHistory.map(s => {
+          const yearStr = String(s.season).replace(/^(\d{4})(\d{4})$/, "$1-$2");
+          const teamName = s.teamName?.default ?? s.teamName ?? "—";
+          
+          let rowHtml = `<tr>
+            <td>${yearStr}</td>
+            <td>${escapeHtml(teamName)}</td>
+            <td class="num">${val(s.gamesPlayed)}</td>`;
+          
+          if (p.position === "G") {
+            rowHtml += `
+              <td class="num">${val(s.wins)}</td>
+              <td class="num">${val(s.losses)}</td>
+              <td class="num">${s.savePctg !== undefined ? s.savePctg.toFixed(3) : "—"}</td>
+              <td class="num">${s.goalsAgainstAverage !== undefined ? s.goalsAgainstAverage.toFixed(2) : "—"}</td>`;
+          } else {
+            rowHtml += `
+              <td class="num">${val(s.goals)}</td>
+              <td class="num">${val(s.assists)}</td>
+              <td class="num">${val(s.points)}</td>
+              <td class="num">${val(s.plusMinus)}</td>
+              <td class="num">${val(s.pim)}</td>`;
+          }
+          rowHtml += `</tr>`;
+          return rowHtml;
+        }).join("");
+
+        html += `</tbody></table></div>`;
       }
 
       body.innerHTML = html;
