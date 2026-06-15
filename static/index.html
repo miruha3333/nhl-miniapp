@@ -332,6 +332,23 @@
   let currentCat = "points";
   let currentLimit = 25;
 
+  // Словарь для перевода нарушений
+  const penaltyTranslations = {
+    "tripping": "Подножка",
+    "hooking": "Задержка клюшкой",
+    "slashing": "Удар клюшкой",
+    "interference": "Блокировка",
+    "holding": "Задержка руками",
+    "high-sticking": "Опасная игра высоко поднятой клюшкой",
+    "roughing": "Грубость",
+    "cross-checking": "Толчок клюшкой",
+    "boarding": "Толчок на борт",
+    "delaying-game-puck-over-glass": "Задержка (выброс шайбы)",
+    "fighting": "Драка",
+    "unsportsmanlike-conduct": "Неспортивное поведение",
+    "too-many-men-on-ice": "Нарушение численного состава"
+  };
+
   // Инициализация сортировки таблицы
   document.querySelectorAll(".standings-head .sortable").forEach(th => {
     th.onclick = () => {
@@ -372,7 +389,7 @@
     }[c]));
   }
 
-  // --- ИСПРАВЛЕННЫЙ Поиск имени в Boxscore ---
+  // --- Поиск имени в Boxscore ---
   function findNameInBoxscore(box, playerId) {
     if (!playerId || !box) return "";
     const targetId = String(playerId);
@@ -523,7 +540,6 @@
       let valA = a[standingsSortKey] ?? 0;
       let valB = b[standingsSortKey] ?? 0;
 
-      // Ручной расчет для полей, которых может не быть напрямую в объекте
       if (standingsSortKey === 'goalDifferential') {
           valA = a.goalDifferential ?? ((a.goalFor ?? 0) - (a.goalAgainst ?? 0));
           valB = b.goalDifferential ?? ((b.goalFor ?? 0) - (b.goalAgainst ?? 0));
@@ -828,7 +844,7 @@
       });
       if (!anyGoals) html += '<div class="empty">Голов пока не было</div>';
 
-      // --- ИСПРАВЛЕНИЕ: Продвинутый вывод имени игрока в штрафах ---
+      // --- ИСПРАВЛЕНИЕ: Вывод имени игрока в штрафах ---
       const penalties = landing?.summary?.penalties || [];
       html += '<div class="section-title">Штрафы</div>';
 
@@ -843,26 +859,26 @@
         list.forEach(pen => {
           let violatorName = "";
           
-          // 1. Пытаемся найти по ID, если API его отдало
-          if (pen.committedByPlayerId) {
+          // 1. Попытка взять готовое строковое имя, которое API иногда отдает напрямую
+          if (typeof pen.committedByPlayer === 'string') {
+            violatorName = pen.committedByPlayer;
+          }
+          // 2. Если его нет, ищем по ID в боксскоре
+          if (!violatorName && pen.committedByPlayerId) {
             violatorName = findNameInBoxscore(box, pen.committedByPlayerId);
           }
-          // 2. Если не нашло (или ID вообще нет), берем текстовое имя прямо из объекта штрафа (API часто дает именно его)
-          if (!violatorName) {
-            violatorName = pen.committedByPlayer || pen.playerName?.default;
-          }
-          // 3. Последняя попытка - собрать из firstName / lastName
+          // 3. Последний шанс: склейка firstName и lastName
           if (!violatorName) {
             const fn = nameStr(pen.firstName);
             const ln = nameStr(pen.lastName);
             if (fn || ln) violatorName = `${fn} ${ln}`.trim();
           }
-          // 4. Если всё глухо
-          if (!violatorName) {
-            violatorName = "Игрок";
-          }
           
-          const penDesc = pen.penaltyDescriptionDefault || pen.descKey || "Штраф";
+          if (!violatorName) violatorName = "Игрок";
+          
+          const rawDesc = pen.descKey || pen.penaltyDescriptionDefault || "Штраф";
+          const penDesc = penaltyTranslations[rawDesc] || rawDesc;
+          
           html += `
             <div class="goal-row">
               <div class="time">${val(pen.timeInPeriod)}</div>
