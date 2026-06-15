@@ -97,23 +97,17 @@ ALLOWED_CATEGORIES = {"points", "goals", "assists", "plusMinus"}
 
 
 @app.get("/api/leaders/{category}")
-async def leaders(category: str, limit: int = 25, game_type: str = "regular"):
-    """Топ игроков по выбранной категории статистики (по умолчанию топ-25)."""
+async def leaders(category: str, limit: int = 25, mode: str = "regular"):
+    """Топ игроков по выбранной категории статистики (по умолчанию регулярный сезон)."""
     if category not in ALLOWED_CATEGORIES:
         category = "points"
     limit = max(1, min(limit, 50))
     
-    # 2 означает регулярный сезон, 3 — плей-офф в структуре эндпоинтов NHL API
-    expr = "2" if game_type == "regular" else "3"
-    
+    # mode может быть regular (сезон) или playoff (плей-офф)
+    game_mode = 2 if mode == "regular" else 3
     url = f"{NHL_BASE}/skater-stats-leaders/current?categories={category}&limit={limit}"
-    # Подменяем тип матчей в запросе, если это необходимо
-    if game_type == "playoffs":
-        # Поскольку эндпоинт /current по умолчанию берет активную стадию или регулярку, 
-        # для явного разделения можно передавать параметры структуры сезона, если API NHL это поддерживает.
-        pass
-        
-    return await fetch_with_cache(f"leaders:{category}:{limit}:{game_type}", url, CACHE_TTL["standings"])
+    
+    return await fetch_with_cache(f"leaders:{category}:{limit}:{game_mode}", url, CACHE_TTL["standings"])
 
 
 @app.get("/api/player/{player_id}")
