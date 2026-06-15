@@ -1,11 +1,6 @@
 """
 NHL Mini App — единый сервер.
-
-В этом файле объединено всё:
-1. API с кэшем для данных NHL (защита от лишних запросов к NHL API)
-2. Раздача интерфейса Mini App (static/index.html)
-3. Telegram-бот: принимает сообщения через webhook и отправляет
-   кнопку для открытия Mini App
+Обновленная версия с поддержкой разделения статистики на Регулярный сезон и Плей-офф.
 """
 
 import os
@@ -22,18 +17,16 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 WEBAPP_URL = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("WEBAPP_URL", "")
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
-# Сколько секунд хранить данные в кэше для каждого типа запроса
 CACHE_TTL = {
-    "schedule": 60 * 15,   # расписание — 15 минут
-    "standings": 60 * 30,  # таблица — 30 минут
-    "leaders": 60 * 30,    # лидеры — 30 минут
-    "score": 15,           # live-счёт — 15 секунд
-    "roster": 60 * 60,     # состав команды — 1 час
-    "player": 60 * 60,     # карточка игрока — 1 час
-    "boxscore": 30,        # статистика матча — 30 секунд
+    "schedule": 60 * 15,   
+    "standings": 60 * 30,  
+    "leaders": 60 * 30,    
+    "score": 15,           
+    "roster": 60 * 45,     
+    "player": 60 * 45,     
+    "boxscore": 20,        
 }
 
-# Простой кэш в памяти: {key: (timestamp, data)}
 _cache: dict[str, tuple[float, dict]] = {}
 
 app = FastAPI(title="NHL Mini App")
@@ -47,8 +40,6 @@ app.add_middleware(
 
 
 async def fetch_with_cache(cache_key: str, url: str, ttl: int) -> dict:
-    """Возвращает данные из кэша, либо запрашивает NHL API. 
-    В случае сбоя API возвращает устаревший кэш, защищая приложение от падения."""
     now = time.time()
     cached = _cache.get(cache_key)
 
@@ -71,10 +62,9 @@ async def fetch_with_cache(cache_key: str, url: str, ttl: int) -> dict:
                 _cache[cache_key] = (now, data)
                 return data
             else:
-                # Если NHL API вернул ошибку, но у нас есть хоть какой-то старый кэш — отдаем его
                 if cache_key in _cache:
                     return _cache[cache_key][1]
-                return {"error": f"NHL API returned status {resp.status_code}"}
+                return {"error": f"NHL API status {resp.status_code}"}
         except Exception as e:
             if cache_key in _cache:
                 return _cache[cache_key][1]
@@ -85,66 +75,87 @@ async def fetch_with_cache(cache_key: str, url: str, ttl: int) -> dict:
 
 @app.get("/api/schedule")
 async def schedule(date: str):
-    """Расписание/результаты на дату в формате YYYY-MM-DD."""
     url = f"{NHL_BASE}/schedule/{date}"
     return await fetch_with_cache(f"schedule:{date}", url, CACHE_TTL["schedule"])
 
 
 @app.get("/api/standings")
 async def standings():
-    """Текущая турнирная таблица."""
     url = f"{NHL_BASE}/standings/now"
     return await fetch_with_cache("standings", url, CACHE_TTL["standings"])
 
 
-# Разрешённые категории статистики
 ALLOWED_CATEGORIES = {"points", "goals", "assists", "plusMinus"}
-
 
 @app.get("/api/leaders/{category}")
 async def leaders(category: str, limit: int = 25):
-    """Топ игроков по выбранной категории статистики (по умолчанию топ-25)."""
     if category not in ALLOWED_CATEGORIES:
         category = "points"
     limit = max(1, min(limit, 50))
-    # ИСПРАВЛЕНО: параметр изменен с 'categories' на 'category'
     url = f"{NHL_BASE}/skater-stats-leaders/current?category={category}&limit={limit}"
     return await fetch_with_cache(f"leaders:{category}:{limit}", url, CACHE_TTL["leaders"])
 
 
 @app.get("/api/player/{player_id}")
 async def player(player_id: str):
-    """Подробная информация и текущая статистика конкретного игрока."""
     url = f"{NHL_BASE}/player/{player_id}/landing"
     return await fetch_with_cache(f"player:{player_id}", url, CACHE_TTL["player"])
 
 
 @app.get("/api/roster-stats/{team}")
 async def roster_stats(team: str):
-    """Текущий состав команды со статистикой игроков на этот сезон."""
-    url = f"{NHL_BASE}/club-stats/{team.upper()}/now"
-    return await fetch_with_cache(f"roster:{team.upper()}", url, CACHE_TTL["roster"])
+    """
+    Улучшенный эндпоинт: запрашивает текущий сезон, а затем раздельно 
+    скачивает регулярку (gameType=2) и плей-офф (gameType=3).
+    """
+    team_upper = team.upper()
+    now_url = f"{NHL_BASE}/club-stats/{team_upper}/now"
+    
+    try:
+        base_data = await fetch_with_cache(f"roster_now:{team_upper}", now_url, CACHE_TTL["roster"])
+        if "error" in base_data:
+            return base_data
+            
+        season = base_data.get("season", 20252026)
+        
+        reg_url = f"{NHL_BASE}/club-stats/{team_upper}/{season}/2"
+        po_url = f"{NHL_BASE}/club-stats/{team_upper}/{season}/3"
+        
+        regular_data = await fetch_with_cache(f"club_stats:{team_upper}:{season}:2", reg_url, CACHE_TTL["roster"])
+        playoff_data = await fetch_with_cache(f"club_stats:{team_upper}:{season}:3", po_url, CACHE_TTL["roster"])
+        
+        return {
+            "team": team_upper,
+            "season": season,
+            "regular": {
+                "skaters": regular_data.get("skaters", []),
+                "goalies": regular_data.get("goalies", [])
+            },
+            "playoff": {
+                "skaters": playoff_data.get("skaters", []),
+                "goalies": playoff_data.get("goalies", [])
+            }
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.get("/api/boxscore/{game_id}")
 async def boxscore(game_id: str):
-    """Подробная статистика конкретного матча (составы, голы, голкиперы)."""
     url = f"{NHL_BASE}/gamecenter/{game_id}/boxscore"
     return await fetch_with_cache(f"boxscore:{game_id}", url, CACHE_TTL["boxscore"])
 
 
 @app.get("/api/score/{game_id}")
 async def score(game_id: str):
-    """Live-счёт конкретного матча."""
     url = f"{NHL_BASE}/gamecenter/{game_id}/landing"
     return await fetch_with_cache(f"score:{game_id}", url, CACHE_TTL["score"])
 
 
-# ---------- Telegram-бот (webhook) ----------
+# ---------- Telegram-бот ----------
 
 @app.post("/webhook")
 async def telegram_webhook(update: dict):
-    """Telegram присылает сюда сообщения пользователей."""
     message = update.get("message")
     if not message:
         return {"ok": True}
@@ -162,8 +173,8 @@ async def telegram_webhook(update: dict):
             await client.post(f"{TELEGRAM_API}/sendMessage", json={
                 "chat_id": chat_id,
                 "text": (
-                    "Привет! Здесь можно посмотреть расписание матчей NHL, "
-                    "live-результаты, таблицы и карточки игроков."
+                    "Привет! Добро пожаловать в обновленный NHL Live. "
+                    "Смотри результаты матчей, таблицы и расширенную статистику клубов."
                 ),
                 "reply_markup": keyboard,
             })
@@ -171,11 +182,10 @@ async def telegram_webhook(update: dict):
     return {"ok": True}
 
 
-# ---------- Раздача интерфейса Mini App ----------
+# ---------- Раздача интерфейса ----------
 
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
-
 
 @app.get("/")
 async def index():
