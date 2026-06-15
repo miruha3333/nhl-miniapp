@@ -33,6 +33,9 @@ CACHE_TTL = {
     "schedule": 60 * 30,   # расписание — 30 минут
     "standings": 60 * 60,  # таблица — 1 час
     "score": 30,           # live-счёт — 30 секунд
+    "roster": 60 * 60,     # состав команды — 1 час
+    "player": 60 * 60,     # карточка игрока — 1 час
+    "boxscore": 30,        # статистика матча — 30 секунд
 }
 
 # Простой кэш в памяти: {key: (timestamp, data)}
@@ -94,12 +97,34 @@ ALLOWED_CATEGORIES = {"points", "goals", "assists", "plusMinus"}
 
 
 @app.get("/api/leaders/{category}")
-async def leaders(category: str):
-    """Топ-10 игроков по выбранной категории статистики."""
+async def leaders(category: str, limit: int = 25):
+    """Топ игроков по выбранной категории статистики (по умолчанию топ-25)."""
     if category not in ALLOWED_CATEGORIES:
         category = "points"
-    url = f"{NHL_BASE}/skater-stats-leaders/current?categories={category}&limit=10"
-    return await fetch_with_cache(f"leaders:{category}", url, CACHE_TTL["standings"])
+    limit = max(1, min(limit, 50))
+    url = f"{NHL_BASE}/skater-stats-leaders/current?categories={category}&limit={limit}"
+    return await fetch_with_cache(f"leaders:{category}:{limit}", url, CACHE_TTL["standings"])
+
+
+@app.get("/api/player/{player_id}")
+async def player(player_id: int):
+    """Подробная информация и текущая статистика конкретного игрока."""
+    url = f"{NHL_BASE}/player/{player_id}/landing"
+    return await fetch_with_cache(f"player:{player_id}", url, CACHE_TTL["player"])
+
+
+@app.get("/api/roster-stats/{team}")
+async def roster_stats(team: str):
+    """Текущий состав команды со статистикой игроков на этот сезон."""
+    url = f"{NHL_BASE}/club-stats/{team.upper()}/now"
+    return await fetch_with_cache(f"roster:{team.upper()}", url, CACHE_TTL["roster"])
+
+
+@app.get("/api/boxscore/{game_id}")
+async def boxscore(game_id: str):
+    """Подробная статистика конкретного матча (составы, голы, голкиперы)."""
+    url = f"{NHL_BASE}/gamecenter/{game_id}/boxscore"
+    return await fetch_with_cache(f"boxscore:{game_id}", url, CACHE_TTL["boxscore"])
 
 
 @app.get("/api/score/{game_id}")
