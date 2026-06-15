@@ -188,12 +188,27 @@
     margin-top: 2px;
   }
 
-  /* ----- Standings ----- */
+  /* ----- Standings (11 колонок, Очки строго в конце) ----- */
+
+  .standings-head {
+    display: grid;
+    grid-template-columns: 24px 24px 1fr 28px 28px 28px 28px 32px 32px 32px 40px;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--silver-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+  }
+
+  .standings-head .num, .standings-head .pts, .standings-head .diff { text-align: center; }
 
   .standings-row {
     display: grid;
-    grid-template-columns: 24px 24px 1fr 30px 30px 30px 32px 32px 32px 42px;
-    gap: 6px;
+    grid-template-columns: 24px 24px 1fr 28px 28px 28px 28px 32px 32px 32px 40px;
+    gap: 4px;
     align-items: center;
     padding: 10px 0;
     border-bottom: 1px solid var(--border);
@@ -202,7 +217,6 @@
   }
 
   .standings-row:active { background: var(--surface-2); }
-
   .standings-row:last-child { border-bottom: none; }
 
   .standings-row .rank {
@@ -211,14 +225,14 @@
   }
 
   .standings-row .team-logo {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
   }
 
   .standings-row .name {
     font-family: 'Oswald', sans-serif;
     font-weight: 600;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.02em;
   }
 
   .standings-row .num {
@@ -231,6 +245,7 @@
     font-family: 'Roboto Mono', monospace;
     text-align: center;
     font-size: 12px;
+    font-weight: 600;
   }
 
   .standings-row .pts {
@@ -239,20 +254,6 @@
     text-align: center;
     color: var(--blue);
   }
-
-  .standings-head {
-    display: grid;
-    grid-template-columns: 24px 24px 1fr 30px 30px 30px 32px 32px 32px 42px;
-    gap: 6px;
-    font-size: 10px;
-    color: var(--silver-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .standings-head .num, .standings-head .pts, .standings-head .diff { text-align: center; }
 
   /* ----- Players / leaders ----- */
 
@@ -293,7 +294,6 @@
   }
 
   .player-row:active { background: var(--surface-2); }
-
   .player-row:last-child { border-bottom: none; }
 
   .player-row .rank {
@@ -508,6 +508,11 @@
 
   .stat-table tbody tr.clickable-row:active { background: var(--surface-2); }
 
+  /* Линия разграничения для плей-офф серий в карьере */
+  .stat-table tbody tr.playoff-row {
+    border-bottom: 2px solid var(--silver-dim);
+  }
+
   .stat-table .num { font-family: 'Roboto Mono', monospace; color: var(--silver-dim); }
 
   .table-scroll {
@@ -706,7 +711,6 @@
 
       games.innerHTML = list.map(renderGame).join("");
 
-      // Кликабельный счёт открывает детали матча, только если матч начался
       games.querySelectorAll(".score-box.clickable").forEach(el => {
         el.addEventListener("click", () => openGameDetail(
           el.dataset.gameId, el.dataset.away, el.dataset.home,
@@ -784,6 +788,8 @@
     try {
       const res = await fetch(`${API_BASE}/api/standings`);
       const data = await res.json();
+      
+      // Исправлено: задействована правильная структура массива официального API
       const rows = data.standings || [];
 
       body.innerHTML = rows.map((t, i) => {
@@ -793,10 +799,10 @@
         const formattedDiff = diff > 0 ? `+${diff}` : diff;
 
         return `
-          <div class="standings-row" data-team="${t.teamAbbrev?.default ?? ""}" data-name="${escapeHtml(nameStr(t.teamName))}" data-logo="${t.teamLogo ?? ""}">
+          <div class="standings-row" data-team="${t.teamAbbrev?.default ?? t.teamAbbrev ?? ""}" data-name="${escapeHtml(nameStr(t.teamName))}" data-logo="${t.teamLogo ?? ""}">
             <div class="rank">${i + 1}</div>
             <img class="team-logo" src="${t.teamLogo}" alt="" onerror="this.style.visibility='hidden'">
-            <div class="name">${t.teamAbbrev?.default ?? ""}</div>
+            <div class="name">${t.teamAbbrev?.default ?? t.teamAbbrev ?? ""}</div>
             <div class="num">${t.gamesPlayed}</div>
             <div class="num">${t.wins}</div>
             <div class="num">${t.otLosses ?? 0}</div>
@@ -1027,6 +1033,7 @@
         const periodNum = period.periodDescriptor?.number;
         html += `<div class="period-label">${periodNum ? periodNum + "-й период" : "Период"}</div>`;
         list.forEach(pen => {
+          // Исправлено: Склеиваем имя оштрафованного игрока
           const violator = `${nameStr(pen.firstName)} ${nameStr(pen.lastName)}`;
           const penDesc = pen.penaltyDescriptionDefault ?? pen.descKey ?? "Штраф";
           html += `
@@ -1044,7 +1051,7 @@
         html += '<div class="empty">Штрафов пока не было / нет данных</div>';
       }
 
-      // Вратари
+      // Вратари матча
       html += '<div class="section-title">Вратари</div>';
       const awayGoalies = box?.playerByGameStats?.awayTeam?.goalies || [];
       const homeGoalies = box?.playerByGameStats?.homeTeam?.goalies || [];
@@ -1053,14 +1060,17 @@
       if (allGoalies.length === 0) {
         html += '<div class="empty">Нет данных</div>';
       } else {
+        // Исправлено: Добавлены новые колонки "Время" и "ГКИ"
         html += `<div class="table-scroll"><table class="stat-table"><thead><tr>
-          <th>Вратарь</th><th>Броски</th><th>%ОБ</th>
+          <th>Вратарь</th><th>Броски</th><th>%ОБ</th><th>Время</th><th>ГКИ</th>
         </tr></thead><tbody>`;
         html += allGoalies.map(gk => `
           <tr>
             <td>${escapeHtml(nameStr(gk.name))}</td>
             <td class="num">${val(gk.saveShotsAgainst)}</td>
             <td class="num">${typeof gk.savePctg === 'number' ? gk.savePctg.toFixed(3) : val(gk.savePctg)}</td>
+            <td class="num">${val(gk.toi)}</td>
+            <td class="num">${typeof gk.goalsAgainstAverage === 'number' ? gk.goalsAgainstAverage.toFixed(2) : val(gk.goalsAgainstAverage)}</td>
           </tr>
         `).join("");
         html += "</tbody></table></div>";
@@ -1134,7 +1144,7 @@
         </tr></tbody></table></div>`;
       }
 
-      // Раздел: Полная статистика карьеры по сезонам
+      // Раздел: Полная статистика карьеры по сезонам (С разделением регулярки и ПО)
       html += '<div class="section-title">История карьеры в NHL</div>';
       const history = p.seasonTotals || [];
       const nhlHistory = history.filter(s => s.leagueAbbrev === "NHL");
@@ -1155,8 +1165,13 @@
           const yearStr = String(s.season).replace(/^(\d{4})(\d{4})$/, "$1-$2");
           const teamName = s.teamName?.default ?? s.teamName ?? "—";
           
-          let rowHtml = `<tr>
-            <td>${yearStr}</td>
+          // Проверяем тип сезона по типу игры (gameTypeCode): 2 — регулярка, 3 — плей-офф
+          const isPlayoff = s.gameTypeCode === 3;
+          const labelType = isPlayoff ? " (ПО)" : " (Рег)";
+          const rowClass = isPlayoff ? 'class="playoff-row"' : '';
+          
+          let rowHtml = `<tr ${rowClass}>
+            <td>${yearStr}${labelType}</td>
             <td>${escapeHtml(teamName)}</td>
             <td class="num">${val(s.gamesPlayed)}</td>`;
           
