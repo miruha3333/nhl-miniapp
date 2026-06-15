@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>NHL Live</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0A1622;
+    --surface: #122336;
+    --surface-2: #1B3349;
+    --ice: #EAF3F7;
+    --ice-dim: #9BB4C4;
+    --red: #E13C3C;
+    --gold: #FFB81C;
+    --border: #25415A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ice);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: 24px;
+  }
+
+  header {
+    padding: 20px 16px 14px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #0E1F30 0%, var(--bg) 100%);
+  }
+
+  header h1 {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  header h1 .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--red);
+    box-shadow: 0 0 8px var(--red);
+  }
+
+  header .sub {
+    color: var(--ice-dim);
+    font-size: 12px;
+  }
+
+  nav {
+    display: flex;
+    gap: 6px;
+    padding: 12px 16px 0;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 5;
+  }
+
+  nav button {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--ice-dim);
+    padding: 10px 8px;
+    border-radius: 10px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  nav button.active {
+    color: var(--bg);
+    background: var(--gold);
+    border-color: var(--gold);
+    font-weight: 700;
+  }
+
+  main { padding: 14px 16px 0; }
+
+  .date-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 10px 0 14px;
+  }
+
+  .date-row .label {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 13px;
+    color: var(--ice-dim);
+  }
+
+  .date-row button {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--ice);
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+
+  .game-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .team {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .team.right { justify-content: flex-end; text-align: right; }
+
+  .team .abbr {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.04em;
+  }
+
+  .badge {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--surface-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--gold);
+    flex-shrink: 0;
+  }
+
+  .score-box {
+    text-align: center;
+    min-width: 70px;
+  }
+
+  .score-box .score {
+    font-family: 'Roboto Mono', monospace;
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--ice);
+  }
+
+  .score-box .status {
+    font-size: 10px;
+    color: var(--gold);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 2px;
+  }
+
+  .standings-row {
+    display: grid;
+    grid-template-columns: 28px 1fr 32px 32px 32px 40px;
+    gap: 6px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .standings-row:last-child { border-bottom: none; }
+
+  .standings-row .rank {
+    font-family: 'Roboto Mono', monospace;
+    color: var(--ice-dim);
+  }
+
+  .standings-row .name {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+
+  .standings-row .num {
+    font-family: 'Roboto Mono', monospace;
+    text-align: center;
+    color: var(--ice-dim);
+  }
+
+  .standings-row .pts {
+    font-family: 'Roboto Mono', monospace;
+    font-weight: 700;
+    text-align: center;
+    color: var(--gold);
+  }
+
+  .standings-head {
+    display: grid;
+    grid-template-columns: 28px 1fr 32px 32px 32px 40px;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--ice-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding-bottom: 6px;
+  }
+
+  .standings-head .num, .standings-head .pts { text-align: center; }
+
+  .empty {
+    text-align: center;
+    color: var(--ice-dim);
+    font-size: 13px;
+    padding: 30px 0;
+  }
+
+  .loading {
+    text-align: center;
+    color: var(--ice-dim);
+    font-size: 13px;
+    padding: 30px 0;
+    font-family: 'Roboto Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="dot"></span>NHL LIVE</h1>
+  <div class="sub">Расписание, результаты и таблица NHL</div>
+</header>
+
+<nav>
+  <button id="tab-schedule" class="active">Матчи</button>
+  <button id="tab-standings">Таблица</button>
+</nav>
+
+<main>
+  <div id="view-schedule">
+    <div class="date-row">
+      <button id="prev-day">‹</button>
+      <div class="label" id="date-label">—</div>
+      <button id="next-day">›</button>
+    </div>
+    <div id="games"><div class="loading">Загрузка...</div></div>
+  </div>
+
+  <div id="view-standings" style="display:none">
+    <div class="card">
+      <div class="standings-head">
+        <div>#</div><div>Команда</div><div class="num">И</div><div class="num">О</div><div class="num">П</div><div class="pts">Очки</div>
+      </div>
+      <div id="standings-body"><div class="loading">Загрузка...</div></div>
+    </div>
+  </div>
+</main>
+
+<script>
+  const tg = window.Telegram?.WebApp;
+  tg?.ready();
+  tg?.expand();
+
+  // Базовый адрес API. При локальном тестировании через ngrok
+  // фронтенд и backend раздаются с одного домена, поэтому используем
+  // относительный путь.
+  const API_BASE = "";
+
+  let currentDate = new Date();
+
+  function fmtDate(d) {
+    return d.toISOString().slice(0, 10);
+  }
+
+  function fmtLabel(d) {
+    return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "short", weekday: "short" });
+  }
+
+  async function loadSchedule() {
+    const games = document.getElementById("games");
+    games.innerHTML = '<div class="loading">Загрузка...</div>';
+    document.getElementById("date-label").textContent = fmtLabel(currentDate);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/schedule?date=${fmtDate(currentDate)}`);
+      const data = await res.json();
+
+      const week = data.gameWeek || [];
+      const day = week.find(d => d.date === fmtDate(currentDate));
+      const list = day?.games || [];
+
+      if (list.length === 0) {
+        games.innerHTML = '<div class="empty">В этот день матчей нет</div>';
+        return;
+      }
+
+      games.innerHTML = list.map(renderGame).join("");
+    } catch (e) {
+      games.innerHTML = '<div class="empty">Не удалось загрузить данные</div>';
+    }
+  }
+
+  function renderGame(g) {
+    const away = g.awayTeam;
+    const home = g.homeTeam;
+    const state = g.gameState; // FUT, LIVE, OFF, FINAL...
+
+    let status = "—";
+    let awayScore = "";
+    let homeScore = "";
+
+    if (state === "FUT" || state === "PRE") {
+      const time = new Date(g.startTimeUTC).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+      status = time;
+    } else if (state === "LIVE" || state === "CRIT") {
+      status = "LIVE";
+      awayScore = away.score ?? 0;
+      homeScore = home.score ?? 0;
+    } else {
+      status = "Финал";
+      awayScore = away.score ?? 0;
+      homeScore = home.score ?? 0;
+    }
+
+    return `
+      <div class="card">
+        <div class="game-row">
+          <div class="team">
+            <div class="badge">${away.abbrev}</div>
+            <div class="abbr">${away.abbrev}</div>
+          </div>
+          <div class="score-box">
+            <div class="score">${awayScore !== "" ? awayScore + " : " + homeScore : "vs"}</div>
+            <div class="status">${status}</div>
+          </div>
+          <div class="team right">
+            <div class="abbr">${home.abbrev}</div>
+            <div class="badge">${home.abbrev}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function loadStandings() {
+    const body = document.getElementById("standings-body");
+    body.innerHTML = '<div class="loading">Загрузка...</div>';
+
+    try {
+      const res = await fetch(`${API_BASE}/api/standings`);
+      const data = await res.json();
+      const rows = (data.standings || []).slice(0, 20);
+
+      body.innerHTML = rows.map((t, i) => `
+        <div class="standings-row">
+          <div class="rank">${i + 1}</div>
+          <div class="name">${t.teamAbbrev?.default ?? ""}</div>
+          <div class="num">${t.gamesPlayed}</div>
+          <div class="num">${t.wins}</div>
+          <div class="num">${t.losses}</div>
+          <div class="pts">${t.points}</div>
+        </div>
+      `).join("");
+    } catch (e) {
+      body.innerHTML = '<div class="empty">Не удалось загрузить данные</div>';
+    }
+  }
+
+  document.getElementById("prev-day").onclick = () => {
+    currentDate.setDate(currentDate.getDate() - 1);
+    loadSchedule();
+  };
+  document.getElementById("next-day").onclick = () => {
+    currentDate.setDate(currentDate.getDate() + 1);
+    loadSchedule();
+  };
+
+  document.getElementById("tab-schedule").onclick = () => switchTab("schedule");
+  document.getElementById("tab-standings").onclick = () => switchTab("standings");
+
+  function switchTab(tab) {
+    document.getElementById("tab-schedule").classList.toggle("active", tab === "schedule");
+    document.getElementById("tab-standings").classList.toggle("active", tab === "standings");
+    document.getElementById("view-schedule").style.display = tab === "schedule" ? "" : "none";
+    document.getElementById("view-standings").style.display = tab === "standings" ? "" : "none";
+    if (tab === "standings") loadStandings();
+  }
+
+  loadSchedule();
+</script>
+</body>
+</html>
