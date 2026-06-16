@@ -930,12 +930,11 @@
         html += `<div class="period-label">${periodNum ? periodNum + "-й период" : "Период"}</div>`;
         
         list.forEach(pen => {
-          // Читаем committedByPlayerDesc — главный ключ для имен штрафников в новом NHL API
-          const rawDesc = pen.committedByPlayerDesc?.default || pen.committedByPlayerDesc || pen.committedByPlayer || pen.servedByPlayer || "";
+          // ПРОГОНЯЕМ ЧЕРЕЗ nameStr() ДЛЯ ЗАЩИТЫ ОТ [object Object]
+          const rawDesc = nameStr(pen.committedByPlayerDesc) || nameStr(pen.committedByPlayer) || nameStr(pen.servedByPlayer);
           
           let violatorName = "";
           if (rawDesc) {
-            // Кросс-направленный поиск полного имени по краткой записи в структуре boxscore
             const fullFromBox = findNameByDescInBoxscore(box, rawDesc);
             violatorName = fullFromBox || rawDesc;
           }
@@ -944,7 +943,7 @@
             violatorName = findNameInBoxscore(box, pen.committedByPlayerId);
           }
           if (!violatorName) {
-            violatorName = pen.playerName?.default;
+            violatorName = nameStr(pen.playerName);
           }
           if (!violatorName) {
             const fn = nameStr(pen.firstName);
@@ -955,14 +954,15 @@
             violatorName = "Командный штраф / Игрок";
           }
           
-          let descKey = pen.descKey ? pen.descKey.toLowerCase() : "";
-          const penDesc = PENALTY_RU[descKey] || pen.penaltyDescriptionDefault || pen.descKey || "Штраф";
+          let descKey = pen.descKey ? String(pen.descKey).toLowerCase() : "";
+          const penDesc = PENALTY_RU[descKey] || nameStr(pen.penaltyDescription) || nameStr(pen.descKey) || "Штраф";
+          const teamAbbr = nameStr(pen.teamAbbrev);
 
           html += `
             <div class="goal-row">
               <div class="time">${val(pen.timeInPeriod)}</div>
               <div class="desc">
-                <div class="scorer">${escapeHtml(violatorName)} (${escapeHtml(pen.teamAbbrev?.default || pen.teamAbbrev || "")})</div>
+                <div class="scorer">${escapeHtml(violatorName)} (${escapeHtml(teamAbbr)})</div>
                 <div class="assists">${escapeHtml(penDesc)} — ${val(pen.duration)} мин</div>
               </div>
             </div>
