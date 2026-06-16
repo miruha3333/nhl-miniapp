@@ -332,24 +332,7 @@
   let currentCat = "points";
   let currentLimit = 25;
 
-  // Словарь для перевода нарушений
-  const penaltyTranslations = {
-    "tripping": "Подножка",
-    "hooking": "Задержка клюшкой",
-    "slashing": "Удар клюшкой",
-    "interference": "Блокировка",
-    "holding": "Задержка руками",
-    "high-sticking": "Опасная игра высоко поднятой клюшкой",
-    "roughing": "Грубость",
-    "cross-checking": "Толчок клюшкой",
-    "boarding": "Толчок на борт",
-    "delaying-game-puck-over-glass": "Задержка (выброс шайбы)",
-    "fighting": "Драка",
-    "unsportsmanlike-conduct": "Неспортивное поведение",
-    "too-many-men-on-ice": "Нарушение численного состава"
-  };
-
-  // Инициализация сортировки таблицы
+  // Инициализация сортировки таблицы лиги
   document.querySelectorAll(".standings-head .sortable").forEach(th => {
     th.onclick = () => {
       const key = th.dataset.sort;
@@ -389,7 +372,7 @@
     }[c]));
   }
 
-  // --- Поиск имени в Boxscore ---
+  // Поиск имени в Boxscore
   function findNameInBoxscore(box, playerId) {
     if (!playerId || !box) return "";
     const targetId = String(playerId);
@@ -513,7 +496,7 @@
   document.getElementById("prev-day").onclick = () => { currentDate.setDate(currentDate.getDate() - 1); loadSchedule(); };
   document.getElementById("next-day").onclick = () => { currentDate.setDate(currentDate.getDate() + 1); loadSchedule(); };
 
-  // ----- ТУРНИРНАЯ ТАБЛИЦА (С сортировкой) -----
+  // ----- ТУРНИРНАЯ ТАБЛИЦА -----
   async function loadStandings() {
     const body = document.getElementById("standings-body");
     body.innerHTML = '<div class="loading">Загрузка...</div>';
@@ -692,9 +675,18 @@
     let filteredSkaters = [...(dataset.skaters || [])];
     let filteredGoalies = [...(dataset.goalies || [])];
 
+    // Улучшенная сортировка с поддержкой альтернативных полей (например, penaltyMinutes / pim)
     filteredSkaters.sort((a, b) => {
-      let valA = a[currentTeamSortKey] ?? (currentTeamSortKey === "penaltyMinutes" ? a.penaltyMinutes : 0) ?? 0;
-      let valB = b[currentTeamSortKey] ?? (currentTeamSortKey === "penaltyMinutes" ? b.penaltyMinutes : 0) ?? 0;
+      let valA = a[currentTeamSortKey];
+      let valB = b[currentTeamSortKey];
+      
+      if (currentTeamSortKey === "penaltyMinutes") {
+        valA = a.penaltyMinutes ?? a.pim ?? 0;
+        valB = b.penaltyMinutes ?? b.pim ?? 0;
+      } else {
+        valA = valA ?? 0;
+        valB = valB ?? 0;
+      }
       return currentTeamSortAsc ? valA - valB : valB - valA;
     });
 
@@ -844,7 +836,6 @@
       });
       if (!anyGoals) html += '<div class="empty">Голов пока не было</div>';
 
-      // --- ИСПРАВЛЕНИЕ: Вывод имени игрока в штрафах ---
       const penalties = landing?.summary?.penalties || [];
       html += '<div class="section-title">Штрафы</div>';
 
@@ -859,26 +850,22 @@
         list.forEach(pen => {
           let violatorName = "";
           
-          // 1. Попытка взять готовое строковое имя, которое API иногда отдает напрямую
-          if (typeof pen.committedByPlayer === 'string') {
-            violatorName = pen.committedByPlayer;
-          }
-          // 2. Если его нет, ищем по ID в боксскоре
-          if (!violatorName && pen.committedByPlayerId) {
+          if (pen.committedByPlayerId) {
             violatorName = findNameInBoxscore(box, pen.committedByPlayerId);
           }
-          // 3. Последний шанс: склейка firstName и lastName
+          if (!violatorName) {
+            violatorName = pen.committedByPlayer || pen.playerName?.default;
+          }
           if (!violatorName) {
             const fn = nameStr(pen.firstName);
             const ln = nameStr(pen.lastName);
             if (fn || ln) violatorName = `${fn} ${ln}`.trim();
           }
+          if (!violatorName) {
+            violatorName = "Игрок";
+          }
           
-          if (!violatorName) violatorName = "Игрок";
-          
-          const rawDesc = pen.descKey || pen.penaltyDescriptionDefault || "Штраф";
-          const penDesc = penaltyTranslations[rawDesc] || rawDesc;
-          
+          const penDesc = pen.penaltyDescriptionDefault || pen.descKey || "Штраф";
           html += `
             <div class="goal-row">
               <div class="time">${val(pen.timeInPeriod)}</div>
@@ -952,7 +939,6 @@
       const birthPlace = [nameStr(p.birthCity), p.birthCountry].filter(Boolean).join(", ");
       const pos = p.positionCode || p.position || "";
 
-      // Формируем текст для драфта
       let draftText = "На драфте не выбран";
       if (p.draftDetails) {
         const d = p.draftDetails;
