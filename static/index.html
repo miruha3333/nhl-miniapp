@@ -401,7 +401,7 @@
     }[c]));
   }
 
-  // Поиск имени в Boxscore
+  // Поиск имени в Boxscore по ID (для голов/вратарей)
   function findNameInBoxscore(box, playerId) {
     if (!playerId || !box) return "";
     const targetId = String(playerId);
@@ -422,6 +422,47 @@
           if (found.name?.default) return found.name.default;
           if (found.playerName?.default) return found.playerName.default;
           return `${nameStr(found.firstName)} ${nameStr(found.lastName)}`.trim();
+        }
+      }
+    }
+    return "";
+  }
+
+  // Умный поиск полного имени в Boxscore по краткому описанию (для штрафов)
+  function findNameByDescInBoxscore(box, desc) {
+    if (!desc || !box) return "";
+    const cleanDesc = String(desc).trim().toLowerCase();
+    const statsContainer = box.playerByGameStats || box.boxscore?.playerByGameStats;
+    if (!statsContainer) return "";
+
+    const teams = ['awayTeam', 'homeTeam'];
+    const positions = ['forwards', 'defense', 'goalies'];
+
+    for (const t of teams) {
+      const teamData = statsContainer[t];
+      if (!teamData) continue;
+      for (const pos of positions) {
+        const list = teamData[pos];
+        if (!list || !Array.isArray(list)) continue;
+        for (const p of list) {
+          const first = nameStr(p.firstName);
+          const last = nameStr(p.lastName);
+          const full = p.name?.default || p.playerName?.default || `${first} ${last}`.trim();
+          
+          if (!full) continue;
+          if (full.toLowerCase() === cleanDesc) return full;
+
+          // Сверяем формат инициала "K. Kaprizov" или "K.Kaprizov"
+          if (first && last) {
+            const initial = first.charAt(0).toLowerCase();
+            const lastLower = last.toLowerCase();
+            if (cleanDesc === `${initial}. ${lastLower}` || cleanDesc === `${initial}.${lastLower}`) {
+              return full;
+            }
+          }
+          if (last && last.toLowerCase() === cleanDesc) {
+            return full;
+          }
         }
       }
     }
@@ -889,7 +930,15 @@
         html += `<div class="period-label">${periodNum ? periodNum + "-й период" : "Период"}</div>`;
         
         list.forEach(pen => {
-          let violatorName = pen.committedByPlayer || pen.servedByPlayer || "";
+          // Читаем committedByPlayerDesc — главный ключ для имен штрафников в новом NHL API
+          const rawDesc = pen.committedByPlayerDesc?.default || pen.committedByPlayerDesc || pen.committedByPlayer || pen.servedByPlayer || "";
+          
+          let violatorName = "";
+          if (rawDesc) {
+            // Кросс-направленный поиск полного имени по краткой записи в структуре boxscore
+            const fullFromBox = findNameByDescInBoxscore(box, rawDesc);
+            violatorName = fullFromBox || rawDesc;
+          }
           
           if (!violatorName && pen.committedByPlayerId) {
             violatorName = findNameInBoxscore(box, pen.committedByPlayerId);
