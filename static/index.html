@@ -92,14 +92,19 @@
 
   main { padding: 14px 16px 0; }
 
+  /* Календарь */
   .date-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin: 10px 0 14px;
   }
-
-  .date-row .label { font-family: 'Roboto Mono', monospace; font-size: 13px; color: var(--silver-dim); }
+  .date-input { 
+    background: transparent; border: 1px solid var(--border); color: var(--silver); 
+    padding: 6px 12px; border-radius: 8px; font-family: 'Roboto Mono', monospace; 
+    font-size: 14px; text-align: center; cursor: pointer; outline: none; width: 140px; 
+  }
+  .date-input::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
 
   .date-row button {
     background: var(--surface);
@@ -114,6 +119,7 @@
 
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 10px; }
 
+  /* Матчи */
   .game-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; }
 
   .team { display: flex; align-items: center; gap: 10px; }
@@ -129,45 +135,36 @@
   .score-box .score { font-family: 'Roboto Mono', monospace; font-weight: 700; font-size: 22px; color: var(--silver); }
   .score-box .status { font-size: 10px; color: var(--red); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
 
-  .standings-head {
+  /* Липкая таблица (Standings) */
+  .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; position: relative; border-radius: 12px; }
+  .standings-table {
     display: grid;
-    grid-template-columns: 24px 24px 1fr 28px 28px 28px 28px 32px 32px 32px 40px;
-    gap: 4px;
-    font-size: 10px;
-    color: var(--silver-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border);
+    grid-template-columns: 24px 30px 110px repeat(8, 35px);
+    min-width: 600px;
     align-items: center;
   }
-
+  
+  .sticky-col { position: sticky; background: var(--surface); z-index: 2; }
+  .sticky-col-1 { left: 0; }
+  .sticky-col-2 { left: 24px; }
+  .sticky-col-3 { left: 54px; }
+  
+  .standings-head { display: contents; font-size: 10px; color: var(--silver-dim); text-transform: uppercase; }
+  .standings-head .sticky-col { z-index: 3; }
+  .standings-head > div { padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: center; align-items: center; }
   .standings-head .sortable { cursor: pointer; text-decoration: underline dotted; color: var(--silver); transition: color 0.15s; }
   .standings-head .sortable:hover { color: #fff; }
 
-  .standings-head .num, .standings-head .pts, .standings-head .diff { text-align: center; }
-
-  .standings-row {
-    display: grid;
-    grid-template-columns: 24px 24px 1fr 28px 28px 28px 28px 32px 32px 32px 40px;
-    gap: 4px;
-    align-items: center;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-    font-size: 13px;
-    cursor: pointer;
-  }
-
-  .standings-row:active { background: var(--surface-2); }
-  .standings-row:last-child { border-bottom: none; }
-
-  .standings-row .rank { font-family: 'Roboto Mono', monospace; color: var(--silver-dim); }
+  .standings-row { display: contents; cursor: pointer; }
+  .standings-row:active > div { background: var(--surface-2) !important; }
+  .standings-row > div { padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: center; align-items: center; font-size: 13px; }
+  .standings-row .name { justify-content: flex-start; padding-left: 5px; font-family: 'Oswald', sans-serif; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+  .standings-row .num, .standings-row .diff, .standings-row .pts { font-family: 'Roboto Mono', monospace; }
+  .standings-row .num.sticky-col-1 { color: var(--silver-dim); }
   .standings-row .team-logo { width: 20px; height: 20px; }
-  .standings-row .name { font-family: 'Oswald', sans-serif; font-weight: 600; letter-spacing: 0.02em; }
-  .standings-row .num { font-family: 'Roboto Mono', monospace; text-align: center; color: var(--silver-dim); }
-  .standings-row .diff { font-family: 'Roboto Mono', monospace; text-align: center; font-size: 12px; font-weight: 600; }
-  .standings-row .pts { font-family: 'Roboto Mono', monospace; font-weight: 700; text-align: center; color: var(--blue); }
+  .standings-row .pts { font-weight: 700; color: var(--blue); }
 
+  /* Игроки */
   .cat-row { display: flex; gap: 6px; margin-bottom: 12px; }
 
   .cat-row button {
@@ -204,9 +201,10 @@
     letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; margin-top: 10px;
   }
 
-  .empty, .loading { text-align: center; color: var(--silver-dim); font-size: 13px; padding: 30px 0; }
+  .empty, .loading { text-align: center; color: var(--silver-dim); font-size: 13px; padding: 30px 0; grid-column: 1 / -1; }
   .loading { font-family: 'Roboto Mono', monospace; }
 
+  /* Детали матча/команды/игрока */
   .back-btn {
     display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border);
     color: var(--silver); padding: 8px 14px; border-radius: 10px; font-family: 'Oswald', sans-serif;
@@ -270,26 +268,32 @@
   <div id="view-schedule">
     <div class="date-row">
       <button id="prev-day">‹</button>
-      <div class="label" id="date-label">—</div>
+      <input type="date" id="date-picker" class="date-input">
       <button id="next-day">›</button>
     </div>
     <div id="games"><div class="loading">Загрузка...</div></div>
   </div>
 
   <div id="view-standings" style="display:none">
-    <div class="card">
-      <div class="standings-head">
-        <div></div><div></div><div>Команда</div>
-        <div class="num sortable" data-sort="gamesPlayed">И</div>
-        <div class="num sortable" data-sort="wins">В</div>
-        <div class="num sortable" data-sort="otLosses">ОТ</div>
-        <div class="num sortable" data-sort="losses">П</div>
-        <div class="num sortable" data-sort="goalFor">ЗШ</div>
-        <div class="num sortable" data-sort="goalAgainst">ПШ</div>
-        <div class="diff sortable" data-sort="goalDifferential">+/-</div>
-        <div class="pts sortable" data-sort="points">Очки</div>
+    <div class="card" style="padding: 0;">
+      <div class="table-wrapper">
+        <div class="standings-table">
+          <div class="standings-head">
+            <div class="sticky-col sticky-col-1"></div>
+            <div class="sticky-col sticky-col-2"></div>
+            <div class="sticky-col sticky-col-3"></div>
+            <div class="sortable" data-sort="gamesPlayed">И</div>
+            <div class="sortable" data-sort="wins">В</div>
+            <div class="sortable" data-sort="otLosses">ОТ</div>
+            <div class="sortable" data-sort="losses">П</div>
+            <div class="sortable" data-sort="goalFor">ЗШ</div>
+            <div class="sortable" data-sort="goalAgainst">ПШ</div>
+            <div class="sortable" data-sort="goalDifferential">+/-</div>
+            <div class="sortable" data-sort="points">О</div>
+          </div>
+          <div id="standings-body" style="display: contents;"><div class="loading">Загрузка...</div></div>
+        </div>
       </div>
-      <div id="standings-body"><div class="loading">Загрузка...</div></div>
     </div>
   </div>
 
@@ -318,6 +322,29 @@
 
   const API_BASE = "";
 
+  // Словарь для перевода штрафов
+  const PENALTY_RU = {
+    "tripping": "Подножка",
+    "hooking": "Задержка клюшкой",
+    "slashing": "Удар клюшкой",
+    "interference": "Блокировка",
+    "holding": "Задержка руками",
+    "roughing": "Грубость",
+    "fighting": "Драка",
+    "high-sticking": "Опасная игра высоко поднятой клюшкой",
+    "cross-checking": "Толчок клюшкой",
+    "boarding": "Толчок на борт",
+    "delaying game": "Задержка игры",
+    "delaying game - puck over glass": "Задержка игры (выброс шайбы)",
+    "unsportsmanlike conduct": "Неспортивное поведение",
+    "too many men on the ice": "Нарушение численного состава",
+    "elbowing": "Удар локтем",
+    "charging": "Неправильная атака",
+    "clipping": "Удар по ногам",
+    "spearing": "Колющий удар",
+    "embellishment": "Симуляция"
+  };
+
   let currentTeamFullData = null; 
   let currentTeamType = "regular"; 
   let currentTeamSortKey = "points"; 
@@ -331,6 +358,8 @@
   let currentDate = new Date();
   let currentCat = "points";
   let currentLimit = 25;
+
+  const datePicker = document.getElementById("date-picker");
 
   // Инициализация сортировки таблицы лиги
   document.querySelectorAll(".standings-head .sortable").forEach(th => {
@@ -421,13 +450,24 @@
   document.getElementById("tab-players").onclick = () => switchTab("players");
 
   // ----- РАЗДЕЛ МАТЧЕЙ -----
-  function fmtDate(d) { return d.toISOString().slice(0, 10); }
-  function fmtLabel(d) { return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "short", weekday: "short" }); }
+  function fmtDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  datePicker.addEventListener("change", (e) => {
+    if (e.target.value) {
+      currentDate = new Date(e.target.value);
+      loadSchedule();
+    }
+  });
 
   async function loadSchedule() {
     const games = document.getElementById("games");
     games.innerHTML = '<div class="loading">Загрузка...</div>';
-    document.getElementById("date-label").textContent = fmtLabel(currentDate);
+    datePicker.value = fmtDate(currentDate);
 
     try {
       const res = await fetch(`${API_BASE}/api/schedule?date=${fmtDate(currentDate)}`);
@@ -499,16 +539,17 @@
   // ----- ТУРНИРНАЯ ТАБЛИЦА -----
   async function loadStandings() {
     const body = document.getElementById("standings-body");
-    body.innerHTML = '<div class="loading">Загрузка...</div>';
-
-    try {
-      const res = await fetch(`${API_BASE}/api/standings`);
-      const data = await res.json();
-      currentStandingsData = data.standings || [];
-      renderStandings();
-    } catch (e) {
-      body.innerHTML = '<div class="empty">Не удалось загрузить таблицу</div>';
+    if (currentStandingsData.length === 0) {
+      body.innerHTML = '<div class="loading">Загрузка...</div>';
+      try {
+        const res = await fetch(`${API_BASE}/api/standings`);
+        const data = await res.json();
+        currentStandingsData = data.standings || [];
+      } catch (e) {
+        return body.innerHTML = '<div class="empty">Не удалось загрузить таблицу</div>';
+      }
     }
+    renderStandings();
   }
 
   function renderStandings() {
@@ -540,9 +581,9 @@
 
       return `
         <div class="standings-row" data-team="${t.teamAbbrev?.default || t.teamAbbrev || ""}" data-name="${escapeHtml(tName)}" data-logo="${t.teamLogo || ""}">
-          <div class="rank">${i + 1}</div>
-          <img class="team-logo" src="${t.teamLogo}" alt="" onerror="this.style.visibility='hidden'">
-          <div class="name">${t.teamAbbrev?.default || t.teamAbbrev || ""}</div>
+          <div class="num sticky-col sticky-col-1">${i + 1}</div>
+          <div class="sticky-col sticky-col-2"><img class="team-logo" src="${t.teamLogo}" alt="" onerror="this.style.visibility='hidden'"></div>
+          <div class="name sticky-col sticky-col-3">${t.teamAbbrev?.default || t.teamAbbrev || ""}</div>
           <div class="num">${t.gamesPlayed ?? 0}</div>
           <div class="num">${t.wins ?? 0}</div>
           <div class="num">${t.otLosses ?? 0}</div>
@@ -675,7 +716,7 @@
     let filteredSkaters = [...(dataset.skaters || [])];
     let filteredGoalies = [...(dataset.goalies || [])];
 
-    // Улучшенная сортировка с поддержкой альтернативных полей (например, penaltyMinutes / pim)
+    // Сортировка с поддержкой альтернативных полей
     filteredSkaters.sort((a, b) => {
       let valA = a[currentTeamSortKey];
       let valB = b[currentTeamSortKey];
@@ -848,13 +889,13 @@
         html += `<div class="period-label">${periodNum ? periodNum + "-й период" : "Период"}</div>`;
         
         list.forEach(pen => {
-          let violatorName = "";
+          let violatorName = pen.committedByPlayer || pen.servedByPlayer || "";
           
-          if (pen.committedByPlayerId) {
+          if (!violatorName && pen.committedByPlayerId) {
             violatorName = findNameInBoxscore(box, pen.committedByPlayerId);
           }
           if (!violatorName) {
-            violatorName = pen.committedByPlayer || pen.playerName?.default;
+            violatorName = pen.playerName?.default;
           }
           if (!violatorName) {
             const fn = nameStr(pen.firstName);
@@ -862,10 +903,12 @@
             if (fn || ln) violatorName = `${fn} ${ln}`.trim();
           }
           if (!violatorName) {
-            violatorName = "Игрок";
+            violatorName = "Командный штраф / Игрок";
           }
           
-          const penDesc = pen.penaltyDescriptionDefault || pen.descKey || "Штраф";
+          let descKey = pen.descKey ? pen.descKey.toLowerCase() : "";
+          const penDesc = PENALTY_RU[descKey] || pen.penaltyDescriptionDefault || pen.descKey || "Штраф";
+
           html += `
             <div class="goal-row">
               <div class="time">${val(pen.timeInPeriod)}</div>
