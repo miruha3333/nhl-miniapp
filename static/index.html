@@ -249,6 +249,55 @@
   .goal-row .scoreline { font-family: 'Roboto Mono', monospace; font-weight: 700; color: var(--blue); flex-shrink: 0; }
 
   .period-label { font-family: 'Roboto Mono', monospace; color: var(--silver-dim); font-size: 11px; text-transform: uppercase; margin: 10px 0 4px; }
+
+  /* Командная статистика матча: броски, хиты, вбрасывания, силовые приёмы, штраф */
+  .teamstat-head {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .teamstat-head .team-logo { width: 26px; height: 26px; }
+  .teamstat-head .side { display: flex; align-items: center; gap: 8px; }
+  .teamstat-head .side.right { justify-content: flex-end; }
+
+  .teamstat-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .teamstat-row:last-child { border-bottom: none; }
+
+  .teamstat-row .val {
+    font-family: 'Roboto Mono', monospace;
+    font-weight: 700;
+    font-size: 15px;
+    text-align: center;
+  }
+  .teamstat-row .val.away { text-align: left; }
+  .teamstat-row .val.home { text-align: right; }
+
+  .teamstat-row .periods {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 10px;
+    color: var(--silver-dim);
+    font-weight: 400;
+    display: block;
+    margin-top: 1px;
+  }
+
+  .teamstat-row .label {
+    font-family: 'Oswald', sans-serif;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--silver-dim);
+    text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -322,29 +371,6 @@
 
   const API_BASE = "";
 
-  // Словарь для перевода штрафов
-  const PENALTY_RU = {
-    "tripping": "Подножка",
-    "hooking": "Задержка клюшкой",
-    "slashing": "Удар клюшкой",
-    "interference": "Блокировка",
-    "holding": "Задержка руками",
-    "roughing": "Грубость",
-    "fighting": "Драка",
-    "high-sticking": "Опасная игра высоко поднятой клюшкой",
-    "cross-checking": "Толчок клюшкой",
-    "boarding": "Толчок на борт",
-    "delaying game": "Задержка игры",
-    "delaying game - puck over glass": "Задержка игры (выброс шайбы)",
-    "unsportsmanlike conduct": "Неспортивное поведение",
-    "too many men on the ice": "Нарушение численного состава",
-    "elbowing": "Удар локтем",
-    "charging": "Неправильная атака",
-    "clipping": "Удар по ногам",
-    "spearing": "Колющий удар",
-    "embellishment": "Симуляция"
-  };
-
   let currentTeamFullData = null; 
   let currentTeamType = "regular"; 
   let currentTeamSortKey = "points"; 
@@ -399,74 +425,6 @@
     return String(s).replace(/[&<>"']/g, c => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
     }[c]));
-  }
-
-  // Поиск имени в Boxscore по ID (для голов/вратарей)
-  function findNameInBoxscore(box, playerId) {
-    if (!playerId || !box) return "";
-    const targetId = String(playerId);
-    const statsContainer = box.playerByGameStats || box.boxscore?.playerByGameStats;
-    if (!statsContainer) return "";
-
-    const teams = ['awayTeam', 'homeTeam'];
-    const positions = ['forwards', 'defense', 'goalies'];
-    
-    for (const t of teams) {
-      const teamData = statsContainer[t];
-      if (!teamData) continue;
-      for (const pos of positions) {
-        const list = teamData[pos];
-        if (!list || !Array.isArray(list)) continue;
-        const found = list.find(p => String(p.playerId) === targetId || String(p.id) === targetId);
-        if (found) {
-          if (found.name?.default) return found.name.default;
-          if (found.playerName?.default) return found.playerName.default;
-          return `${nameStr(found.firstName)} ${nameStr(found.lastName)}`.trim();
-        }
-      }
-    }
-    return "";
-  }
-
-  // Умный поиск полного имени в Boxscore по краткому описанию (для штрафов)
-  function findNameByDescInBoxscore(box, desc) {
-    if (!desc || !box) return "";
-    const cleanDesc = String(desc).trim().toLowerCase();
-    const statsContainer = box.playerByGameStats || box.boxscore?.playerByGameStats;
-    if (!statsContainer) return "";
-
-    const teams = ['awayTeam', 'homeTeam'];
-    const positions = ['forwards', 'defense', 'goalies'];
-
-    for (const t of teams) {
-      const teamData = statsContainer[t];
-      if (!teamData) continue;
-      for (const pos of positions) {
-        const list = teamData[pos];
-        if (!list || !Array.isArray(list)) continue;
-        for (const p of list) {
-          const first = nameStr(p.firstName);
-          const last = nameStr(p.lastName);
-          const full = p.name?.default || p.playerName?.default || `${first} ${last}`.trim();
-          
-          if (!full) continue;
-          if (full.toLowerCase() === cleanDesc) return full;
-
-          // Сверяем формат инициала "K. Kaprizov" или "K.Kaprizov"
-          if (first && last) {
-            const initial = first.charAt(0).toLowerCase();
-            const lastLower = last.toLowerCase();
-            if (cleanDesc === `${initial}. ${lastLower}` || cleanDesc === `${initial}.${lastLower}`) {
-              return full;
-            }
-          }
-          if (last && last.toLowerCase() === cleanDesc) {
-            return full;
-          }
-        }
-      }
-    }
-    return "";
   }
 
   function switchTab(tab) {
@@ -863,6 +821,79 @@
   }
 
   // ----- ДЕТАЛИ МАТЧА -----
+
+  // Категории командной статистики из right-rail и их русские подписи.
+  // Если NHL API вернёт другую категорию — она покажется с тем именем, что прислал API,
+  // строка не потеряется.
+  const TEAM_STAT_LABELS = {
+    sog: "Броски в створ",
+    shotsOnGoal: "Броски в створ",
+    faceoffWinningPctg: "Вбрасывания",
+    powerPlay: "Большинство",
+    pim: "Штраф (мин)",
+    penaltyMinutes: "Штраф (мин)",
+    hits: "Силовые приёмы",
+    blockedShots: "Заблокировано бросков",
+    giveaways: "Потери шайбы",
+    takeaways: "Отборы шайбы",
+  };
+
+  function formatPeriodsBreakdown(periods) {
+    if (!periods || !Array.isArray(periods) || periods.length === 0) return "";
+    return "(" + periods.map(p => val(p, "0")).join(" / ") + ")";
+  }
+
+  function renderTeamGameStats(rightRail, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
+    const teamStats = rightRail?.teamGameStats || [];
+
+    let html = '<div class="section-title">Статистика команд</div>';
+
+    if (!teamStats || teamStats.length === 0) {
+      html += '<div class="empty">Статистика недоступна</div>';
+      return html;
+    }
+
+    html += `
+      <div class="teamstat-head">
+        <div class="side">
+          <img class="team-logo" src="${awayLogo}" alt="" onerror="this.style.display='none'">
+          <span>${awayAbbrev}</span>
+        </div>
+        <div></div>
+        <div class="side right">
+          <span>${homeAbbrev}</span>
+          <img class="team-logo" src="${homeLogo}" alt="" onerror="this.style.display='none'">
+        </div>
+      </div>
+    `;
+
+    teamStats.forEach(stat => {
+      const category = stat.category;
+      const label = TEAM_STAT_LABELS[category] || category;
+
+      let awayVal = stat.awayValue;
+      let homeVal = stat.homeValue;
+
+      if (typeof awayVal === "number" && category === "faceoffWinningPctg") {
+        awayVal = awayVal.toFixed(1) + "%";
+        homeVal = homeVal.toFixed(1) + "%";
+      }
+
+      const awayPeriods = formatPeriodsBreakdown(stat.awayPeriods || stat.away?.periods);
+      const homePeriods = formatPeriodsBreakdown(stat.homePeriods || stat.home?.periods);
+
+      html += `
+        <div class="teamstat-row">
+          <div class="val away">${val(awayVal)}${awayPeriods ? `<span class="periods">${awayPeriods}</span>` : ""}</div>
+          <div class="label">${escapeHtml(label)}</div>
+          <div class="val home">${val(homeVal)}${homePeriods ? `<span class="periods">${homePeriods}</span>` : ""}</div>
+        </div>
+      `;
+    });
+
+    return html;
+  }
+
   async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
     openDetail();
     const body = document.getElementById("detail-body");
@@ -879,12 +910,12 @@
     `;
 
     try {
-      const [landingRes, boxRes] = await Promise.all([
+      const [landingRes, rightRailRes] = await Promise.all([
         fetch(`${API_BASE}/api/score/${gameId}`),
-        fetch(`${API_BASE}/api/boxscore/${gameId}`),
+        fetch(`${API_BASE}/api/right-rail/${gameId}`),
       ]);
       const landing = await landingRes.json();
-      const box = await boxRes.json();
+      const rightRail = await rightRailRes.json();
 
       const scoring = landing?.summary?.scoring || [];
       html += '<div class="section-title">Голы</div>';
@@ -918,99 +949,10 @@
       });
       if (!anyGoals) html += '<div class="empty">Голов пока не было</div>';
 
-      const penalties = landing?.summary?.penalties || [];
-      html += '<div class="section-title">Штрафы</div>';
+      // Статистика команд (броски, хиты, вбрасывания, силовые приёмы, штраф —
+      // общий показатель, в скобках разбивка по периодам)
+      html += renderTeamGameStats(rightRail, awayAbbrev, homeAbbrev, awayLogo, homeLogo);
 
-      let anyPenalties = false;
-      penalties.forEach(period => {
-        const list = period.penalties || [];
-        if (list.length === 0) return;
-        anyPenalties = true;
-        const periodNum = period.periodDescriptor?.number;
-        html += `<div class="period-label">${periodNum ? periodNum + "-й период" : "Период"}</div>`;
-        
-        list.forEach(pen => {
-          // ПРОГОНЯЕМ ЧЕРЕЗ nameStr() ДЛЯ ЗАЩИТЫ ОТ [object Object]
-          const rawDesc = nameStr(pen.committedByPlayerDesc) || nameStr(pen.committedByPlayer) || nameStr(pen.servedByPlayer);
-          
-          let violatorName = "";
-          if (rawDesc) {
-            const fullFromBox = findNameByDescInBoxscore(box, rawDesc);
-            violatorName = fullFromBox || rawDesc;
-          }
-          
-          if (!violatorName && pen.committedByPlayerId) {
-            violatorName = findNameInBoxscore(box, pen.committedByPlayerId);
-          }
-          if (!violatorName) {
-            violatorName = nameStr(pen.playerName);
-          }
-          if (!violatorName) {
-            const fn = nameStr(pen.firstName);
-            const ln = nameStr(pen.lastName);
-            if (fn || ln) violatorName = `${fn} ${ln}`.trim();
-          }
-          if (!violatorName) {
-            violatorName = "Командный штраф / Игрок";
-          }
-          
-          let descKey = pen.descKey ? String(pen.descKey).toLowerCase() : "";
-          const penDesc = PENALTY_RU[descKey] || nameStr(pen.penaltyDescription) || nameStr(pen.descKey) || "Штраф";
-          const teamAbbr = nameStr(pen.teamAbbrev);
-
-          html += `
-            <div class="goal-row">
-              <div class="time">${val(pen.timeInPeriod)}</div>
-              <div class="desc">
-                <div class="scorer">${escapeHtml(violatorName)} (${escapeHtml(teamAbbr)})</div>
-                <div class="assists">${escapeHtml(penDesc)} — ${val(pen.duration)} мин</div>
-              </div>
-            </div>
-          `;
-        });
-      });
-      if (!anyPenalties) html += '<div class="empty">Штрафов не зафиксировано</div>';
-
-      html += '<div class="section-title">Вратари</div>';
-      const awayGoalies = box?.playerByGameStats?.awayTeam?.goalies || [];
-      const homeGoalies = box?.playerByGameStats?.homeTeam?.goalies || [];
-      const allGoalies = [...awayGoalies, ...homeGoalies];
-
-      if (allGoalies.length === 0) {
-        html += '<div class="empty">Нет данных о вратарях</div>';
-      } else {
-        html += `
-          <div class="table-scroll">
-            <table class="stat-table">
-              <thead>
-                <tr>
-                  <th>Вратарь</th><th>Броски</th><th>%ОБ</th><th>Время</th><th>ГКИ</th>
-                </tr>
-              </thead>
-              <tbody>
-        `;
-        html += allGoalies.map(gk => {
-          let gaa = "—";
-          if (typeof gk.goalsAgainstAverage === 'number') {
-            gaa = gk.goalsAgainstAverage.toFixed(2);
-          } else if (gk.goalsAgainst !== undefined) {
-            gaa = Number(gk.goalsAgainst).toFixed(2);
-          }
-
-          let gName = gk.name?.default || gk.playerName?.default || `${nameStr(gk.firstName)} ${nameStr(gk.lastName)}`.trim() || "Вратарь";
-
-          return `
-            <tr>
-              <td>${escapeHtml(gName)}</td>
-              <td class="num">${val(gk.saveShotsAgainst)}</td>
-              <td class="num">${typeof gk.savePctg === 'number' ? gk.savePctg.toFixed(3) : val(gk.savePctg)}</td>
-              <td class="num">${val(gk.toi)}</td>
-              <td class="num">${gaa}</td>
-            </tr>
-          `;
-        }).join("");
-        html += "</tbody></table></div>";
-      }
     } catch (e) {
       html += '<div class="empty">Не удалось загрузить подробности матча</div>';
     }
