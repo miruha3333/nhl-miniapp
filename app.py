@@ -86,6 +86,21 @@ async def standings():
     return await fetch_with_cache("standings", url, CACHE_TTL["standings"])
 
 
+@app.get("/api/standings-by-date/{date}")
+async def standings_by_date(date: str):
+    """Турнирная таблица на конкретную дату (для прошлых сезонов указываем
+    дату окончания регулярного сезона, например 2024-04-18)."""
+    url = f"{NHL_BASE}/standings/{date}"
+    return await fetch_with_cache(f"standings:{date}", url, CACHE_TTL["standings"])
+
+
+@app.get("/api/playoff-bracket/{year}")
+async def playoff_bracket(year: str):
+    """Сетка плей-офф за указанный год (год начала плей-офф, например 2024)."""
+    url = f"{NHL_BASE}/playoff-bracket/{year}"
+    return await fetch_with_cache(f"bracket:{year}", url, CACHE_TTL["standings"])
+
+
 ALLOWED_CATEGORIES = {"points", "goals", "assists", "plusMinus"}
 
 @app.get("/api/leaders/{category}")
