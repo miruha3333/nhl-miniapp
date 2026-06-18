@@ -250,6 +250,60 @@
 
   .period-label { font-family: 'Roboto Mono', monospace; color: var(--silver-dim); font-size: 11px; text-transform: uppercase; margin: 10px 0 4px; }
 
+  /* Заголовок группы (конференция/дивизион) в таблице */
+  .group-header-row { display: contents; }
+  .group-header-row > div {
+    grid-column: 1 / -1;
+    background: var(--surface-2);
+    color: var(--silver);
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Сетка плей-офф (bracket) */
+  .bracket-wrap { margin-top: 16px; }
+  .bracket-round-title {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--silver-dim);
+    margin: 14px 0 8px;
+  }
+  .bracket-series {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+  .bracket-team-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 13px;
+  }
+  .bracket-team-row .bt-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+  }
+  .bracket-team-row .bt-name img { width: 20px; height: 20px; object-fit: contain; }
+  .bracket-team-row.winner .bt-name { color: var(--blue); }
+  .bracket-team-row .bt-wins {
+    font-family: 'Roboto Mono', monospace;
+    font-weight: 700;
+  }
+
   /* Командная статистика матча: броски, хиты, вбрасывания, силовые приёмы, штраф */
   .teamstat-head {
     display: grid;
@@ -324,6 +378,17 @@
   </div>
 
   <div id="view-standings" style="display:none">
+    <div class="cat-row">
+      <button id="std-mode-all" class="active">Общая</button>
+      <button id="std-mode-conf">По конференциям</button>
+      <button id="std-mode-div">По дивизионам</button>
+    </div>
+
+    <div class="card" style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding: 10px 14px;">
+      <span style="font-family:'Oswald',sans-serif; font-size:12px; color:var(--silver-dim); text-transform:uppercase; letter-spacing:0.04em;">Сезон</span>
+      <select id="season-select" class="date-input" style="width:auto; flex:1;"></select>
+    </div>
+
     <div class="card" style="padding: 0;">
       <div class="table-wrapper">
         <div class="standings-table">
@@ -344,6 +409,8 @@
         </div>
       </div>
     </div>
+
+    <div id="bracket-container"></div>
   </div>
 
   <div id="view-players" style="display:none">
@@ -379,6 +446,32 @@
   let currentStandingsData = [];
   let standingsSortKey = "points";
   let standingsSortAsc = false;
+  let standingsViewMode = "all"; // all | conf | div
+  let selectedSeasonEndDate = ""; // "" значит текущий сезон (now)
+
+  // Список сезонов для выбора: текущий + 10 прошлых.
+  // Дата — примерный конец регулярного сезона (середина апреля).
+  function buildSeasonOptions() {
+    const select = document.getElementById("season-select");
+    const now = new Date();
+    const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1; // сезон стартует в сентябре
+
+    let optionsHtml = `<option value="">Текущий сезон</option>`;
+    for (let y = startYear - 1; y >= startYear - 10; y--) {
+      const label = `${y}-${y + 1}`;
+      const endDate = `${y + 1}-04-18`;
+      optionsHtml += `<option value="${endDate}" data-start-year="${y}">${label}</option>`;
+    }
+    select.innerHTML = optionsHtml;
+
+    select.addEventListener("change", () => {
+      const opt = select.options[select.selectedIndex];
+      selectedSeasonEndDate = opt.value;
+      currentStandingsData = [];
+      loadStandings();
+      loadPlayoffBracket(opt.dataset.startYear || "");
+    });
+  }
 
   let lastMainTab = "schedule";
   let currentDate = new Date();
@@ -400,6 +493,20 @@
       renderStandings();
     };
   });
+
+  document.getElementById("std-mode-all").onclick = () => setStandingsMode("all");
+  document.getElementById("std-mode-conf").onclick = () => setStandingsMode("conf");
+  document.getElementById("std-mode-div").onclick = () => setStandingsMode("div");
+
+  function setStandingsMode(mode) {
+    standingsViewMode = mode;
+    document.getElementById("std-mode-all").classList.toggle("active", mode === "all");
+    document.getElementById("std-mode-conf").classList.toggle("active", mode === "conf");
+    document.getElementById("std-mode-div").classList.toggle("active", mode === "div");
+    renderStandings();
+  }
+
+  buildSeasonOptions();
 
   function openDetail() {
     document.getElementById("view-schedule").style.display = "none";
@@ -541,7 +648,10 @@
     if (currentStandingsData.length === 0) {
       body.innerHTML = '<div class="loading">Загрузка...</div>';
       try {
-        const res = await fetch(`${API_BASE}/api/standings`);
+        const url = selectedSeasonEndDate
+          ? `${API_BASE}/api/standings-by-date/${selectedSeasonEndDate}`
+          : `${API_BASE}/api/standings`;
+        const res = await fetch(url);
         const data = await res.json();
         currentStandingsData = data.standings || [];
       } catch (e) {
@@ -551,6 +661,46 @@
     renderStandings();
   }
 
+  function renderTeamRow(t, rank) {
+    const gf = t.goalFor ?? 0;
+    const ga = t.goalAgainst ?? 0;
+    const diff = t.goalDifferential ?? (gf - ga);
+    const formattedDiff = diff > 0 ? `+${diff}` : diff;
+    const tName = t.teamName?.default || t.teamAbbrev?.default || t.teamAbbrev || "";
+
+    return `
+      <div class="standings-row" data-team="${t.teamAbbrev?.default || t.teamAbbrev || ""}" data-name="${escapeHtml(tName)}" data-logo="${t.teamLogo || ""}">
+        <div class="num sticky-col sticky-col-1">${rank}</div>
+        <div class="sticky-col sticky-col-2"><img class="team-logo" src="${t.teamLogo}" alt="" onerror="this.style.visibility='hidden'"></div>
+        <div class="name sticky-col sticky-col-3">${t.teamAbbrev?.default || t.teamAbbrev || ""}</div>
+        <div class="num">${t.gamesPlayed ?? 0}</div>
+        <div class="num">${t.wins ?? 0}</div>
+        <div class="num">${t.otLosses ?? 0}</div>
+        <div class="num">${t.losses ?? 0}</div>
+        <div class="num">${gf}</div>
+        <div class="num">${ga}</div>
+        <div class="diff" style="color: ${diff >= 0 ? '#2ecc71' : '#e74c3c'}">${formattedDiff}</div>
+        <div class="pts">${t.points ?? 0}</div>
+      </div>
+    `;
+  }
+
+  function sortTeams(arr) {
+    const sorted = [...arr];
+    sorted.sort((a, b) => {
+      let valA = a[standingsSortKey] ?? 0;
+      let valB = b[standingsSortKey] ?? 0;
+
+      if (standingsSortKey === 'goalDifferential') {
+        valA = a.goalDifferential ?? ((a.goalFor ?? 0) - (a.goalAgainst ?? 0));
+        valB = b.goalDifferential ?? ((b.goalFor ?? 0) - (b.goalAgainst ?? 0));
+      }
+
+      return standingsSortAsc ? valA - valB : valB - valA;
+    });
+    return sorted;
+  }
+
   function renderStandings() {
     const body = document.getElementById("standings-body");
     if (!currentStandingsData.length) {
@@ -558,46 +708,94 @@
        return;
     }
 
-    let arr = [...currentStandingsData];
-    arr.sort((a, b) => {
-      let valA = a[standingsSortKey] ?? 0;
-      let valB = b[standingsSortKey] ?? 0;
+    let html = "";
 
-      if (standingsSortKey === 'goalDifferential') {
-          valA = a.goalDifferential ?? ((a.goalFor ?? 0) - (a.goalAgainst ?? 0));
-          valB = b.goalDifferential ?? ((b.goalFor ?? 0) - (b.goalAgainst ?? 0));
-      }
+    if (standingsViewMode === "all") {
+      const sorted = sortTeams(currentStandingsData);
+      html = sorted.map((t, i) => renderTeamRow(t, i + 1)).join("");
+    } else {
+      // Группируем по конференции или дивизиону
+      const groupField = standingsViewMode === "conf" ? "conferenceName" : "divisionName";
+      const groups = {};
+      currentStandingsData.forEach(t => {
+        const key = t[groupField] || "Без группы";
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(t);
+      });
 
-      return standingsSortAsc ? valA - valB : valB - valA;
-    });
+      Object.keys(groups).sort().forEach(groupName => {
+        const sorted = sortTeams(groups[groupName]);
+        html += `<div class="group-header-row"><div>${escapeHtml(groupName)}</div></div>`;
+        html += sorted.map((t, i) => renderTeamRow(t, i + 1)).join("");
+      });
+    }
 
-    body.innerHTML = arr.map((t, i) => {
-      const gf = t.goalFor ?? 0;
-      const ga = t.goalAgainst ?? 0;
-      const diff = t.goalDifferential ?? (gf - ga);
-      const formattedDiff = diff > 0 ? `+${diff}` : diff;
-      const tName = t.teamName?.default || t.teamAbbrev?.default || t.teamAbbrev || "";
-
-      return `
-        <div class="standings-row" data-team="${t.teamAbbrev?.default || t.teamAbbrev || ""}" data-name="${escapeHtml(tName)}" data-logo="${t.teamLogo || ""}">
-          <div class="num sticky-col sticky-col-1">${i + 1}</div>
-          <div class="sticky-col sticky-col-2"><img class="team-logo" src="${t.teamLogo}" alt="" onerror="this.style.visibility='hidden'"></div>
-          <div class="name sticky-col sticky-col-3">${t.teamAbbrev?.default || t.teamAbbrev || ""}</div>
-          <div class="num">${t.gamesPlayed ?? 0}</div>
-          <div class="num">${t.wins ?? 0}</div>
-          <div class="num">${t.otLosses ?? 0}</div>
-          <div class="num">${t.losses ?? 0}</div>
-          <div class="num">${gf}</div>
-          <div class="num">${ga}</div>
-          <div class="diff" style="color: ${diff >= 0 ? '#2ecc71' : '#e74c3c'}">${formattedDiff}</div>
-          <div class="pts">${t.points ?? 0}</div>
-        </div>
-      `;
-    }).join("");
+    body.innerHTML = html;
 
     body.querySelectorAll(".standings-row").forEach(el => {
       el.addEventListener("click", () => openTeamDetail(el.dataset.team, el.dataset.name, el.dataset.logo));
     });
+  }
+
+  // ----- ПЛЕЙ-ОФФ BRACKET -----
+  async function loadPlayoffBracket(startYear) {
+    const container = document.getElementById("bracket-container");
+    if (!startYear) {
+      container.innerHTML = "";
+      return;
+    }
+
+    container.innerHTML = '<div class="bracket-wrap"><div class="loading">Загрузка сетки плей-офф...</div></div>';
+
+    try {
+      const res = await fetch(`${API_BASE}/api/playoff-bracket/${startYear}`);
+      const data = await res.json();
+      const rounds = data?.rounds || [];
+
+      if (!rounds.length) {
+        container.innerHTML = '<div class="bracket-wrap"><div class="empty">Плей-офф для этого сезона недоступен</div></div>';
+        return;
+      }
+
+      let html = '<div class="bracket-wrap"><div class="section-title">Сетка плей-офф</div>';
+      rounds.forEach(round => {
+        const roundLabel = round.names?.name || `Раунд ${round.roundNumber || ""}`;
+        html += `<div class="bracket-round-title">${escapeHtml(roundLabel)}</div>`;
+
+        (round.series || []).forEach(series => {
+          const top = series.topSeedTeam || {};
+          const bottom = series.bottomSeedTeam || {};
+          const topWins = series.topSeedWins ?? 0;
+          const bottomWins = series.bottomSeedWins ?? 0;
+          const topIsWinner = topWins > bottomWins && (topWins === 4 || bottomWins === 4);
+          const bottomIsWinner = bottomWins > topWins && (topWins === 4 || bottomWins === 4);
+
+          html += `
+            <div class="bracket-series">
+              <div class="bracket-team-row ${topIsWinner ? 'winner' : ''}">
+                <div class="bt-name">
+                  <img src="${top.logo || ''}" alt="" onerror="this.style.display='none'">
+                  <span>${escapeHtml(top.abbrev || top.placeName?.default || "TBD")}</span>
+                </div>
+                <div class="bt-wins">${topWins}</div>
+              </div>
+              <div class="bracket-team-row ${bottomIsWinner ? 'winner' : ''}">
+                <div class="bt-name">
+                  <img src="${bottom.logo || ''}" alt="" onerror="this.style.display='none'">
+                  <span>${escapeHtml(bottom.abbrev || bottom.placeName?.default || "TBD")}</span>
+                </div>
+                <div class="bt-wins">${bottomWins}</div>
+              </div>
+            </div>
+          `;
+        });
+      });
+      html += "</div>";
+
+      container.innerHTML = html;
+    } catch (e) {
+      container.innerHTML = '<div class="bracket-wrap"><div class="empty">Не удалось загрузить сетку плей-офф</div></div>';
+    }
   }
 
   // ----- ЛИДЕРЫ ЛИГИ -----
@@ -874,9 +1072,9 @@
       let awayVal = stat.awayValue;
       let homeVal = stat.homeValue;
 
-      if (typeof awayVal === "number" && category === "faceoffWinningPctg") {
-        awayVal = awayVal.toFixed(1) + "%";
-        homeVal = homeVal.toFixed(1) + "%";
+      if (typeof awayVal === "number" && (category === "faceoffWinningPctg" || category === "powerPlayPctg")) {
+        awayVal = (awayVal * 100).toFixed(1) + "%";
+        homeVal = (homeVal * 100).toFixed(1) + "%";
       }
 
       const awayPeriods = formatPeriodsBreakdown(stat.awayPeriods || stat.away?.periods);
