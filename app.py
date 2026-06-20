@@ -88,15 +88,24 @@ async def standings():
 
 @app.get("/api/standings-by-date/{date}")
 async def standings_by_date(date: str):
-    """Турнирная таблица на конкретную дату (для прошлых сезонов указываем
-    дату окончания регулярного сезона, например 2024-04-18)."""
+    """Турнирная таблица на конкретную дату."""
     url = f"{NHL_BASE}/standings/{date}"
     return await fetch_with_cache(f"standings:{date}", url, CACHE_TTL["standings"])
 
 
+@app.get("/api/seasons-list")
+async def seasons_list():
+    """Список всех сезонов в истории НХЛ с точной датой окончания регулярного
+    сезона (standingsEnd). Это устраняет угадывание дат — для каждого сезона
+    NHL API сам говорит, когда закончилась регулярка."""
+    url = f"{NHL_BASE}/standings-season"
+    return await fetch_with_cache("seasons-list", url, CACHE_TTL["standings"])
+
+
 @app.get("/api/playoff-bracket/{year}")
 async def playoff_bracket(year: str):
-    """Сетка плей-офф за указанный год (год начала плей-офф, например 2024)."""
+    """Сетка плей-офф за указанный год (год начала сезона, например 2024
+    для плей-офф сезона 2023-24)."""
     url = f"{NHL_BASE}/playoff-bracket/{year}"
     return await fetch_with_cache(f"bracket:{year}", url, CACHE_TTL["standings"])
 
