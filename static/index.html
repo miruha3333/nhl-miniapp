@@ -106,6 +106,15 @@
   }
   .date-input::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
 
+  /* Явно задаём цвета для option — без этого на некоторых системах (включая
+     Telegram WebView) выпадающий список рисуется системными цветами:
+     белый фон + светлый текст, из-за чего пункты невозможно прочитать. */
+  select.date-input { appearance: none; -webkit-appearance: none; }
+  select.date-input option {
+    background-color: #1A1A1A;
+    color: #E6E9EA;
+  }
+
   .date-row button {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -449,20 +458,39 @@
   let standingsViewMode = "all"; // all | conf | div
   let selectedSeasonEndDate = ""; // "" значит текущий сезон (now)
 
-  // Список сезонов для выбора: текущий + 10 прошлых.
-  // Дата — примерный конец регулярного сезона (середина апреля).
-  function buildSeasonOptions() {
+  // Список сезонов загружается с backend через /api/seasons-list —
+  // это реальные данные от NHL API (эндпоинт standings-season), включающие
+  // точную дату окончания регулярного сезона (standingsEnd) для каждого года.
+  // Больше никакого угадывания дат.
+  async function buildSeasonOptions() {
     const select = document.getElementById("season-select");
-    const now = new Date();
-    const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1; // сезон стартует в сентябре
+    select.innerHTML = `<option value="">Загрузка сезонов...</option>`;
 
-    let optionsHtml = `<option value="">Текущий сезон</option>`;
-    for (let y = startYear - 1; y >= startYear - 10; y--) {
-      const label = `${y}-${y + 1}`;
-      const endDate = `${y + 1}-04-18`;
-      optionsHtml += `<option value="${endDate}" data-start-year="${y}">${label}</option>`;
+    try {
+      const res = await fetch(`${API_BASE}/api/seasons-list`);
+      const data = await res.json();
+      const seasons = data?.seasons || [];
+
+      if (seasons.length === 0) {
+        select.innerHTML = `<option value="">Текущий сезон</option>`;
+        return;
+      }
+
+      // Сезоны от API идут от старых к новым — разворачиваем, чтобы новые были сверху
+      const sorted = [...seasons].sort((a, b) => b.id - a.id);
+
+      let optionsHtml = `<option value="">Текущий сезон</option>`;
+      sorted.forEach(s => {
+        const startYear = String(s.id).slice(0, 4);
+        const endYearShort = String(s.id).slice(6, 8);
+        const label = `${startYear}-${endYearShort}`;
+        // standingsEnd — точная дата окончания регулярного сезона от самого NHL API
+        optionsHtml += `<option value="${s.standingsEnd}" data-start-year="${startYear}">${label}</option>`;
+      });
+      select.innerHTML = optionsHtml;
+    } catch (e) {
+      select.innerHTML = `<option value="">Текущий сезон</option>`;
     }
-    select.innerHTML = optionsHtml;
 
     select.addEventListener("change", () => {
       const opt = select.options[select.selectedIndex];
@@ -750,23 +778,39 @@
     try {
       const res = await fetch(`${API_BASE}/api/playoff-bracket/${startYear}`);
       const data = await res.json();
-      const rounds = data?.rounds || [];
+
+      // Структура ответа NHL API для playoff-bracket не до конца задокументирована
+      // публично, поэтому пробуем несколько вероятных мест, где может лежать
+      // список раундов/серий.
+      const rounds = data?.rounds || data?.playoffRounds || data?.bracket?.rounds || [];
 
       if (!rounds.length) {
-        container.innerHTML = '<div class="bracket-wrap"><div class="empty">Плей-офф для этого сезона недоступен</div></div>';
+        container.innerHTML = `
+          <div class="bracket-wrap">
+            <div class="section-title">Сетка плей-офф</div>
+            <div class="empty">Плей-офф для этого сезона недоступен или ещё не начался</div>
+          </div>
+        `;
         return;
       }
 
       let html = '<div class="bracket-wrap"><div class="section-title">Сетка плей-офф</div>';
       rounds.forEach(round => {
-        const roundLabel = round.names?.name || `Раунд ${round.roundNumber || ""}`;
+        const roundLabel = round.names?.name || round.roundName || `Раунд ${round.roundNumber || ""}`;
         html += `<div class="bracket-round-title">${escapeHtml(roundLabel)}</div>`;
 
-        (round.series || []).forEach(series => {
-          const top = series.topSeedTeam || {};
-          const bottom = series.bottomSeedTeam || {};
-          const topWins = series.topSeedWins ?? 0;
-          const bottomWins = series.bottomSeedWins ?? 0;
+        const seriesList = round.series || round.matchups || [];
+
+        if (seriesList.length === 0) {
+          html += '<div class="empty">Серии для этого раунда не найдены</div>';
+          return;
+        }
+
+        seriesList.forEach(series => {
+          const top = series.topSeedTeam || series.team1 || {};
+          const bottom = series.bottomSeedTeam || series.team2 || {};
+          const topWins = series.topSeedWins ?? series.team1Wins ?? 0;
+          const bottomWins = series.bottomSeedWins ?? series.team2Wins ?? 0;
           const topIsWinner = topWins > bottomWins && (topWins === 4 || bottomWins === 4);
           const bottomIsWinner = bottomWins > topWins && (topWins === 4 || bottomWins === 4);
 
