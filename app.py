@@ -128,30 +128,36 @@ async def player(player_id: str):
 
 
 @app.get("/api/roster-stats/{team}")
-async def roster_stats(team: str):
+async def roster_stats(team: str, season: str | None = None):
     """
-    Улучшенный эндпоинт: запрашивает текущий сезон, а затем раздельно
-    скачивает регулярку (gameType=2) и плей-офф (gameType=3).
+    Состав и статистика команды за регулярку (gameType=2) и плей-офф (gameType=3).
+    Если season не указан — берётся текущий сезон (club-stats/.../now).
+    Если season указан (формат YYYYYYYY, например 20232024) — берётся состав
+    и статистика именно этого сезона, что важно для исторических данных:
+    без этого параметра при выборе старого сезона в таблице состав команды
+    всегда показывал бы текущих игроков.
     """
     team_upper = team.upper()
-    now_url = f"{NHL_BASE}/club-stats/{team_upper}/now"
 
     try:
-        base_data = await fetch_with_cache(f"roster_now:{team_upper}", now_url, CACHE_TTL["roster"])
-        if "error" in base_data:
-            return base_data
+        if season:
+            target_season = season
+        else:
+            now_url = f"{NHL_BASE}/club-stats/{team_upper}/now"
+            base_data = await fetch_with_cache(f"roster_now:{team_upper}", now_url, CACHE_TTL["roster"])
+            if "error" in base_data:
+                return base_data
+            target_season = base_data.get("season", 20252026)
 
-        season = base_data.get("season", 20252026)
+        reg_url = f"{NHL_BASE}/club-stats/{team_upper}/{target_season}/2"
+        po_url = f"{NHL_BASE}/club-stats/{team_upper}/{target_season}/3"
 
-        reg_url = f"{NHL_BASE}/club-stats/{team_upper}/{season}/2"
-        po_url = f"{NHL_BASE}/club-stats/{team_upper}/{season}/3"
-
-        regular_data = await fetch_with_cache(f"club_stats:{team_upper}:{season}:2", reg_url, CACHE_TTL["roster"])
-        playoff_data = await fetch_with_cache(f"club_stats:{team_upper}:{season}:3", po_url, CACHE_TTL["roster"])
+        regular_data = await fetch_with_cache(f"club_stats:{team_upper}:{target_season}:2", reg_url, CACHE_TTL["roster"])
+        playoff_data = await fetch_with_cache(f"club_stats:{team_upper}:{target_season}:3", po_url, CACHE_TTL["roster"])
 
         return {
             "team": team_upper,
-            "season": season,
+            "season": target_season,
             "regular": {
                 "skaters": regular_data.get("skaters", []),
                 "goalies": regular_data.get("goalies", [])
