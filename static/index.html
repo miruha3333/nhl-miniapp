@@ -457,6 +457,7 @@
   let standingsSortAsc = false;
   let standingsViewMode = "all"; // all | conf | div
   let selectedSeasonEndDate = ""; // "" значит текущий сезон (now)
+  let bracketLoadedOnce = false; // чтобы не дёргать bracket повторно при каждом переключении вкладки
 
   // Список сезонов загружается с backend через /api/seasons-list —
   // это реальные данные от NHL API (эндпоинт standings-season), включающие
@@ -497,7 +498,15 @@
       selectedSeasonEndDate = opt.value;
       currentStandingsData = [];
       loadStandings();
-      loadPlayoffBracket(opt.dataset.startYear || "");
+
+      // Если выбран "Текущий сезон" (value="") — у него нет data-start-year,
+      // вычисляем год начала текущего хоккейного сезона сами
+      let startYear = opt.dataset.startYear;
+      if (!startYear) {
+        const now = new Date();
+        startYear = String(now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1);
+      }
+      loadPlayoffBracket(startYear);
     });
   }
 
@@ -531,7 +540,13 @@
     document.getElementById("std-mode-all").classList.toggle("active", mode === "all");
     document.getElementById("std-mode-conf").classList.toggle("active", mode === "conf");
     document.getElementById("std-mode-div").classList.toggle("active", mode === "div");
-    renderStandings();
+    // Если данные ещё не загружены (например, режим переключили мгновенно
+    // после открытия вкладки) — сначала загружаем, потом рисуем
+    if (currentStandingsData.length === 0) {
+      loadStandings();
+    } else {
+      renderStandings();
+    }
   }
 
   buildSeasonOptions();
@@ -593,7 +608,20 @@
     document.getElementById("main-nav").style.display = "flex";
 
     lastMainTab = tab;
-    if (tab === "standings") loadStandings();
+    if (tab === "standings") {
+      loadStandings();
+      // Сетку плей-офф показываем и для текущего сезона, не только для
+      // прошлых выбранных через select — раньше bracket грузился только
+      // при ручном выборе сезона в выпадающем списке.
+      if (!bracketLoadedOnce) {
+        const now = new Date();
+        // Хоккейный сезон стартует в сентябре — если сейчас январь-август,
+        // значит сезон начался в прошлом календарном году
+        const currentSeasonStartYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+        loadPlayoffBracket(String(currentSeasonStartYear));
+        bracketLoadedOnce = true;
+      }
+    }
     if (tab === "players") loadPlayers();
   }
 
@@ -1198,12 +1226,14 @@
     `;
 
     try {
-      const [landingRes, rightRailRes] = await Promise.all([
+      const [landingRes, rightRailRes, boxRes] = await Promise.all([
         fetch(`${API_BASE}/api/score/${gameId}`),
         fetch(`${API_BASE}/api/right-rail/${gameId}`),
+        fetch(`${API_BASE}/api/boxscore/${gameId}`),
       ]);
       const landing = await landingRes.json();
       const rightRail = await rightRailRes.json();
+      const box = await boxRes.json();
 
       const scoring = landing?.summary?.scoring || [];
       html += '<div class="section-title">Голы</div>';
@@ -1239,6 +1269,48 @@
       // Статистика команд (броски, хиты, вбрасывания, силовые приёмы, штраф —
       // общий показатель, в скобках разбивка по периодам)
       html += renderTeamGameStats(rightRail, awayAbbrev, homeAbbrev, awayLogo, homeLogo);
+
+      // Вратари — данные берутся из boxscore, а не right-rail
+      html += '<div class="section-title">Вратари</div>';
+      const awayGoalies = box?.playerByGameStats?.awayTeam?.goalies || [];
+      const homeGoalies = box?.playerByGameStats?.homeTeam?.goalies || [];
+      const allGoalies = [...awayGoalies, ...homeGoalies];
+
+      if (allGoalies.length === 0) {
+        html += '<div class="empty">Нет данных о вратарях</div>';
+      } else {
+        html += `
+          <div class="table-scroll">
+            <table class="stat-table">
+              <thead>
+                <tr>
+                  <th>Вратарь</th><th>Броски</th><th>%ОБ</th><th>Время</th><th>ГКИ</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+        html += allGoalies.map(gk => {
+          let gaa = "—";
+          if (typeof gk.goalsAgainstAverage === 'number') {
+            gaa = gk.goalsAgainstAverage.toFixed(2);
+          } else if (gk.goalsAgainst !== undefined) {
+            gaa = Number(gk.goalsAgainst).toFixed(2);
+          }
+
+          let gName = gk.name?.default || gk.playerName?.default || `${nameStr(gk.firstName)} ${nameStr(gk.lastName)}`.trim() || "Вратарь";
+
+          return `
+            <tr>
+              <td>${escapeHtml(gName)}</td>
+              <td class="num">${val(gk.saveShotsAgainst)}</td>
+              <td class="num">${typeof gk.savePctg === 'number' ? gk.savePctg.toFixed(3) : val(gk.savePctg)}</td>
+              <td class="num">${val(gk.toi)}</td>
+              <td class="num">${gaa}</td>
+            </tr>
+          `;
+        }).join("");
+        html += "</tbody></table></div>";
+      }
 
     } catch (e) {
       html += '<div class="empty">Не удалось загрузить подробности матча</div>';
