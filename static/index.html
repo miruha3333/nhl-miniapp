@@ -789,15 +789,18 @@
       const sorted = sortTeams(currentStandingsData);
       html = sorted.map((t, i) => renderTeamRow(t, i + 1)).join("");
     } else {
-      // Группируем по конференции или дивизиону.
-      // Если у команд этого сезона нет данных о конференции/дивизионе
-      // (очень старые сезоны, когда их не было) — показываем явное сообщение
-      // вместо тихого падения в общую таблицу без группировки.
       const groupField = standingsViewMode === "conf" ? "conferenceName" : "divisionName";
       const hasGroupData = currentStandingsData.some(t => t[groupField]);
 
+      // ВРЕМЕННАЯ ДИАГНОСТИКА: показываем какое именно поле и значение
+      // реально пришло от API для первой команды в списке — это покажет,
+      // действительно ли отсутствуют данные, или поле называется иначе.
+      const sample = currentStandingsData[0];
+      const debugInfo = `режим=${standingsViewMode}, поле=${groupField}, значение_у_первой_команды="${sample[groupField]}", conferenceName="${sample.conferenceName}", divisionName="${sample.divisionName}"`;
+      console.log("STANDINGS DEBUG:", debugInfo);
+
       if (!hasGroupData) {
-        html = `<div class="group-header-row"><div>Для этого сезона данные о ${standingsViewMode === "conf" ? "конференциях" : "дивизионах"} отсутствуют</div></div>`;
+        html = `<div class="group-header-row"><div>Для этого сезона данные о ${standingsViewMode === "conf" ? "конференциях" : "дивизионах"} отсутствуют (${escapeHtml(debugInfo)})</div></div>`;
         const sorted = sortTeams(currentStandingsData);
         html += sorted.map((t, i) => renderTeamRow(t, i + 1)).join("");
       } else {
@@ -810,7 +813,7 @@
 
         Object.keys(groups).sort().forEach(groupName => {
           const sorted = sortTeams(groups[groupName]);
-          html += `<div class="group-header-row"><div>${escapeHtml(groupName)}</div></div>`;
+          html += `<div class="group-header-row"><div>${escapeHtml(groupName)} (${sorted.length})</div></div>`;
           html += sorted.map((t, i) => renderTeamRow(t, i + 1)).join("");
         });
       }
@@ -843,10 +846,12 @@
       const rounds = data?.rounds || data?.playoffRounds || data?.bracket?.rounds || [];
 
       if (!rounds.length) {
+        const topLevelKeys = data && typeof data === "object" ? Object.keys(data).join(", ") : "не объект";
+        console.log("BRACKET DEBUG: top-level keys =", topLevelKeys, "full data:", data);
         container.innerHTML = `
           <div class="bracket-wrap">
             <div class="section-title">Сетка плей-офф</div>
-            <div class="empty">Плей-офф для этого сезона недоступен или ещё не начался</div>
+            <div class="empty">Плей-офф для этого сезона недоступен или ещё не начался<br><span style="font-size:10px; opacity:0.6;">debug: ключи ответа API — ${escapeHtml(topLevelKeys)}</span></div>
           </div>
         `;
         return;
@@ -906,7 +911,11 @@
     body.innerHTML = '<div class="loading">Загрузка...</div>';
 
     try {
-      const res = await fetch(`${API_BASE}/api/leaders/${currentCat}?limit=${currentLimit}`);
+      const seasonId = seasonIdFromEndDate(selectedSeasonEndDate);
+      const url = seasonId
+        ? `${API_BASE}/api/leaders/${currentCat}?limit=${currentLimit}&season=${seasonId}`
+        : `${API_BASE}/api/leaders/${currentCat}?limit=${currentLimit}`;
+      const res = await fetch(url);
       const data = await res.json();
       const list = data[currentCat] || [];
 
