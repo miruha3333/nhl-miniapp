@@ -840,56 +840,72 @@
       const res = await fetch(`${API_BASE}/api/playoff-bracket/${startYear}`);
       const data = await res.json();
 
-      // Структура ответа NHL API для playoff-bracket не до конца задокументирована
-      // публично, поэтому пробуем несколько вероятных мест, где может лежать
-      // список раундов/серий.
-      const rounds = data?.rounds || data?.playoffRounds || data?.bracket?.rounds || [];
+      // Подтверждено реальным ответом API: серии лежат прямо в data.series,
+      // без обёртки rounds. Группируем их по номеру раунда сами.
+      const seriesList = data?.series || [];
 
-      if (!rounds.length) {
+      if (!seriesList.length) {
         const topLevelKeys = data && typeof data === "object" ? Object.keys(data).join(", ") : "не объект";
         console.log("BRACKET DEBUG: top-level keys =", topLevelKeys, "full data:", data);
         container.innerHTML = `
           <div class="bracket-wrap">
             <div class="section-title">Сетка плей-офф</div>
-            <div class="empty">Плей-офф для этого сезона недоступен или ещё не начался<br><span style="font-size:10px; opacity:0.6;">debug: ключи ответа API — ${escapeHtml(topLevelKeys)}</span></div>
+            <div class="empty">Плей-офф для этого сезона недоступен или ещё не начался</div>
           </div>
         `;
         return;
       }
 
+      // Группируем серии по раунду. Поле может называться round, roundNumber
+      // или playoffRound в зависимости от сезона — пробуем все варианты.
+      const roundsMap = {};
+      seriesList.forEach(series => {
+        const roundNum = series.round ?? series.roundNumber ?? series.playoffRound ?? 1;
+        if (!roundsMap[roundNum]) roundsMap[roundNum] = [];
+        roundsMap[roundNum].push(series);
+      });
+
+      const roundNames = {
+        1: "1-й раунд",
+        2: "2-й раунд (полуфинал конференции)",
+        3: "Финал конференции",
+        4: "Финал Кубка Стэнли"
+      };
+
       let html = '<div class="bracket-wrap"><div class="section-title">Сетка плей-офф</div>';
-      rounds.forEach(round => {
-        const roundLabel = round.names?.name || round.roundName || `Раунд ${round.roundNumber || ""}`;
-        html += `<div class="bracket-round-title">${escapeHtml(roundLabel)}</div>`;
 
-        const seriesList = round.series || round.matchups || [];
+      Object.keys(roundsMap).sort((a, b) => a - b).forEach(roundNum => {
+        html += `<div class="bracket-round-title">${escapeHtml(roundNames[roundNum] || `Раунд ${roundNum}`)}</div>`;
 
-        if (seriesList.length === 0) {
-          html += '<div class="empty">Серии для этого раунда не найдены</div>';
-          return;
-        }
-
-        seriesList.forEach(series => {
-          const top = series.topSeedTeam || series.team1 || {};
-          const bottom = series.bottomSeedTeam || series.team2 || {};
-          const topWins = series.topSeedWins ?? series.team1Wins ?? 0;
-          const bottomWins = series.bottomSeedWins ?? series.team2Wins ?? 0;
+        roundsMap[roundNum].forEach(series => {
+          // Подтверждённые названия команд-участников серии: bottomSeed/topSeed
+          // могут называться по-разному, пробуем известные варианты,
+          // а также возможные top/bottom team объекты внутри series.
+          const top = series.topSeedTeam || series.matchupTeams?.[0] || series.team1 || {};
+          const bottom = series.bottomSeedTeam || series.matchupTeams?.[1] || series.team2 || {};
+          const topWins = series.topSeedWins ?? series.matchupTeams?.[0]?.seriesWins ?? series.team1Wins ?? 0;
+          const bottomWins = series.bottomSeedWins ?? series.matchupTeams?.[1]?.seriesWins ?? series.team2Wins ?? 0;
           const topIsWinner = topWins > bottomWins && (topWins === 4 || bottomWins === 4);
           const bottomIsWinner = bottomWins > topWins && (topWins === 4 || bottomWins === 4);
+
+          const topAbbrev = top.abbrev || top.teamAbbrev?.default || top.placeName?.default || "TBD";
+          const bottomAbbrev = bottom.abbrev || bottom.teamAbbrev?.default || bottom.placeName?.default || "TBD";
+          const topLogo = top.logo || top.teamLogo || "";
+          const bottomLogo = bottom.logo || bottom.teamLogo || "";
 
           html += `
             <div class="bracket-series">
               <div class="bracket-team-row ${topIsWinner ? 'winner' : ''}">
                 <div class="bt-name">
-                  <img src="${top.logo || ''}" alt="" onerror="this.style.display='none'">
-                  <span>${escapeHtml(top.abbrev || top.placeName?.default || "TBD")}</span>
+                  <img src="${topLogo}" alt="" onerror="this.style.display='none'">
+                  <span>${escapeHtml(topAbbrev)}</span>
                 </div>
                 <div class="bt-wins">${topWins}</div>
               </div>
               <div class="bracket-team-row ${bottomIsWinner ? 'winner' : ''}">
                 <div class="bt-name">
-                  <img src="${bottom.logo || ''}" alt="" onerror="this.style.display='none'">
-                  <span>${escapeHtml(bottom.abbrev || bottom.placeName?.default || "TBD")}</span>
+                  <img src="${bottomLogo}" alt="" onerror="this.style.display='none'">
+                  <span>${escapeHtml(bottomAbbrev)}</span>
                 </div>
                 <div class="bt-wins">${bottomWins}</div>
               </div>
@@ -1037,6 +1053,14 @@
     const dataset = currentTeamFullData[currentTeamType];
     let filteredSkaters = [...(dataset.skaters || [])];
     let filteredGoalies = [...(dataset.goalies || [])];
+
+    // ВРЕМЕННАЯ ДИАГНОСТИКА: если сортировка для старых сезонов не работает,
+    // это покажет реальные ключи объекта игрока — возможно, поля называются
+    // иначе для исторических данных.
+    if (filteredSkaters.length > 0) {
+      console.log("SKATER FIELDS DEBUG:", Object.keys(filteredSkaters[0]).join(", "));
+      console.log("SKATER SAMPLE:", filteredSkaters[0]);
+    }
 
     // Сортировка с поддержкой альтернативных полей
     filteredSkaters.sort((a, b) => {
