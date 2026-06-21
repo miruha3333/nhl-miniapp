@@ -113,12 +113,24 @@ async def playoff_bracket(year: str):
 ALLOWED_CATEGORIES = {"points", "goals", "assists", "plusMinus"}
 
 @app.get("/api/leaders/{category}")
-async def leaders(category: str, limit: int = 25):
+async def leaders(category: str, limit: int = 25, season: str | None = None):
+    """Лидеры лиги по категории статистики. Если season не указан — берутся
+    текущие лидеры (skater-stats-leaders/current). Если указан (формат
+    YYYYYYYY) — лидеры именно этого сезона за регулярный чемпионат (gameType=2),
+    иначе вкладка 'Игроки' всегда показывала текущий сезон независимо от
+    выбора в таблице."""
     if category not in ALLOWED_CATEGORIES:
         category = "points"
     limit = max(1, min(limit, 50))
-    url = f"{NHL_BASE}/skater-stats-leaders/current?category={category}&limit={limit}"
-    return await fetch_with_cache(f"leaders:{category}:{limit}", url, CACHE_TTL["leaders"])
+
+    if season:
+        url = f"{NHL_BASE}/skater-stats-leaders/{season}/2?categories={category}&limit={limit}"
+        cache_key = f"leaders:{category}:{limit}:{season}"
+    else:
+        url = f"{NHL_BASE}/skater-stats-leaders/current?categories={category}&limit={limit}"
+        cache_key = f"leaders:{category}:{limit}"
+
+    return await fetch_with_cache(cache_key, url, CACHE_TTL["leaders"])
 
 
 @app.get("/api/player/{player_id}")
