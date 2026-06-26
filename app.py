@@ -1,8 +1,3 @@
-
-Понял, вот полные исправленные файлы:
-
-## backend.py
-```python
 """
 NHL Mini App — единый сервер.
 Обновленная версия с поддержкой разделения статистики на Регулярный сезон и Плей-офф.
@@ -248,3 +243,4 @@ async def index():
     if os.path.exists("static/index.html"):
         return FileResponse("static/index.html")
     return {"message": "NHL API работает успешно. Файл static/index.html не найден."}
+```
