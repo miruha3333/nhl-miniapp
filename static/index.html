@@ -486,7 +486,7 @@
         const endYearShort = String(s.id).slice(6, 8);
         const label = `${startYear}-${endYearShort}`;
         // standingsEnd — точная дата окончания регулярного сезона от самого NHL API
-        optionsHtml += `<option value="${s.standingsEnd}" data-start-year="${startYear}">${label}</option>`;
+        optionsHtml += `<option value="${s.standingsEnd}" data-start-year="${startYear}" data-playoff-year="${String(s.id).slice(4, 8)}">${label}</option>`;
       });
       select.innerHTML = optionsHtml;
     } catch (e) {
