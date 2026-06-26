@@ -785,31 +785,15 @@
 
     let html = "";
 
-    // ВИДИМАЯ ДИАГНОСТИКА (без консоли разработчика) — временный баннер,
-    // показывающий текущий режим и реальные значения первой команды.
-    // Уберём после того как разберёмся с группировкой.
-    const sample = currentStandingsData[0];
-    const debugBanner = `
-      <div class="group-header-row">
-        <div style="background:#3a1a1a; color:#ffb3b3; font-size:10px; line-height:1.4;">
-          DEBUG: standingsViewMode="${standingsViewMode}" | команд всего=${currentStandingsData.length} |
-          у первой команды (${sample.teamAbbrev?.default || sample.teamAbbrev || "?"}):
-          conferenceName="${sample.conferenceName}", divisionName="${sample.divisionName}",
-          conferenceAbbrev="${sample.conferenceAbbrev}", divisionAbbrev="${sample.divisionAbbrev}"
-        </div>
-      </div>
-    `;
-
     if (standingsViewMode === "all") {
       const sorted = sortTeams(currentStandingsData);
-      html = debugBanner + sorted.map((t, i) => renderTeamRow(t, i + 1)).join("");
+      html = sorted.map((t, i) => renderTeamRow(t, i + 1)).join("");
     } else {
       const groupField = standingsViewMode === "conf" ? "conferenceName" : "divisionName";
       const hasGroupData = currentStandingsData.some(t => t[groupField]);
 
       if (!hasGroupData) {
-        html = debugBanner;
-        html += `<div class="group-header-row"><div>Для этого сезона данные о ${standingsViewMode === "conf" ? "конференциях" : "дивизионах"} отсутствуют</div></div>`;
+        html = `<div class="group-header-row"><div>Для этого сезона данные о ${standingsViewMode === "conf" ? "конференциях" : "дивизионах"} отсутствуют</div></div>`;
         const sorted = sortTeams(currentStandingsData);
         html += sorted.map((t, i) => renderTeamRow(t, i + 1)).join("");
       } else {
@@ -820,10 +804,9 @@
           groups[key].push(t);
         });
 
-        html = debugBanner;
         Object.keys(groups).sort().forEach(groupName => {
           const sorted = sortTeams(groups[groupName]);
-          html += `<div class="group-header-row"><div>${escapeHtml(groupName)} (${sorted.length})</div></div>`;
+          html += `<div class="group-header-row"><div>${escapeHtml(groupName)}</div></div>`;
           html += sorted.map((t, i) => renderTeamRow(t, i + 1)).join("");
         });
       }
@@ -978,9 +961,14 @@
     }
   }
 
-  document.querySelectorAll(".cat-row button").forEach(btn => {
+  // Важно: исключаем кнопки std-mode-* (общая/конференции/дивизионы) из этого
+  // общего обработчика — они тоже лежат в .cat-row, но имеют свою собственную
+  // логику (setStandingsMode). Без этого исключения общий обработчик
+  // перезаписывал .onclick кнопок таблицы, и переключение режима ломалось:
+  // кнопка подсвечивалась активной, но реальный режим не менялся.
+  document.querySelectorAll(".cat-row button:not(#std-mode-all):not(#std-mode-conf):not(#std-mode-div)").forEach(btn => {
     btn.onclick = () => {
-      document.querySelectorAll(".cat-row button").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".cat-row button:not(#std-mode-all):not(#std-mode-conf):not(#std-mode-div)").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       currentCat = btn.dataset.cat;
       currentLimit = 25;
@@ -1063,14 +1051,6 @@
     const dataset = currentTeamFullData[currentTeamType];
     let filteredSkaters = [...(dataset.skaters || [])];
     let filteredGoalies = [...(dataset.goalies || [])];
-
-    // ВРЕМЕННАЯ ДИАГНОСТИКА: если сортировка для старых сезонов не работает,
-    // это покажет реальные ключи объекта игрока — возможно, поля называются
-    // иначе для исторических данных.
-    if (filteredSkaters.length > 0) {
-      console.log("SKATER FIELDS DEBUG:", Object.keys(filteredSkaters[0]).join(", "));
-      console.log("SKATER SAMPLE:", filteredSkaters[0]);
-    }
 
     // Сортировка с поддержкой альтернативных полей
     filteredSkaters.sort((a, b) => {
