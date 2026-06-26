@@ -501,12 +501,33 @@
 
       // Если выбран "Текущий сезон" (value="") — у него нет data-start-year,
       // вычисляем год начала текущего хоккейного сезона сами
+      const isCurrentSeason = !opt.dataset.startYear;
       let startYear = opt.dataset.startYear;
       if (!startYear) {
         const now = new Date();
         startYear = String(now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1);
       }
-      loadPlayoffBracket(startYear);
+
+      if (isCurrentSeason) {
+        // Для текущего сезона проверяем, начался ли плей-офф вообще —
+        // иначе NHL API может вернуть устаревшие данные прошлого года
+        const now = new Date();
+        const playoffStartApprox = new Date(parseInt(startYear, 10) + 1, 3, 14);
+        if (now >= playoffStartApprox) {
+          loadPlayoffBracket(startYear);
+        } else {
+          const container = document.getElementById("bracket-container");
+          container.innerHTML = `
+            <div class="bracket-wrap">
+              <div class="section-title">Сетка плей-офф</div>
+              <div class="empty">Регулярный сезон ещё не завершён — плей-офф начнётся позже</div>
+            </div>
+          `;
+        }
+      } else {
+        // Для прошлых сезонов плей-офф точно состоялся — грузим как обычно
+        loadPlayoffBracket(startYear);
+      }
     });
   }
 
@@ -610,15 +631,30 @@
     lastMainTab = tab;
     if (tab === "standings") {
       loadStandings();
-      // Сетку плей-офф показываем и для текущего сезона, не только для
-      // прошлых выбранных через select — раньше bracket грузился только
-      // при ручном выборе сезона в выпадающем списке.
+      // Сетку плей-офф показываем для текущего сезона, но только если
+      // регулярный чемпионат уже закончился (примерно середина апреля) —
+      // иначе NHL API для ещё не начавшегося плей-офф иногда отдаёт данные
+      // ПРОШЛОГО года как "последние доступные", что выглядит как актуальный
+      // результат хотя на деле плей-офф этого сезона ещё не было.
       if (!bracketLoadedOnce) {
         const now = new Date();
-        // Хоккейный сезон стартует в сентябре — если сейчас январь-август,
-        // значит сезон начался в прошлом календарном году
         const currentSeasonStartYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
-        loadPlayoffBracket(String(currentSeasonStartYear));
+
+        // Плей-офф года currentSeasonStartYear начинается в апреле года
+        // currentSeasonStartYear+1. Если сейчас раньше середины апреля
+        // следующего года — регулярка ещё идёт, плей-офф объективно нет.
+        const playoffStartApprox = new Date(currentSeasonStartYear + 1, 3, 14); // 14 апреля
+        if (now >= playoffStartApprox) {
+          loadPlayoffBracket(String(currentSeasonStartYear));
+        } else {
+          const container = document.getElementById("bracket-container");
+          container.innerHTML = `
+            <div class="bracket-wrap">
+              <div class="section-title">Сетка плей-офф</div>
+              <div class="empty">Регулярный сезон ещё не завершён — плей-офф начнётся позже</div>
+            </div>
+          `;
+        }
         bracketLoadedOnce = true;
       }
     }
