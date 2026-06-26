@@ -243,4 +243,3 @@ async def index():
     if os.path.exists("static/index.html"):
         return FileResponse("static/index.html")
     return {"message": "NHL API работает успешно. Файл static/index.html не найден."}
-```
