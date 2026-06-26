@@ -869,6 +869,28 @@
       const res = await fetch(`${API_BASE}/api/playoff-bracket/${startYear}`);
       const data = await res.json();
 
+      // ВИДИМАЯ ДИАГНОСТИКА: показываем какой именно год запрашивали и что
+      // реально пришло — какие команды в финале по данным API.
+      let finalsTeams = "не найдено";
+      if (data?.series && Array.isArray(data.series)) {
+        const finalSeries = data.series.find(s => (s.round ?? s.roundNumber) === 4 || (s.round ?? s.roundNumber) === Math.max(...data.series.map(x => x.round ?? x.roundNumber ?? 0)));
+        if (finalSeries) {
+          const t1 = finalSeries.topSeedTeam?.abbrev || finalSeries.matchupTeams?.[0]?.abbrev || "?";
+          const t2 = finalSeries.bottomSeedTeam?.abbrev || finalSeries.matchupTeams?.[1]?.abbrev || "?";
+          finalsTeams = `${t1} vs ${t2}`;
+        }
+      }
+      const debugHtml = `
+        <div class="bracket-wrap">
+          <div style="background:#3a1a1a; color:#ffb3b3; font-size:10px; line-height:1.5; padding:10px; border-radius:8px; margin-bottom:10px;">
+            DEBUG: запрошен год startYear="${startYear}" → URL /api/playoff-bracket/${startYear}<br>
+            Финальная серия по данным API: ${escapeHtml(finalsTeams)}<br>
+            Всего серий в ответе: ${data?.series?.length ?? 0}<br>
+            Верхнеуровневые ключи ответа: ${data && typeof data === "object" ? Object.keys(data).join(", ") : "не объект"}
+          </div>
+        </div>
+      `;
+
       // Подтверждено реальным ответом API: серии лежат прямо в data.series,
       // без обёртки rounds. Группируем их по номеру раунда сами.
       const seriesList = data?.series || [];
