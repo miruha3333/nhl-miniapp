@@ -80,6 +80,15 @@ async def schedule(date: str):
     return await fetch_with_cache(f"schedule:{date}", url, CACHE_TTL["schedule"])
 
 
+@app.get("/api/spotlight")
+async def spotlight():
+    """Игроки 'в центре внимания' — подборка от самого NHL API на основе
+    недавних результатов. Используется для заполнения пустого пространства
+    на вкладке 'Матчи' в дни без игр."""
+    url = f"{NHL_BASE}/player-spotlight"
+    return await fetch_with_cache("spotlight", url, CACHE_TTL["schedule"])
+
+
 @app.get("/api/standings")
 async def standings():
     url = f"{NHL_BASE}/standings/now"
