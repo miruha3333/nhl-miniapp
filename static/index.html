@@ -266,6 +266,23 @@
     margin-top: 4px;
   }
   .spotlight-team .team-logo { width: 16px; height: 16px; }
+
+  .spotlight-rank {
+    font-family: 'Roboto Mono', monospace;
+    color: var(--silver-dim);
+    width: 18px;
+    flex-shrink: 0;
+    text-align: center;
+    font-size: 13px;
+  }
+
+  .spotlight-value {
+    font-family: 'Roboto Mono', monospace;
+    font-weight: 700;
+    font-size: 20px;
+    color: var(--blue);
+    flex-shrink: 0;
+  }
   .loading { font-family: 'Roboto Mono', monospace; }
 
   /* Детали матча/команды/игрока */
@@ -772,17 +789,20 @@
   // Заполняет пустое пространство в дни без матчей карточками игроков
   // "в центре внимания" — подборка от самого NHL API на основе недавних
   // результатов, с фото и краткой статистикой.
+  // Заполняет пустое пространство в дни без матчей карточками лидеров лиги
+  // по очкам — используем тот же эндпоинт /api/leaders, который уже точно
+  // работает на вкладке "Игроки", поэтому структура данных надёжна.
   async function loadSpotlight() {
     const games = document.getElementById("games");
     try {
-      const res = await fetch(`${API_BASE}/api/spotlight`);
+      const res = await fetch(`${API_BASE}/api/leaders/points?limit=6`);
       const data = await res.json();
-      const players = Array.isArray(data) ? data : (data.players || data.spotlight || []);
+      const players = data.points || [];
 
       if (!players.length) return;
 
-      let html = '<div class="spotlight-title">Игроки в центре внимания</div>';
-      html += players.slice(0, 6).map(renderSpotlightCard).join("");
+      let html = '<div class="spotlight-title">Лидеры лиги по очкам</div>';
+      html += players.map((p, i) => renderSpotlightCard(p, i + 1)).join("");
       games.insertAdjacentHTML("beforeend", html);
 
       games.querySelectorAll(".spotlight-card").forEach(el => {
@@ -791,31 +811,30 @@
         });
       });
     } catch (e) {
-      // Если spotlight не загрузился — просто оставляем сообщение
+      // Если лидеры не загрузились — просто оставляем сообщение
       // "матчей нет" без дополнительной ошибки, это не критично
     }
   }
 
-  function renderSpotlightCard(p) {
+  function renderSpotlightCard(p, rank) {
     const name = `${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim() || "Игрок";
     const headshot = p.headshot || "";
-    const teamAbbrev = p.teamAbbrev?.default || p.teamAbbrev || "";
+    const teamAbbrev = p.teamAbbrev || "";
     const teamLogo = p.teamLogo || "";
-    // Краткая статистика — берём то, что прислал API: очки, голы, или любой
-    // другой показатель, если он есть в ответе
-    const statLine = p.sweaterNumber ? `№${p.sweaterNumber}` : "";
-    const playerId = p.playerId || p.id || "";
+    const playerId = p.id || "";
 
     return `
       <div class="spotlight-card" data-player-id="${playerId}">
+        <div class="spotlight-rank">${rank}</div>
         <img class="spotlight-headshot" src="${headshot}" alt="" onerror="this.style.visibility='hidden'">
         <div class="spotlight-info">
           <div class="spotlight-name">${escapeHtml(name)}</div>
           <div class="spotlight-team">
             <img class="team-logo" src="${teamLogo}" alt="" onerror="this.style.display='none'">
-            <span>${escapeHtml(teamAbbrev)} ${statLine}</span>
+            <span>${escapeHtml(teamAbbrev)}</span>
           </div>
         </div>
+        <div class="spotlight-value">${p.value ?? ""}</div>
       </div>
     `;
   }
