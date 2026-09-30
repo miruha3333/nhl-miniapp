@@ -426,6 +426,10 @@
   .video-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin: 12px 0; }
   .video-title { font-family: 'Oswald', sans-serif; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
   .video-frame { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 10px; background: #000; display: block; }
+  .video-preview { width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; background: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+  .video-play { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #222; font-size: 22px; }
+  .video-preview-text { color: var(--silver); font-size: 13px; }
+
   .video-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 9px; }
   .video-link { display: inline-block; padding: 8px 11px; border: 1px solid var(--border); border-radius: 8px; color: var(--silver); text-decoration: none; font-size: 12px; background: var(--surface-2); }
   .video-note { color: var(--silver-dim); font-size: 11px; line-height: 1.4; margin-top: 7px; }
@@ -1836,41 +1840,44 @@
   async function renderGameVideo(gameId, awayAbbrev, homeAbbrev) {
     try {
       const res = await fetch(`${API_BASE}/api/game-video/${gameId}`);
+      if (!res.ok) return '';
+
       const data = await res.json();
       const videos = Array.isArray(data.videos) ? data.videos : [];
-
-      if (!videos.length) {
-        return '';
-      }
+      if (!videos.length) return '';
 
       const recap = videos.find(v => v.kind === 'recap') || videos[0];
       const condensed = videos.find(v => v.kind === 'condensed');
+
       const recapUrl = recap?.url || '';
       const condensedUrl = condensed?.url || '';
-      const externalUrl = recapUrl || condensedUrl || data.gameCenterLink || '';
+      if (!recapUrl && !condensedUrl) return '';
 
-      if (!externalUrl) return '';
-
-      // Большинство NHL video URLs можно открыть во встроенном iframe.
-      // Если конкретный URL запрещает embedding, пользователь всё равно
-      // получает рабочую кнопку перехода на NHL.com.
-      let html = `
+      // NHL отдаёт официальную страницу видео /video/... .
+      // Не пытаемся вставлять её через iframe: NHL может запрещать embedding
+      // через X-Frame-Options/CSP. Вместо этого показываем гарантированную
+      // рабочую ссылку на официальный ролик.
+      return `
         <div class="section-title">Видео</div>
         <div class="video-card">
           <div class="video-title">🎥 Обзор матча ${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
-          <iframe class="video-frame" src="${escapeHtml(externalUrl)}" title="Обзор матча" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
-          <div class="video-actions">
-            <a class="video-link" href="${escapeHtml(externalUrl)}" target="_blank" rel="noopener noreferrer">Открыть видео на NHL.com</a>
-            ${condensedUrl && condensedUrl !== externalUrl ? `<a class="video-link" href="${escapeHtml(condensedUrl)}" target="_blank" rel="noopener noreferrer">Полный condensed game</a>` : ''}
+          <div class="video-preview">
+            <div class="video-play">▶</div>
+            <div class="video-preview-text">Официальный обзор NHL</div>
           </div>
-          <div class="video-note">Видео загружается напрямую с NHL.com. Если плеер не отображается в Telegram, откройте видео по кнопке выше.</div>
+          <div class="video-actions">
+            ${recapUrl ? `<a class="video-link video-primary" href="${escapeHtml(recapUrl)}" target="_blank" rel="noopener noreferrer">▶ Смотреть обзор на NHL.com</a>` : ''}
+            ${condensedUrl && condensedUrl !== recapUrl ? `<a class="video-link" href="${escapeHtml(condensedUrl)}" target="_blank" rel="noopener noreferrer">Полный матч</a>` : ''}
+          </div>
+          <div class="video-note">Видео открывается на официальном сайте NHL. Telegram Mini App не может гарантировать встроенное воспроизведение роликов NHL.</div>
         </div>
       `;
-      return html;
     } catch (e) {
+      console.error('Ошибка загрузки видео:', e);
       return '';
     }
   }
+
 
   async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
     openDetail();
