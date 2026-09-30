@@ -739,6 +739,8 @@
   let currentDate = new Date();
   let currentCat = "points";
   let currentLimit = 25;
+  let currentGoalieSortKey = "wins";
+  let currentGoalieSortAsc = false;
 
   const datePicker = document.getElementById("date-picker");
 
@@ -1339,72 +1341,76 @@
     try {
       const seasonId = seasonIdFromEndDate(selectedSeasonEndDate);
       const url = seasonId
-        ? `${API_BASE}/api/goalie-leaders?limit=${currentLimit}&season=${seasonId}`
-        : `${API_BASE}/api/goalie-leaders?limit=${currentLimit}`;
+        ? `${API_BASE}/api/goalie-leaders?limit=100&season=${seasonId}`
+        : `${API_BASE}/api/goalie-leaders?limit=100`;
       const res = await fetch(url);
       const data = await res.json();
-      const wins = data.wins || [];
+      let rows = Array.isArray(data.goalies) ? [...data.goalies] : [];
 
-      if (!wins.length) {
+      if (!rows.length) {
         body.innerHTML = '<div class="empty">Нет данных вратарей</div>';
         return;
       }
 
-      const byPlayer = new Map();
-      ["wins", "savePctg", "goalsAgainstAvg", "shutouts"].forEach(category => {
-        (data[category] || []).forEach(p => {
-          const id = p.id;
-          if (!id) return;
-          if (!byPlayer.has(id)) byPlayer.set(id, { id });
-          byPlayer.get(id)[category] = p;
-        });
+      const valueForSort = (p, key) => {
+        const value = p[key];
+        if (value === null || value === undefined || value === "") return -Infinity;
+        const n = Number(value);
+        return Number.isNaN(n) ? String(value).toLowerCase() : n;
+      };
+
+      rows.sort((a, b) => {
+        const av = valueForSort(a, currentGoalieSortKey);
+        const bv = valueForSort(b, currentGoalieSortKey);
+        if (typeof av === "string" || typeof bv === "string") {
+          const result = String(av).localeCompare(String(bv), "ru");
+          return currentGoalieSortAsc ? result : -result;
+        }
+        return currentGoalieSortAsc ? av - bv : bv - av;
       });
 
-      const rows = wins.map(p => {
-        const all = byPlayer.get(p.id) || { id: p.id };
-        return {
-          id: p.id,
-          firstName: p.firstName,
-          lastName: p.lastName,
-          headshot: p.headshot,
-          teamAbbrev: p.teamAbbrev || all.savePctg?.teamAbbrev || all.goalsAgainstAvg?.teamAbbrev || "",
-          teamLogo: p.teamLogo || all.savePctg?.teamLogo || all.goalsAgainstAvg?.teamLogo || "",
-          wins: all.wins?.value ?? p.value ?? "—",
-          savePctg: all.savePctg?.value ?? "—",
-          goalsAgainstAvg: all.goalsAgainstAvg?.value ?? "—",
-          shutouts: all.shutouts?.value ?? "—"
-        };
-      });
+      const arrow = key => currentGoalieSortKey === key ? (currentGoalieSortAsc ? " ↑" : " ↓") : "";
+      const display = value => value === null || value === undefined || value === "" ? "—" : value;
 
       body.innerHTML = `
-        <div class="section-title">Лидеры вратарей</div>
+        <div class="section-title">Вратари</div>
         <div class="table-scroll">
           <table class="stat-table">
             <thead>
               <tr>
-                <th>Вратарь</th><th>В</th><th>%ОБ</th><th>ГКИ</th><th>СО</th>
+                <th class="sortable" data-goalie-sort="name">Вратарь${arrow("name")}</th>
+                <th class="sortable" data-goalie-sort="gamesPlayed">И${arrow("gamesPlayed")}</th>
+                <th class="sortable" data-goalie-sort="wins">В${arrow("wins")}</th>
+                <th class="sortable" data-goalie-sort="losses">П${arrow("losses")}</th>
+                <th class="sortable" data-goalie-sort="otLosses">ПБО${arrow("otLosses")}</th>
+                <th class="sortable" data-goalie-sort="savePctg">%ОБ${arrow("savePctg")}</th>
+                <th class="sortable" data-goalie-sort="gaa" title="Голы в среднем за игру">Г (ср)${arrow("gaa")}</th>
+                <th class="sortable" data-goalie-sort="shutouts" title="Шатауты">SO${arrow("shutouts")}</th>
               </tr>
             </thead>
             <tbody>
               ${rows.map((p, i) => {
-                const sv = typeof p.savePctg === "number" ? p.savePctg.toFixed(3) : p.savePctg;
-                const gaa = typeof p.goalsAgainstAvg === "number" ? p.goalsAgainstAvg.toFixed(2) : p.goalsAgainstAvg;
+                const sv = p.savePctg === null || p.savePctg === undefined ? "—" : Number(p.savePctg).toFixed(3);
+                const gaa = p.gaa === null || p.gaa === undefined ? "—" : Number(p.gaa).toFixed(2);
+                const fullName = `${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim();
                 return `
-                  <tr class="clickable-row" data-player-id="${p.id}">
+                  <tr class="clickable-row" data-player-id="${p.playerId}">
                     <td>
-                      <div style="display:flex;align-items:center;gap:8px;min-width:150px;">
+                      <div style="display:flex;align-items:center;gap:7px;min-width:155px;">
                         <span style="color:var(--silver-dim);font-family:'Roboto Mono',monospace;width:20px;">${i + 1}</span>
-                        <img class="headshot" src="${p.headshot || ""}" alt="" onerror="this.style.visibility='hidden'" style="width:34px;height:34px;">
                         <div>
-                          <div>${escapeHtml(nameStr(p.firstName))} ${escapeHtml(nameStr(p.lastName))}</div>
-                          <div style="font-size:10px;color:var(--silver-dim);margin-top:2px;">${clubLink(p.teamAbbrev, p.teamAbbrev, p.teamLogo, p.teamAbbrev)}</div>
+                          <div>${escapeHtml(fullName || "Вратарь")}</div>
+                          <div style="font-size:10px;color:var(--silver-dim);margin-top:2px;">${clubLink(p.teamAbbrev || "", p.teamAbbrev || "", "", p.teamAbbrev || "")}</div>
                         </div>
                       </div>
                     </td>
-                    <td class="num">${escapeHtml(p.wins)}</td>
+                    <td class="num">${display(p.gamesPlayed)}</td>
+                    <td class="num">${display(p.wins)}</td>
+                    <td class="num">${display(p.losses)}</td>
+                    <td class="num">${display(p.otLosses)}</td>
                     <td class="num">${escapeHtml(sv)}</td>
                     <td class="num">${escapeHtml(gaa)}</td>
-                    <td class="num">${escapeHtml(p.shutouts)}</td>
+                    <td class="num">${display(p.shutouts)}</td>
                   </tr>
                 `;
               }).join("")}
@@ -1412,6 +1418,20 @@
           </table>
         </div>
       `;
+
+      body.querySelectorAll("th[data-goalie-sort]").forEach(th => {
+        th.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const key = th.dataset.goalieSort;
+          if (currentGoalieSortKey === key) {
+            currentGoalieSortAsc = !currentGoalieSortAsc;
+          } else {
+            currentGoalieSortKey = key;
+            currentGoalieSortAsc = false;
+          }
+          loadGoalieLeaders();
+        });
+      });
 
       body.querySelectorAll("tr.clickable-row").forEach(el => {
         el.addEventListener("click", () => openPlayerDetail(el.dataset.playerId));
@@ -1432,6 +1452,10 @@
       btn.classList.add("active");
       currentCat = btn.dataset.cat;
       currentLimit = 25;
+      if (currentCat === "goalies") {
+        currentGoalieSortKey = "wins";
+        currentGoalieSortAsc = false;
+      }
       loadPlayers();
     };
   });
