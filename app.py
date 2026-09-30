@@ -146,35 +146,44 @@ async def leaders(category: str, limit: int = 25, season: str | None = None):
 
 @app.get("/api/goalie-leaders")
 async def goalie_leaders(limit: int = 50, season: str | None = None):
-    """Полная таблица вратарей из NHL Stats REST API.
+    """Таблица вратарей за выбранный сезон.
 
-    В отличие от нескольких отдельных leaderboard-запросов здесь получаем
-    одну строку на вратаря с И/В/П/ПБО/%ОБ/ГКИ/SO, поэтому фронтенд может
-    нормально сортировать всю таблицу.
+    Основной источник — NHL Stats REST. Если выбран текущий сезон, но
+    регулярная статистика ещё пуста (например, в межсезонье), автоматически
+    берём последний завершённый сезон, чтобы вкладка не была пустой.
     """
     limit = max(1, min(limit, 100))
+
+    now = time.localtime()
+    current_start_year = now.tm_year if now.tm_mon >= 9 else now.tm_year - 1
+    current_season = f"{current_start_year}{current_start_year + 1}"
 
     if season:
         target_season = season
     else:
-        now = time.localtime()
-        start_year = now.tm_year if now.tm_mon >= 9 else now.tm_year - 1
-        target_season = f"{start_year}{start_year + 1}"
+        target_season = current_season
 
-    url = (
-        "https://api.nhle.com/stats/rest/en/goalie/summary"
-        f"?isAggregate=true&cayenneExp=seasonId={target_season}%20and%20gameTypeId=2"
-        f"&limit={limit}"
-    )
-    cache_key = f"goalie-summary:{target_season}:{limit}"
-    data = await fetch_with_cache(cache_key, url, CACHE_TTL["leaders"])
+    async def load_season(season_id: str):
+        url = (
+            "https://api.nhle.com/stats/rest/en/goalie/summary"
+            f"?isAggregate=true&cayenneExp=seasonId={season_id}%20and%20gameTypeId=2"
+            f"&limit={limit}"
+        )
+        cache_key = f"goalie-summary:{season_id}:{limit}"
+        data = await fetch_with_cache(cache_key, url, CACHE_TTL["leaders"])
+        raw_rows = data.get("data", []) if isinstance(data, dict) else []
+        return raw_rows if isinstance(raw_rows, list) else []
 
-    if not isinstance(data, dict):
-        return {"season": target_season, "goalies": []}
+    raw_rows = await load_season(target_season)
+    stats_season = target_season
 
-    raw_rows = data.get("data", [])
-    if not isinstance(raw_rows, list):
-        raw_rows = []
+    # В конце сентября текущий сезон уже существует, но регулярная статистика
+    # ещё может отсутствовать. Тогда показываем последний завершённый сезон.
+    if not raw_rows and target_season == current_season:
+        previous_start = current_start_year - 1
+        previous_season = f"{previous_start}{previous_start + 1}"
+        raw_rows = await load_season(previous_season)
+        stats_season = previous_season
 
     goalies = []
     for row in raw_rows:
@@ -185,8 +194,14 @@ async def goalie_leaders(limit: int = 50, season: str | None = None):
         if isinstance(last_name, dict):
             last_name = last_name.get("default", "")
 
+        player_id = row.get("playerId")
+        full_name = row.get("goalieFullName") or row.get("playerName") or ""
+        if not full_name:
+            full_name = f"{first_name} {last_name}".strip()
         goalies.append({
-            "id": row.get("playerId"),
+            "id": player_id,
+            "playerId": player_id,
+            "name": full_name,
             "firstName": first_name,
             "lastName": last_name,
             "teamAbbrev": row.get("teamAbbrevs") or row.get("teamAbbrev") or "",
@@ -195,14 +210,19 @@ async def goalie_leaders(limit: int = 50, season: str | None = None):
             "wins": row.get("wins"),
             "losses": row.get("losses"),
             "otLosses": row.get("otLosses"),
-            "savePctg": row.get("savePctg"),
+            "savePctg": row.get("savePctg", row.get("savePct")),
             "gaa": row.get("goalsAgainstAverage", row.get("gaa")),
             "shutouts": row.get("shutouts"),
             "saves": row.get("saves"),
             "shotsAgainst": row.get("shotsAgainst"),
         })
 
-    return {"season": target_season, "goalies": goalies}
+    return {
+        "season": stats_season,
+        "requestedSeason": target_season,
+        "fallback": stats_season != target_season,
+        "goalies": goalies,
+    }
 
 
 @app.get("/api/game-video/{game_id}")
@@ -354,34 +374,51 @@ async def player(player_id: str):
 
 @app.get("/api/goalie/{player_id}")
 async def goalie_player(player_id: str, season: str | None = None):
-    """Статистика конкретного вратаря за выбранный сезон.
+    """Статистика конкретного вратаря.
 
-    Профиль игрока NHL API не всегда содержит featuredStats для вратаря
-    в том же виде, что таблица лидеров. Поэтому карточка вратаря получает
-    строку непосредственно из Stats REST goalie/summary — того же источника,
-    который используется общей таблицей вратарей.
+    Используется тот же источник, что и таблица вратарей. Если текущий сезон
+    ещё не содержит регулярной статистики, берём последний завершённый сезон.
     """
-    if season:
-        target_season = season
-    else:
-        now = time.localtime()
-        start_year = now.tm_year if now.tm_mon >= 9 else now.tm_year - 1
-        target_season = f"{start_year}{start_year + 1}"
+    now = time.localtime()
+    current_start_year = now.tm_year if now.tm_mon >= 9 else now.tm_year - 1
+    current_season = f"{current_start_year}{current_start_year + 1}"
+    target_season = season or current_season
 
-    url = (
-        "https://api.nhle.com/stats/rest/en/goalie/summary"
-        f"?isAggregate=true&cayenneExp=seasonId={target_season}%20and%20gameTypeId=2%20and%20playerId={player_id}"
-        "&limit=5"
-    )
-    cache_key = f"goalie-player:{player_id}:{target_season}"
-    data = await fetch_with_cache(cache_key, url, CACHE_TTL["player"])
+    async def load(season_id: str):
+        url = (
+            "https://api.nhle.com/stats/rest/en/goalie/summary"
+            f"?isAggregate=true&cayenneExp=seasonId={season_id}%20and%20gameTypeId=2%20and%20playerId={player_id}"
+            "&limit=5"
+        )
+        cache_key = f"goalie-player:{player_id}:{season_id}"
+        data = await fetch_with_cache(cache_key, url, CACHE_TTL["player"])
+        rows = data.get("data", []) if isinstance(data, dict) else []
+        return rows[0] if isinstance(rows, list) and rows else None
 
-    rows = data.get("data", []) if isinstance(data, dict) else []
-    row = rows[0] if isinstance(rows, list) and rows else None
+    row = await load(target_season)
+    stats_season = target_season
+
+    if row is None and target_season == current_season:
+        previous_start = current_start_year - 1
+        previous_season = f"{previous_start}{previous_start + 1}"
+        row = await load(previous_season)
+        stats_season = previous_season
+
     if not isinstance(row, dict):
-        return {"season": target_season, "found": False}
+        return {
+            "season": stats_season,
+            "requestedSeason": target_season,
+            "fallback": stats_season != target_season,
+            "found": False,
+        }
 
-    return {"season": target_season, "found": True, "stats": row}
+    return {
+        "season": stats_season,
+        "requestedSeason": target_season,
+        "fallback": stats_season != target_season,
+        "found": True,
+        "stats": row,
+    }
 
 
 @app.get("/api/roster-stats/{team}")
