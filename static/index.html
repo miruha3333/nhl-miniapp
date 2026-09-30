@@ -204,6 +204,17 @@
   .player-row .pteam .team-logo { width: 16px; height: 16px; }
   .player-row .pvalue { font-family: 'Roboto Mono', monospace; font-weight: 700; font-size: 20px; color: var(--blue); flex-shrink: 0; }
 
+  .club-link {
+    cursor: pointer;
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted transparent;
+  }
+  .club-link:hover, .club-link:active {
+    color: var(--blue);
+    border-bottom-color: var(--blue);
+  }
+
 
   .player-search {
     display: flex;
@@ -613,6 +624,7 @@
       <button data-cat="goals">Голы</button>
       <button data-cat="assists">Передачи</button>
       <button data-cat="plusMinus">+/-</button>
+      <button data-cat="goalies">Вратари</button>
     </div>
     <div class="card">
       <div id="players-body"><div class="loading">Загрузка...</div></div>
@@ -790,6 +802,26 @@
     }[c]));
   }
 
+  function teamFullName(team) {
+    if (!team) return "";
+    return team.name?.default || team.placeName?.default || team.commonName?.default || team.teamName?.default || team.abbrev || team.teamAbbrev || "";
+  }
+
+  function clubLink(teamAbbrev, teamName, teamLogo, label) {
+    const abbr = teamAbbrev || "";
+    const text = label || abbr;
+    if (!abbr || abbr === "TBD" || abbr === "—") return escapeHtml(text);
+    return `<span class="club-link" data-team="${escapeHtml(abbr)}" data-team-name="${escapeHtml(teamName || abbr)}" data-team-logo="${escapeHtml(teamLogo || "")}">${escapeHtml(text)}</span>`;
+  }
+
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest(".club-link");
+    if (!link) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openTeamDetail(link.dataset.team, link.dataset.teamName, link.dataset.teamLogo);
+  });
+
   // Подпись периода с учётом типа: обычные периоды 1-3, затем овертайм (OT),
   // затем буллиты (SO). NHL API кодирует это в periodDescriptor.periodType,
   // номер периода (number) продолжает расти и для овертайма/буллитов,
@@ -946,7 +978,7 @@
           <div class="spotlight-name">${escapeHtml(name)}</div>
           <div class="spotlight-team">
             <img class="team-logo" src="${teamLogo}" alt="" onerror="this.style.display='none'">
-            <span>${escapeHtml(teamAbbrev)}</span>
+            <span>${clubLink(teamAbbrev, p.teamName || teamAbbrev, teamLogo, teamAbbrev)}</span>
           </div>
         </div>
         <div class="spotlight-value">${p.value ?? ""}</div>
@@ -980,14 +1012,14 @@
         <div class="game-row">
           <div class="team">
             <img class="team-logo" src="${away.logo}" alt="" onerror="this.style.display='none'">
-            <div class="abbr">${away.abbrev}</div>
+            <div class="abbr">${clubLink(away.abbrev, teamFullName(away), away.logo, away.abbrev)}</div>
           </div>
           <div class="${scoreClass}" ${dataAttrs}>
             <div class="score">${awayScore !== "" ? awayScore + " : " + homeScore : "vs"}</div>
             <div class="status">${status}</div>
           </div>
           <div class="team right">
-            <div class="abbr">${home.abbrev}</div>
+            <div class="abbr">${clubLink(home.abbrev, teamFullName(home), home.logo, home.abbrev)}</div>
             <img class="team-logo" src="${home.logo}" alt="" onerror="this.style.display='none'">
           </div>
         </div>
@@ -1028,7 +1060,7 @@
       <div class="standings-row" data-team="${t.teamAbbrev?.default || t.teamAbbrev || ""}" data-name="${escapeHtml(tName)}" data-logo="${t.teamLogo || ""}">
         <div class="num sticky-col sticky-col-1">${rank}</div>
         <div class="sticky-col sticky-col-2"><img class="team-logo" src="${t.teamLogo}" alt="" onerror="this.style.visibility='hidden'"></div>
-        <div class="name sticky-col sticky-col-3">${t.teamAbbrev?.default || t.teamAbbrev || ""}</div>
+        <div class="name sticky-col sticky-col-3">${clubLink(t.teamAbbrev?.default || t.teamAbbrev || "", tName, t.teamLogo, t.teamAbbrev?.default || t.teamAbbrev || "")}</div>
         <div class="num">${t.gamesPlayed ?? 0}</div>
         <div class="num">${t.wins ?? 0}</div>
         <div class="num">${t.otLosses ?? 0}</div>
@@ -1176,14 +1208,14 @@
               <div class="bracket-team-row ${topIsWinner ? 'winner' : ''}">
                 <div class="bt-name">
                   <img src="${topLogo}" alt="" onerror="this.style.display='none'">
-                  <span>${escapeHtml(topAbbrev)}</span>
+                  <span>${clubLink(topAbbrev, top.placeName?.default || top.name?.default || topAbbrev, topLogo, topAbbrev)}</span>
                 </div>
                 <div class="bt-wins">${topWins}</div>
               </div>
               <div class="bracket-team-row ${bottomIsWinner ? 'winner' : ''}">
                 <div class="bt-name">
                   <img src="${bottomLogo}" alt="" onerror="this.style.display='none'">
-                  <span>${escapeHtml(bottomAbbrev)}</span>
+                  <span>${clubLink(bottomAbbrev, bottom.placeName?.default || bottom.name?.default || bottomAbbrev, bottomLogo, bottomAbbrev)}</span>
                 </div>
                 <div class="bt-wins">${bottomWins}</div>
               </div>
@@ -1253,6 +1285,11 @@
     const body = document.getElementById("players-body");
     body.innerHTML = '<div class="loading">Загрузка...</div>';
 
+    if (currentCat === "goalies") {
+      await loadGoalieLeaders();
+      return;
+    }
+
     try {
       const seasonId = seasonIdFromEndDate(selectedSeasonEndDate);
       const url = seasonId
@@ -1275,7 +1312,7 @@
             <div class="pname">${escapeHtml(nameStr(p.firstName))} ${escapeHtml(nameStr(p.lastName))}</div>
             <div class="pteam">
               <img class="team-logo" src="${p.teamLogo}" alt="" onerror="this.style.display='none'">
-              ${p.teamAbbrev || ""}
+              ${clubLink(p.teamAbbrev || "", p.teamName || p.teamAbbrev || "", p.teamLogo || "", p.teamAbbrev || "")}
             </div>
           </div>
           <div class="pvalue">${p.value ?? ""}</div>
@@ -1292,6 +1329,95 @@
       });
     } catch (e) {
       body.innerHTML = '<div class="empty">Не удалось загрузить лидеров</div>';
+    }
+  }
+
+  async function loadGoalieLeaders() {
+    const body = document.getElementById("players-body");
+    body.innerHTML = '<div class="loading">Загрузка статистики вратарей...</div>';
+
+    try {
+      const seasonId = seasonIdFromEndDate(selectedSeasonEndDate);
+      const url = seasonId
+        ? `${API_BASE}/api/goalie-leaders?limit=${currentLimit}&season=${seasonId}`
+        : `${API_BASE}/api/goalie-leaders?limit=${currentLimit}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const wins = data.wins || [];
+
+      if (!wins.length) {
+        body.innerHTML = '<div class="empty">Нет данных вратарей</div>';
+        return;
+      }
+
+      const byPlayer = new Map();
+      ["wins", "savePctg", "goalsAgainstAvg", "shutouts"].forEach(category => {
+        (data[category] || []).forEach(p => {
+          const id = p.id;
+          if (!id) return;
+          if (!byPlayer.has(id)) byPlayer.set(id, { id });
+          byPlayer.get(id)[category] = p;
+        });
+      });
+
+      const rows = wins.map(p => {
+        const all = byPlayer.get(p.id) || { id: p.id };
+        return {
+          id: p.id,
+          firstName: p.firstName,
+          lastName: p.lastName,
+          headshot: p.headshot,
+          teamAbbrev: p.teamAbbrev || all.savePctg?.teamAbbrev || all.goalsAgainstAvg?.teamAbbrev || "",
+          teamLogo: p.teamLogo || all.savePctg?.teamLogo || all.goalsAgainstAvg?.teamLogo || "",
+          wins: all.wins?.value ?? p.value ?? "—",
+          savePctg: all.savePctg?.value ?? "—",
+          goalsAgainstAvg: all.goalsAgainstAvg?.value ?? "—",
+          shutouts: all.shutouts?.value ?? "—"
+        };
+      });
+
+      body.innerHTML = `
+        <div class="section-title">Лидеры вратарей</div>
+        <div class="table-scroll">
+          <table class="stat-table">
+            <thead>
+              <tr>
+                <th>Вратарь</th><th>В</th><th>%ОБ</th><th>ГКИ</th><th>СО</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((p, i) => {
+                const sv = typeof p.savePctg === "number" ? p.savePctg.toFixed(3) : p.savePctg;
+                const gaa = typeof p.goalsAgainstAvg === "number" ? p.goalsAgainstAvg.toFixed(2) : p.goalsAgainstAvg;
+                return `
+                  <tr class="clickable-row" data-player-id="${p.id}">
+                    <td>
+                      <div style="display:flex;align-items:center;gap:8px;min-width:150px;">
+                        <span style="color:var(--silver-dim);font-family:'Roboto Mono',monospace;width:20px;">${i + 1}</span>
+                        <img class="headshot" src="${p.headshot || ""}" alt="" onerror="this.style.visibility='hidden'" style="width:34px;height:34px;">
+                        <div>
+                          <div>${escapeHtml(nameStr(p.firstName))} ${escapeHtml(nameStr(p.lastName))}</div>
+                          <div style="font-size:10px;color:var(--silver-dim);margin-top:2px;">${clubLink(p.teamAbbrev, p.teamAbbrev, p.teamLogo, p.teamAbbrev)}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="num">${escapeHtml(p.wins)}</td>
+                    <td class="num">${escapeHtml(sv)}</td>
+                    <td class="num">${escapeHtml(gaa)}</td>
+                    <td class="num">${escapeHtml(p.shutouts)}</td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      body.querySelectorAll("tr.clickable-row").forEach(el => {
+        el.addEventListener("click", () => openPlayerDetail(el.dataset.playerId));
+      });
+    } catch (e) {
+      body.innerHTML = '<div class="empty">Не удалось загрузить статистику вратарей</div>';
     }
   }
 
@@ -1453,7 +1579,7 @@
           </div>
           <div>
             <div class="team-calendar-opponent">
-              <div class="opp-name">${escapeHtml(opponentName)} (${escapeHtml(opponentAbbrev)})</div>
+              <div class="opp-name">${clubLink(opponentAbbrev, opponentName, opponentLogo, `${opponentName} (${opponentAbbrev})`)}</div>
             </div>
             <div class="team-calendar-location">${venueLabel}</div>
           </div>
@@ -1637,11 +1763,11 @@
       <div class="teamstat-head">
         <div class="side">
           <img class="team-logo" src="${awayLogo}" alt="" onerror="this.style.display='none'">
-          <span>${awayAbbrev}</span>
+          <span>${clubLink(awayAbbrev, awayAbbrev, awayLogo, awayAbbrev)}</span>
         </div>
         <div></div>
         <div class="side right">
-          <span>${homeAbbrev}</span>
+          <span>${clubLink(homeAbbrev, homeAbbrev, homeLogo, homeAbbrev)}</span>
           <img class="team-logo" src="${homeLogo}" alt="" onerror="this.style.display='none'">
         </div>
       </div>
@@ -1682,7 +1808,7 @@
       <div class="detail-head-game">
         <img class="team-logo" src="${awayLogo}" alt="" onerror="this.style.visibility='hidden'">
         <div>
-          <div class="title">${awayAbbrev} — ${homeAbbrev}</div>
+          <div class="title">${clubLink(awayAbbrev, awayAbbrev, awayLogo, awayAbbrev)} — ${clubLink(homeAbbrev, homeAbbrev, homeLogo, homeAbbrev)}</div>
           <div class="subtitle">Статистика матча</div>
         </div>
         <img class="team-logo" src="${homeLogo}" alt="" onerror="this.style.visibility='hidden'">
@@ -1720,7 +1846,7 @@
             <div class="goal-row">
               <div class="time">${val(goal.timeInPeriod)}</div>
               <div class="desc">
-                <div class="scorer">${escapeHtml(scorerName)} (${escapeHtml(goal.teamAbbrev?.default || goal.teamAbbrev || "")})</div>
+                <div class="scorer">${escapeHtml(scorerName)} (${clubLink(goal.teamAbbrev?.default || goal.teamAbbrev || "", goal.teamName?.default || goal.teamAbbrev?.default || goal.teamAbbrev || "", "", goal.teamAbbrev?.default || goal.teamAbbrev || "")})</div>
                 ${assists ? `<div class="assists">Передачи: ${escapeHtml(assists)}</div>` : ""}
               </div>
               <div class="scoreline">${val(goal.awayScore)} : ${val(goal.homeScore)}</div>
@@ -1807,7 +1933,7 @@
           <img class="headshot" src="${p.headshot || ""}" alt="" onerror="this.style.visibility='hidden'">
           <div>
             <div class="title">${escapeHtml(name)}</div>
-            <div class="subtitle">${escapeHtml(p.teamAbbrev || "")} · №${val(p.sweaterNumber)} · ${escapeHtml(pos)}</div>
+            <div class="subtitle">${clubLink(p.teamAbbrev || "", p.teamName?.default || p.teamAbbrev || "", p.teamLogo || "", p.teamAbbrev || "")} · №${val(p.sweaterNumber)} · ${escapeHtml(pos)}</div>
           </div>
           <img class="team-logo" src="${p.teamLogo || ""}" alt="" onerror="this.style.visibility='hidden'" style="margin-left:auto">
         </div>
@@ -1903,7 +2029,7 @@
     
     let rHtml = `<tr>
       <td>${yearStr}</td>
-      <td>${escapeHtml(teamName)}</td>
+      <td>${clubLink(s.teamAbbrev?.default || s.teamAbbrev || "", teamName, s.teamLogo || "", teamName)}</td>
       <td class="num">${val(s.gamesPlayed)}</td>`;
     
     if (pos === "G") {
