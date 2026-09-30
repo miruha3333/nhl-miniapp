@@ -352,6 +352,38 @@ async def player(player_id: str):
     return await fetch_with_cache(f"player:{player_id}", url, CACHE_TTL["player"])
 
 
+@app.get("/api/goalie/{player_id}")
+async def goalie_player(player_id: str, season: str | None = None):
+    """Статистика конкретного вратаря за выбранный сезон.
+
+    Профиль игрока NHL API не всегда содержит featuredStats для вратаря
+    в том же виде, что таблица лидеров. Поэтому карточка вратаря получает
+    строку непосредственно из Stats REST goalie/summary — того же источника,
+    который используется общей таблицей вратарей.
+    """
+    if season:
+        target_season = season
+    else:
+        now = time.localtime()
+        start_year = now.tm_year if now.tm_mon >= 9 else now.tm_year - 1
+        target_season = f"{start_year}{start_year + 1}"
+
+    url = (
+        "https://api.nhle.com/stats/rest/en/goalie/summary"
+        f"?isAggregate=true&cayenneExp=seasonId={target_season}%20and%20gameTypeId=2%20and%20playerId={player_id}"
+        "&limit=5"
+    )
+    cache_key = f"goalie-player:{player_id}:{target_season}"
+    data = await fetch_with_cache(cache_key, url, CACHE_TTL["player"])
+
+    rows = data.get("data", []) if isinstance(data, dict) else []
+    row = rows[0] if isinstance(rows, list) and rows else None
+    if not isinstance(row, dict):
+        return {"season": target_season, "found": False}
+
+    return {"season": target_season, "found": True, "stats": row}
+
+
 @app.get("/api/roster-stats/{team}")
 async def roster_stats(team: str, season: str | None = None):
     """
