@@ -26,6 +26,8 @@ CACHE_TTL = {
     "player": 60 * 45,
     "boxscore": 20,
     "rightrail": 20,
+    "player_search": 60 * 10,
+    "team_schedule": 60 * 10,
 }
 
 _cache: dict[str, tuple[float, dict]] = {}
@@ -70,6 +72,14 @@ async def fetch_with_cache(cache_key: str, url: str, ttl: int) -> dict:
             if cache_key in _cache:
                 return _cache[cache_key][1]
             return {"error": str(e)}
+
+
+# ---------- Служебный endpoint ----------
+
+@app.get("/health")
+async def health():
+    """Простой ответ для проверки доступности сервиса."""
+    return {"status": "ok"}
 
 
 # ---------- API для Mini App ----------
@@ -131,6 +141,58 @@ async def leaders(category: str, limit: int = 25, season: str | None = None):
         cache_key = f"leaders:{category}:{limit}"
 
     return await fetch_with_cache(cache_key, url, CACHE_TTL["leaders"])
+
+
+@app.get("/api/search/player")
+async def search_player(q: str):
+    """Поиск игрока по имени через поисковый сервис NHL."""
+    query = q.strip()
+    if len(query) < 2:
+        return []
+
+    url = "https://search.d3.nhle.com/api/v1/search/player"
+    cache_key = f"player-search:{query.lower()}"
+
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        )
+    }
+
+    cached = _cache.get(cache_key)
+    now = time.time()
+    if cached and (now - cached[0]) < CACHE_TTL["player_search"]:
+        return cached[1]
+
+    async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
+        try:
+            resp = await client.get(
+                url,
+                params={"culture": "en-us", "limit": 10, "q": query, "active": "true"},
+                headers=headers,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                _cache[cache_key] = (now, data)
+                return data
+            return {"error": f"NHL search status {resp.status_code}"}
+        except Exception as e:
+            return {"error": str(e)}
+
+
+@app.get("/api/team-schedule/{team}")
+async def team_schedule(team: str, season: str | None = None):
+    """Полный календарь команды за текущий или выбранный сезон."""
+    team_upper = team.upper()
+    season_key = season or "now"
+    url = f"{NHL_BASE}/club-schedule-season/{team_upper}/{season_key}"
+    return await fetch_with_cache(
+        f"team-schedule:{team_upper}:{season_key}",
+        url,
+        CACHE_TTL["team_schedule"],
+    )
 
 
 @app.get("/api/player/{player_id}")
