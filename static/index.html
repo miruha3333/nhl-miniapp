@@ -1426,7 +1426,7 @@
                 const gaa = p.gaa === null || p.gaa === undefined ? "—" : Number(p.gaa).toFixed(2);
                 const fullName = `${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim();
                 return `
-                  <tr class="clickable-row" data-player-id="${p.playerId}">
+                  <tr class="clickable-row" data-player-id="${p.playerId || p.id}" data-player-type="goalie">
                     <td>
                       <div style="display:flex;align-items:center;gap:7px;min-width:155px;">
                         <span style="color:var(--silver-dim);font-family:'Roboto Mono',monospace;width:20px;">${i + 1}</span>
@@ -1468,7 +1468,8 @@
       body.querySelectorAll("tr.clickable-row").forEach(el => {
         el.addEventListener("click", () => openPlayerDetail(el.dataset.playerId, {
           type: "main",
-          tab: "players"
+          tab: "players",
+          playerType: "goalie"
         }));
       });
     } catch (e) {
@@ -1728,7 +1729,7 @@
       html += filteredSkaters.map(p => {
         const pMinutes = p.penaltyMinutes ?? p.pim ?? 0;
         return `
-          <tr class="clickable-row" data-player-id="${p.playerId}">
+          <tr class="clickable-row" data-player-id="${p.playerId || p.id}">
             <td>${escapeHtml(nameStr(p.firstName))} ${escapeHtml(nameStr(p.lastName))}</td>
             <td class="num">${val(p.gamesPlayed)}</td>
             <td class="num">${val(p.goals)}</td>
@@ -1760,7 +1761,7 @@
         const svPct = p.savePercentage ?? p.savePctg;
         const gaa = p.goalsAgainstAverage ?? p.gaa;
         return `
-          <tr class="clickable-row" data-player-id="${p.playerId}">
+          <tr class="clickable-row" data-player-id="${p.playerId || p.id}" data-player-type="goalie">
             <td>${escapeHtml(nameStr(p.firstName))} ${escapeHtml(nameStr(p.lastName))}</td>
             <td class="num">${val(p.gamesPlayed)}</td>
             <td class="num">${val(p.wins)}</td>
@@ -2016,6 +2017,7 @@
 
   // ----- ДЕТАЛИ ИГРОКА И ЕГО КАРЬЕРА -----
   async function openPlayerDetail(playerId, backState = null) {
+    const playerType = backState?.playerType || "";
     if (!backState) {
       backState = activeTeamContext
         ? { type: "team", ...activeTeamContext, teamType: currentTeamType }
@@ -2066,7 +2068,7 @@
       // вратарей. Это устраняет расхождение между вкладкой «Вратари» и
       // карточкой конкретного голкипера.
       let goalieStat = null;
-      if (pos === "G") {
+      if (pos === "G" || playerType === "goalie") {
         try {
           const goalieSeason = seasonIdFromEndDate(selectedSeasonEndDate);
           const goalieUrl = goalieSeason
@@ -2074,13 +2076,18 @@
             : `${API_BASE}/api/goalie/${playerId}`;
           const goalieRes = await fetch(goalieUrl);
           const goalieData = await goalieRes.json();
-          if (goalieData?.found && goalieData.stats) goalieStat = goalieData.stats;
+          if (goalieData?.found && goalieData.stats) {
+            goalieStat = goalieData.stats;
+            if (goalieData.fallback) {
+              console.info("Для вратаря показан последний завершённый сезон:", goalieData.season);
+            }
+          }
         } catch (e) {
           console.warn("Не удалось загрузить отдельную статистику вратаря:", e);
         }
       }
 
-      if (pos === "G" && goalieStat) {
+      if ((pos === "G" || playerType === "goalie") && goalieStat) {
         const gamesPlayed = goalieStat.gamesPlayed;
         const wins = goalieStat.wins;
         const losses = goalieStat.losses;
@@ -2099,7 +2106,7 @@
         `;
       } else if (!subSeason) {
         html += '<div class="empty">Статистика текущего сезона отсутствует</div>';
-      } else if (pos === "G") {
+      } else if (pos === "G" || playerType === "goalie") {
         html += `
           <div class="table-scroll"><table class="stat-table"><thead><tr>
             <th>И</th><th>В</th><th>П</th><th>%ОБ</th><th>ГКИ</th>
