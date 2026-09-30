@@ -5,6 +5,7 @@ NHL Mini App — единый сервер.
 
 import os
 import time
+import asyncio
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -141,6 +142,25 @@ async def leaders(category: str, limit: int = 25, season: str | None = None):
         cache_key = f"leaders:{category}:{limit}"
 
     return await fetch_with_cache(cache_key, url, CACHE_TTL["leaders"])
+
+
+@app.get("/api/goalie-leaders")
+async def goalie_leaders(limit: int = 25, season: str | None = None):
+    """Лидеры вратарей: победы, процент отражённых бросков, ГКИ и шатауты."""
+    limit = max(1, min(limit, 50))
+    categories = ["wins", "savePctg", "goalsAgainstAvg", "shutouts"]
+
+    async def load_category(category: str):
+        if season:
+            url = f"{NHL_BASE}/goalie-stats-leaders/{season}/2?categories={category}&limit={limit}"
+            cache_key = f"goalie-leaders:{category}:{limit}:{season}"
+        else:
+            url = f"{NHL_BASE}/goalie-stats-leaders/current?categories={category}&limit={limit}"
+            cache_key = f"goalie-leaders:{category}:{limit}"
+        return category, await fetch_with_cache(cache_key, url, CACHE_TTL["leaders"])
+
+    results = await asyncio.gather(*(load_category(category) for category in categories))
+    return {category: data.get(category, []) if isinstance(data, dict) else [] for category, data in results}
 
 
 @app.get("/api/search/player")
