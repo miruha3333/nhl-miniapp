@@ -204,6 +204,111 @@
   .player-row .pteam .team-logo { width: 16px; height: 16px; }
   .player-row .pvalue { font-family: 'Roboto Mono', monospace; font-weight: 700; font-size: 20px; color: var(--blue); flex-shrink: 0; }
 
+
+  .player-search {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .player-search input {
+    flex: 1;
+    min-width: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--silver);
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 13px;
+    outline: none;
+  }
+  .player-search input:focus { border-color: var(--red); }
+  .player-search button {
+    background: var(--red);
+    border: 1px solid var(--red);
+    color: #fff;
+    padding: 0 14px;
+    border-radius: 10px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 12px;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .search-result {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .search-result:last-child { border-bottom: none; }
+  .search-result .sr-name {
+    flex: 1;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .search-result .sr-meta {
+    font-size: 11px;
+    color: var(--silver-dim);
+  }
+  .team-calendar-row {
+    display: grid;
+    grid-template-columns: 72px 42px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .team-calendar-row:last-child { border-bottom: none; }
+  .team-calendar-date {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 11px;
+    color: var(--silver-dim);
+  }
+  .team-calendar-opponent {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+  }
+  .team-calendar-opponent .team-logo { width: 24px; height: 24px; }
+  .team-calendar-opponent .opp-name {
+    font-family: 'Oswald', sans-serif;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .team-calendar-location {
+    font-size: 10px;
+    color: var(--silver-dim);
+  }
+  .team-calendar-score {
+    font-family: 'Roboto Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .team-calendar-score.win { color: var(--blue); }
+  .team-calendar-score.loss { color: var(--red); }
+  .team-calendar-month {
+    font-family: 'Oswald', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--silver-dim);
+    margin: 18px 0 8px;
+  }
+  .team-calendar-month:first-child { margin-top: 0; }
+  @media (max-width: 520px) {
+    .team-calendar-row { grid-template-columns: 58px 32px 1fr auto; gap: 7px; }
+    .team-calendar-location { display: none; }
+  }
+
   .show-more {
     width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--silver-dim);
     padding: 10px; border-radius: 10px; font-family: 'Oswald', sans-serif; font-size: 12px;
@@ -495,6 +600,14 @@
   </div>
 
   <div id="view-players" style="display:none">
+    <div class="card">
+      <div class="player-search">
+        <input id="player-search-input" type="search" placeholder="Найти игрока..." autocomplete="off">
+        <button id="player-search-button">Найти</button>
+      </div>
+      <div id="player-search-results" style="display:none"></div>
+    </div>
+
     <div class="cat-row">
       <button data-cat="points" class="active">Очки</button>
       <button data-cat="goals">Голы</button>
@@ -523,6 +636,8 @@
   let currentTeamType = "regular"; 
   let currentTeamSortKey = "points"; 
   let currentTeamSortAsc = false;
+  let currentTeamSchedule = null;
+  let currentTeamScheduleLoaded = false;
   
   let currentStandingsData = [];
   let standingsSortKey = "points";
@@ -1084,6 +1199,55 @@
     }
   }
 
+  // ----- ПОИСК ИГРОКА -----
+  async function searchPlayers() {
+    const input = document.getElementById("player-search-input");
+    const results = document.getElementById("player-search-results");
+    const query = input.value.trim();
+
+    if (query.length < 2) {
+      results.style.display = "none";
+      results.innerHTML = "";
+      return;
+    }
+
+    results.style.display = "block";
+    results.innerHTML = '<div class="loading" style="padding:16px 0">Поиск...</div>';
+
+    try {
+      const res = await fetch(`${API_BASE}/api/search/player?q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+
+      if (!Array.isArray(data) || data.length === 0) {
+        results.innerHTML = '<div class="empty" style="padding:16px 0">Игрок не найден</div>';
+        return;
+      }
+
+      results.innerHTML = data.map(p => {
+        const name = typeof p.name === "string" ? p.name : (p.name?.default || "Игрок");
+        const team = p.teamAbbrev || "";
+        const position = p.positionCode || "";
+        return `
+          <div class="search-result" data-player-id="${p.playerId}">
+            <div class="sr-name">${escapeHtml(name)}</div>
+            <div class="sr-meta">${escapeHtml([team, position].filter(Boolean).join(" · "))}</div>
+          </div>
+        `;
+      }).join("");
+
+      results.querySelectorAll(".search-result").forEach(el => {
+        el.addEventListener("click", () => openPlayerDetail(el.dataset.playerId));
+      });
+    } catch (e) {
+      results.innerHTML = '<div class="empty" style="padding:16px 0">Не удалось выполнить поиск</div>';
+    }
+  }
+
+  document.getElementById("player-search-button").onclick = searchPlayers;
+  document.getElementById("player-search-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") searchPlayers();
+  });
+
   // ----- ЛИДЕРЫ ЛИГИ -----
   async function loadPlayers() {
     const body = document.getElementById("players-body");
@@ -1170,6 +1334,8 @@
       currentTeamType = "regular"; 
       currentTeamSortKey = "points";
       currentTeamSortAsc = false;
+      currentTeamSchedule = null;
+      currentTeamScheduleLoaded = false;
 
       renderTeamTabsAndTables(teamAbbrev, teamName, teamLogo);
     } catch (e) {
@@ -1190,6 +1356,7 @@
       <div class="cat-row" style="margin-top: 14px;">
         <button id="btn-team-reg" class="active">Регулярный сезон</button>
         <button id="btn-team-po">Плей-офф</button>
+        <button id="btn-team-calendar">Календарь</button>
       </div>
       <div id="team-tables-container"></div>
     `;
@@ -1198,6 +1365,7 @@
       currentTeamType = "regular";
       document.getElementById("btn-team-reg").classList.add("active");
       document.getElementById("btn-team-po").classList.remove("active");
+      document.getElementById("btn-team-calendar").classList.remove("active");
       buildTeamTablesBlock();
     };
 
@@ -1205,10 +1373,113 @@
       currentTeamType = "playoff";
       document.getElementById("btn-team-po").classList.add("active");
       document.getElementById("btn-team-reg").classList.remove("active");
+      document.getElementById("btn-team-calendar").classList.remove("active");
       buildTeamTablesBlock();
     };
 
+    document.getElementById("btn-team-calendar").onclick = () => {
+      document.getElementById("btn-team-reg").classList.remove("active");
+      document.getElementById("btn-team-po").classList.remove("active");
+      document.getElementById("btn-team-calendar").classList.add("active");
+      loadTeamCalendar(teamAbbrev);
+    };
+
     buildTeamTablesBlock();
+  }
+
+  function teamScheduleSeason() {
+    return seasonIdFromEndDate(selectedSeasonEndDate) || "now";
+  }
+
+  function teamScheduleGameState(game) {
+    const state = game.gameState || game.gameScheduleState || "";
+    if (state === "OFF") return "Завершён";
+    if (state === "LIVE" || state === "CRIT") return "LIVE";
+    if (state === "FUT" || state === "PRE") return "Предстоящий";
+    return state || "";
+  }
+
+  function renderTeamCalendar(teamAbbrev, data) {
+    const container = document.getElementById("team-tables-container");
+    const games = Array.isArray(data?.games) ? data.games : [];
+
+    if (!games.length) {
+      container.innerHTML = '<div class="empty">Календарь команды пуст</div>';
+      return;
+    }
+
+    const sorted = [...games].sort((a, b) => String(a.gameDate || "").localeCompare(String(b.gameDate || "")));
+    let html = "";
+    let currentMonth = "";
+
+    sorted.forEach(game => {
+      const dateStr = game.gameDate || (game.startTimeUTC ? game.startTimeUTC.slice(0, 10) : "");
+      const monthKey = dateStr.slice(0, 7);
+      if (monthKey !== currentMonth) {
+        currentMonth = monthKey;
+        const monthDate = dateStr ? new Date(`${dateStr}T12:00:00`) : null;
+        const monthName = monthDate && !Number.isNaN(monthDate.getTime())
+          ? monthDate.toLocaleDateString("ru-RU", { month: "long", year: "numeric" })
+          : monthKey;
+        html += `<div class="team-calendar-month">${escapeHtml(monthName)}</div>`;
+      }
+
+      const isHome = game.homeTeam?.abbrev === teamAbbrev;
+      const opponent = isHome ? (game.awayTeam || {}) : (game.homeTeam || {});
+      const opponentAbbrev = opponent.abbrev || opponent.teamAbbrev || "—";
+      const opponentName = opponent.placeName?.default || opponent.commonName?.default || opponent.name?.default || opponentAbbrev;
+      const opponentLogo = opponent.logo || opponent.teamLogo || "";
+      const dateLabel = dateStr ? new Date(`${dateStr}T12:00:00`).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) : "—";
+      const venueLabel = isHome ? "Дома" : "В гостях";
+      const state = game.gameState || game.gameScheduleState || "";
+      const awayScore = game.awayTeam?.score;
+      const homeScore = game.homeTeam?.score;
+      let scoreHtml = teamScheduleGameState(game);
+      let resultClass = "";
+
+      if (state === "OFF" && awayScore != null && homeScore != null) {
+        const teamScore = isHome ? homeScore : awayScore;
+        const oppScore = isHome ? awayScore : homeScore;
+        scoreHtml = `${teamScore} : ${oppScore}`;
+        if (teamScore > oppScore) resultClass = "win";
+        if (teamScore < oppScore) resultClass = "loss";
+      }
+
+      html += `
+        <div class="team-calendar-row">
+          <div class="team-calendar-date">${dateLabel}</div>
+          <div class="team-calendar-opponent">
+            <img class="team-logo" src="${opponentLogo}" alt="" onerror="this.style.display='none'">
+          </div>
+          <div>
+            <div class="team-calendar-opponent">
+              <div class="opp-name">${escapeHtml(opponentName)} (${escapeHtml(opponentAbbrev)})</div>
+            </div>
+            <div class="team-calendar-location">${venueLabel}</div>
+          </div>
+          <div class="team-calendar-score ${resultClass}">${escapeHtml(scoreHtml)}</div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = `<div class="card" style="padding:12px 14px;">${html}</div>`;
+  }
+
+  async function loadTeamCalendar(teamAbbrev) {
+    const container = document.getElementById("team-tables-container");
+    container.innerHTML = '<div class="loading">Загрузка календаря...</div>';
+
+    try {
+      if (!currentTeamScheduleLoaded) {
+        const season = teamScheduleSeason();
+        const res = await fetch(`${API_BASE}/api/team-schedule/${teamAbbrev}?season=${encodeURIComponent(season)}`);
+        currentTeamSchedule = await res.json();
+        currentTeamScheduleLoaded = true;
+      }
+      renderTeamCalendar(teamAbbrev, currentTeamSchedule);
+    } catch (e) {
+      container.innerHTML = '<div class="empty">Не удалось загрузить календарь команды</div>';
+    }
   }
 
   function buildTeamTablesBlock() {
