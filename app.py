@@ -145,83 +145,110 @@ async def leaders(category: str, limit: int = 25, season: str | None = None):
 
 
 @app.get("/api/goalie-leaders")
-async def goalie_leaders(limit: int = 100, season: str | None = None):
-    """Полная статистика вратарей регулярного чемпионата.
+async def goalie_leaders(limit: int = 50, season: str | None = None):
+    """Полная таблица вратарей из NHL Stats REST API.
 
-    Используется NHL Stats REST API, потому что endpoint goalie-stats-leaders
-    возвращает отдельные списки лидеров и не содержит всех вратарей, включая
-    проигравших. Здесь одна строка = один вратарь с И/В/П/ПБО/%ОБ/Г (ср)/SO.
+    В отличие от нескольких отдельных leaderboard-запросов здесь получаем
+    одну строку на вратаря с И/В/П/ПБО/%ОБ/ГКИ/SO, поэтому фронтенд может
+    нормально сортировать всю таблицу.
     """
     limit = max(1, min(limit, 100))
 
-    try:
-        if season:
-            target_season = season
-        else:
-            # Берём последний сезон непосредственно из NHL Stats API.
-            season_url = (
-                "https://api.nhle.com/stats/rest/en/season"
-                "?sort=%5B%7B%22property%22%3A%22id%22%2C%22direction%22%3A%22DESC%22%7D%5D"
-                "&start=0&limit=1"
-            )
-            season_data = await fetch_with_cache(
-                "stats-current-season", season_url, CACHE_TTL["leaders"]
-            )
-            season_rows = season_data.get("data", []) if isinstance(season_data, dict) else []
-            if not season_rows:
-                return {"error": "NHL Stats API не вернул текущий сезон", "goalies": []}
-            target_season = str(season_rows[0].get("id", ""))
-            if not target_season:
-                return {"error": "Не удалось определить текущий сезон", "goalies": []}
+    if season:
+        target_season = season
+    else:
+        now = time.localtime()
+        start_year = now.tm_year if now.tm_mon >= 9 else now.tm_year - 1
+        target_season = f"{start_year}{start_year + 1}"
 
-        url = (
-            "https://api.nhle.com/stats/rest/en/goalie/summary"
-            f"?cayenneExp=seasonId%3D{target_season}%20and%20gameTypeId%3D2"
-            f"&isAggregate=true&start=0&limit={limit}"
-        )
-        cache_key = f"goalie-summary:{target_season}:{limit}"
-        data = await fetch_with_cache(cache_key, url, CACHE_TTL["leaders"])
+    url = (
+        "https://api.nhle.com/stats/rest/en/goalie/summary"
+        f"?isAggregate=true&cayenneExp=seasonId={target_season}%20and%20gameTypeId=2"
+        f"&limit={limit}"
+    )
+    cache_key = f"goalie-summary:{target_season}:{limit}"
+    data = await fetch_with_cache(cache_key, url, CACHE_TTL["leaders"])
 
-        if not isinstance(data, dict):
-            return {"error": "NHL Stats API вернул некорректный ответ", "goalies": []}
-        if "error" in data:
-            return {"error": data["error"], "goalies": []}
+    if not isinstance(data, dict):
+        return {"season": target_season, "goalies": []}
 
-        rows = data.get("data", [])
-        goalies = []
-        for p in rows:
-            full_name = p.get("goalieFullName") or ""
-            parts = full_name.strip().split()
-            first_name = " ".join(parts[:-1]) if len(parts) > 1 else full_name
-            last_name = parts[-1] if len(parts) > 1 else ""
-            teams = p.get("teamAbbrevs") or p.get("teamAbbrev") or ""
-            if isinstance(teams, list):
-                team_abbrev = ", ".join(str(x) for x in teams)
-            else:
-                team_abbrev = str(teams)
+    raw_rows = data.get("data", [])
+    if not isinstance(raw_rows, list):
+        raw_rows = []
 
-            goalies.append({
-                "playerId": p.get("playerId"),
-                "firstName": first_name,
-                "lastName": last_name,
-                "teamAbbrev": team_abbrev,
-                "gamesPlayed": p.get("gamesPlayed"),
-                "gamesStarted": p.get("gamesStarted"),
-                "wins": p.get("wins"),
-                "losses": p.get("losses"),
-                "otLosses": p.get("otLosses"),
-                "savePctg": p.get("savePct", p.get("savePctg")),
-                "gaa": p.get("goalsAgainstAverage", p.get("gaa")),
-                "shutouts": p.get("shutouts"),
-                "saves": p.get("saves"),
-                "shotsAgainst": p.get("shotsAgainst"),
-                "goalsAgainst": p.get("goalsAgainst"),
-                "timeOnIce": p.get("timeOnIce"),
-            })
+    goalies = []
+    for row in raw_rows:
+        first_name = row.get("firstName", "")
+        last_name = row.get("lastName", "")
+        if isinstance(first_name, dict):
+            first_name = first_name.get("default", "")
+        if isinstance(last_name, dict):
+            last_name = last_name.get("default", "")
 
-        return {"season": target_season, "goalies": goalies}
-    except Exception as e:
-        return {"error": str(e), "goalies": []}
+        goalies.append({
+            "id": row.get("playerId"),
+            "firstName": first_name,
+            "lastName": last_name,
+            "teamAbbrev": row.get("teamAbbrevs") or row.get("teamAbbrev") or "",
+            "gamesPlayed": row.get("gamesPlayed"),
+            "gamesStarted": row.get("gamesStarted"),
+            "wins": row.get("wins"),
+            "losses": row.get("losses"),
+            "otLosses": row.get("otLosses"),
+            "savePctg": row.get("savePctg"),
+            "gaa": row.get("goalsAgainstAverage", row.get("gaa")),
+            "shutouts": row.get("shutouts"),
+            "saves": row.get("saves"),
+            "shotsAgainst": row.get("shotsAgainst"),
+        })
+
+    return {"season": target_season, "goalies": goalies}
+
+
+@app.get("/api/game-video/{game_id}")
+async def game_video(game_id: str):
+    """Видеообзор матча из официального NHL Gamecenter API.
+
+    NHL Gamecenter обычно возвращает threeMinRecap и/или condensedGame.
+    Возвращаем их как есть плюс ссылку на Gamecenter, чтобы фронтенд мог
+    попробовать встроить видео и одновременно иметь надёжную внешнюю ссылку.
+    """
+    url = f"{NHL_BASE}/gamecenter/{game_id}/landing"
+    data = await fetch_with_cache(f"game-video:{game_id}", url, CACHE_TTL["score"])
+
+    if not isinstance(data, dict) or data.get("error"):
+        return {"available": False, "error": data.get("error") if isinstance(data, dict) else "NHL API error"}
+
+    def normalize_video(value):
+        if not value:
+            return None
+        if isinstance(value, str):
+            return {"url": value}
+        if isinstance(value, dict):
+            result = dict(value)
+            for key in ("url", "shareUrl", "videoUrl", "link", "href"):
+                if isinstance(result.get(key), str) and result[key].strip():
+                    result["url"] = result[key].strip()
+                    break
+            return result if result.get("url") else None
+        return None
+
+    recap = normalize_video(data.get("threeMinRecap"))
+    condensed = normalize_video(data.get("condensedGame"))
+
+    videos = []
+    if recap:
+        recap["kind"] = "recap"
+        videos.append(recap)
+    if condensed:
+        condensed["kind"] = "condensed"
+        videos.append(condensed)
+
+    return {
+        "available": bool(videos),
+        "videos": videos,
+        "gameCenterLink": data.get("gameCenterLink") or f"https://www.nhl.com/gamecenter/{game_id}",
+    }
 
 
 @app.get("/api/search/player")
