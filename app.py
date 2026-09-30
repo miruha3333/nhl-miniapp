@@ -145,22 +145,83 @@ async def leaders(category: str, limit: int = 25, season: str | None = None):
 
 
 @app.get("/api/goalie-leaders")
-async def goalie_leaders(limit: int = 25, season: str | None = None):
-    """Лидеры вратарей: победы, процент отражённых бросков, ГКИ и шатауты."""
-    limit = max(1, min(limit, 50))
-    categories = ["wins", "savePctg", "goalsAgainstAvg", "shutouts"]
+async def goalie_leaders(limit: int = 100, season: str | None = None):
+    """Полная статистика вратарей регулярного чемпионата.
 
-    async def load_category(category: str):
+    Используется NHL Stats REST API, потому что endpoint goalie-stats-leaders
+    возвращает отдельные списки лидеров и не содержит всех вратарей, включая
+    проигравших. Здесь одна строка = один вратарь с И/В/П/ПБО/%ОБ/Г (ср)/SO.
+    """
+    limit = max(1, min(limit, 100))
+
+    try:
         if season:
-            url = f"{NHL_BASE}/goalie-stats-leaders/{season}/2?categories={category}&limit={limit}"
-            cache_key = f"goalie-leaders:{category}:{limit}:{season}"
+            target_season = season
         else:
-            url = f"{NHL_BASE}/goalie-stats-leaders/current?categories={category}&limit={limit}"
-            cache_key = f"goalie-leaders:{category}:{limit}"
-        return category, await fetch_with_cache(cache_key, url, CACHE_TTL["leaders"])
+            # Берём последний сезон непосредственно из NHL Stats API.
+            season_url = (
+                "https://api.nhle.com/stats/rest/en/season"
+                "?sort=%5B%7B%22property%22%3A%22id%22%2C%22direction%22%3A%22DESC%22%7D%5D"
+                "&start=0&limit=1"
+            )
+            season_data = await fetch_with_cache(
+                "stats-current-season", season_url, CACHE_TTL["leaders"]
+            )
+            season_rows = season_data.get("data", []) if isinstance(season_data, dict) else []
+            if not season_rows:
+                return {"error": "NHL Stats API не вернул текущий сезон", "goalies": []}
+            target_season = str(season_rows[0].get("id", ""))
+            if not target_season:
+                return {"error": "Не удалось определить текущий сезон", "goalies": []}
 
-    results = await asyncio.gather(*(load_category(category) for category in categories))
-    return {category: data.get(category, []) if isinstance(data, dict) else [] for category, data in results}
+        url = (
+            "https://api.nhle.com/stats/rest/en/goalie/summary"
+            f"?cayenneExp=seasonId%3D{target_season}%20and%20gameTypeId%3D2"
+            f"&isAggregate=true&start=0&limit={limit}"
+        )
+        cache_key = f"goalie-summary:{target_season}:{limit}"
+        data = await fetch_with_cache(cache_key, url, CACHE_TTL["leaders"])
+
+        if not isinstance(data, dict):
+            return {"error": "NHL Stats API вернул некорректный ответ", "goalies": []}
+        if "error" in data:
+            return {"error": data["error"], "goalies": []}
+
+        rows = data.get("data", [])
+        goalies = []
+        for p in rows:
+            full_name = p.get("goalieFullName") or ""
+            parts = full_name.strip().split()
+            first_name = " ".join(parts[:-1]) if len(parts) > 1 else full_name
+            last_name = parts[-1] if len(parts) > 1 else ""
+            teams = p.get("teamAbbrevs") or p.get("teamAbbrev") or ""
+            if isinstance(teams, list):
+                team_abbrev = ", ".join(str(x) for x in teams)
+            else:
+                team_abbrev = str(teams)
+
+            goalies.append({
+                "playerId": p.get("playerId"),
+                "firstName": first_name,
+                "lastName": last_name,
+                "teamAbbrev": team_abbrev,
+                "gamesPlayed": p.get("gamesPlayed"),
+                "gamesStarted": p.get("gamesStarted"),
+                "wins": p.get("wins"),
+                "losses": p.get("losses"),
+                "otLosses": p.get("otLosses"),
+                "savePctg": p.get("savePct", p.get("savePctg")),
+                "gaa": p.get("goalsAgainstAverage", p.get("gaa")),
+                "shutouts": p.get("shutouts"),
+                "saves": p.get("saves"),
+                "shotsAgainst": p.get("shotsAgainst"),
+                "goalsAgainst": p.get("goalsAgainst"),
+                "timeOnIce": p.get("timeOnIce"),
+            })
+
+        return {"season": target_season, "goalies": goalies}
+    except Exception as e:
+        return {"error": str(e), "goalies": []}
 
 
 @app.get("/api/search/player")
