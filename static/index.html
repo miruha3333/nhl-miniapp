@@ -422,6 +422,14 @@
   .bio-grid .label { color: var(--silver-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
   .bio-grid .value { font-family: 'Oswald', sans-serif; font-weight: 600; }
 
+
+  .video-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin: 12px 0; }
+  .video-title { font-family: 'Oswald', sans-serif; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+  .video-frame { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 10px; background: #000; display: block; }
+  .video-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 9px; }
+  .video-link { display: inline-block; padding: 8px 11px; border: 1px solid var(--border); border-radius: 8px; color: var(--silver); text-decoration: none; font-size: 12px; background: var(--surface-2); }
+  .video-note { color: var(--silver-dim); font-size: 11px; line-height: 1.4; margin-top: 7px; }
+
   .stat-table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .stat-table th, .stat-table td { padding: 7px 4px; text-align: center; border-bottom: 1px solid var(--border); white-space: nowrap; }
   
@@ -1824,6 +1832,46 @@
     return html;
   }
 
+
+  async function renderGameVideo(gameId, awayAbbrev, homeAbbrev) {
+    try {
+      const res = await fetch(`${API_BASE}/api/game-video/${gameId}`);
+      const data = await res.json();
+      const videos = Array.isArray(data.videos) ? data.videos : [];
+
+      if (!videos.length) {
+        return '';
+      }
+
+      const recap = videos.find(v => v.kind === 'recap') || videos[0];
+      const condensed = videos.find(v => v.kind === 'condensed');
+      const recapUrl = recap?.url || '';
+      const condensedUrl = condensed?.url || '';
+      const externalUrl = recapUrl || condensedUrl || data.gameCenterLink || '';
+
+      if (!externalUrl) return '';
+
+      // Большинство NHL video URLs можно открыть во встроенном iframe.
+      // Если конкретный URL запрещает embedding, пользователь всё равно
+      // получает рабочую кнопку перехода на NHL.com.
+      let html = `
+        <div class="section-title">Видео</div>
+        <div class="video-card">
+          <div class="video-title">🎥 Обзор матча ${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
+          <iframe class="video-frame" src="${escapeHtml(externalUrl)}" title="Обзор матча" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+          <div class="video-actions">
+            <a class="video-link" href="${escapeHtml(externalUrl)}" target="_blank" rel="noopener noreferrer">Открыть видео на NHL.com</a>
+            ${condensedUrl && condensedUrl !== externalUrl ? `<a class="video-link" href="${escapeHtml(condensedUrl)}" target="_blank" rel="noopener noreferrer">Полный condensed game</a>` : ''}
+          </div>
+          <div class="video-note">Видео загружается напрямую с NHL.com. Если плеер не отображается в Telegram, откройте видео по кнопке выше.</div>
+        </div>
+      `;
+      return html;
+    } catch (e) {
+      return '';
+    }
+  }
+
   async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
     openDetail();
     const body = document.getElementById("detail-body");
@@ -1879,6 +1927,9 @@
         });
       });
       if (!anyGoals) html += '<div class="empty">Голов пока не было</div>';
+
+      // Видеообзор из официального NHL Gamecenter API.
+      html += await renderGameVideo(gameId, awayAbbrev, homeAbbrev);
 
       // Статистика команд (броски, хиты, вбрасывания, силовые приёмы, штраф —
       // общий показатель, в скобках разбивка по периодам)
