@@ -207,47 +207,90 @@ async def goalie_leaders(limit: int = 50, season: str | None = None):
 
 @app.get("/api/game-video/{game_id}")
 async def game_video(game_id: str):
-    """Видеообзор матча из официального NHL Gamecenter API.
+    """Возвращает официальные ссылки на видео обзора из NHL API.
 
-    NHL Gamecenter обычно возвращает threeMinRecap и/или condensedGame.
-    Возвращаем их как есть плюс ссылку на Gamecenter, чтобы фронтенд мог
-    попробовать встроить видео и одновременно иметь надёжную внешнюю ссылку.
+    В разных версиях NHL API видеоданные встречаются в двух местах:
+    1) в scoreboard/schedule как относительный путь /video/...
+    2) в landing.summary.gameVideo как ID ролика.
+
+    Поэтому сначала смотрим landing, затем scoreboard за дату матча.
+    Это позволяет не зависеть от одной конкретной формы ответа API.
     """
-    url = f"{NHL_BASE}/gamecenter/{game_id}/landing"
-    data = await fetch_with_cache(f"game-video:{game_id}", url, CACHE_TTL["score"])
+    landing_url = f"{NHL_BASE}/gamecenter/{game_id}/landing"
+    landing = await fetch_with_cache(
+        f"game-video-landing:{game_id}", landing_url, CACHE_TTL["score"]
+    )
 
-    if not isinstance(data, dict) or data.get("error"):
-        return {"available": False, "error": data.get("error") if isinstance(data, dict) else "NHL API error"}
-
-    def normalize_video(value):
-        if not value:
-            return None
-        if isinstance(value, str):
-            return {"url": value}
-        if isinstance(value, dict):
-            result = dict(value)
-            for key in ("url", "shareUrl", "videoUrl", "link", "href"):
-                if isinstance(result.get(key), str) and result[key].strip():
-                    result["url"] = result[key].strip()
-                    break
-            return result if result.get("url") else None
-        return None
-
-    recap = normalize_video(data.get("threeMinRecap"))
-    condensed = normalize_video(data.get("condensedGame"))
+    if not isinstance(landing, dict) or landing.get("error"):
+        return {
+            "available": False,
+            "error": landing.get("error") if isinstance(landing, dict) else "NHL API error",
+        }
 
     videos = []
-    if recap:
-        recap["kind"] = "recap"
-        videos.append(recap)
-    if condensed:
-        condensed["kind"] = "condensed"
-        videos.append(condensed)
+
+    def add_video(kind: str, value, title: str):
+        if value is None or value == "":
+            return
+        if isinstance(value, dict):
+            value = value.get("url") or value.get("shareUrl") or value.get("videoUrl") or value.get("href")
+        if not isinstance(value, str):
+            # В landing.summary.gameVideo NHL иногда отдаёт числовой video ID.
+            # Без надёжного публичного metadata URL не выдумываем прямой mp4.
+            return
+        value = value.strip()
+        if not value:
+            return
+        if value.startswith("/video/"):
+            value = "https://www.nhl.com" + value
+        elif value.startswith("http://"):
+            value = "https://" + value[7:]
+        elif not value.startswith("https://"):
+            return
+        videos.append({"kind": kind, "title": title, "url": value})
+
+    # Некоторые ответы landing содержат готовые URL/пути.
+    add_video("recap", landing.get("threeMinRecap"), "3-Minute Recap")
+    add_video("condensed", landing.get("condensedGame"), "Condensed Game")
+
+    summary = landing.get("summary") or {}
+    if isinstance(summary, dict):
+        add_video("recap", summary.get("threeMinRecap"), "3-Minute Recap")
+        add_video("condensed", summary.get("condensedGame"), "Condensed Game")
+
+    # Надёжный источник: scoreboard за дату матча.
+    game_date = landing.get("gameDate")
+    if isinstance(game_date, str) and game_date:
+        score_url = f"{NHL_BASE}/score/{game_date}"
+        score_data = await fetch_with_cache(
+            f"score-date-for-video:{game_date}", score_url, CACHE_TTL["score"]
+        )
+        for game in (score_data.get("games", []) if isinstance(score_data, dict) else []):
+            if str(game.get("id")) != str(game_id):
+                continue
+            add_video("recap", game.get("threeMinRecap"), "3-Minute Recap")
+            add_video("condensed", game.get("condensedGame"), "Condensed Game")
+            break
+
+    # Убираем дубли.
+    unique = []
+    seen = set()
+    for video in videos:
+        key = video["url"]
+        if key not in seen:
+            seen.add(key)
+            unique.append(video)
+
+    game_center = landing.get("gameCenterLink") or f"https://www.nhl.com/gamecenter/{game_id}"
+    if isinstance(game_center, str) and game_center.startswith("/"):
+        game_center = "https://www.nhl.com" + game_center
 
     return {
-        "available": bool(videos),
-        "videos": videos,
-        "gameCenterLink": data.get("gameCenterLink") or f"https://www.nhl.com/gamecenter/{game_id}",
+        "available": bool(unique),
+        "videos": unique,
+        "gameCenterLink": game_center,
+        "gameState": landing.get("gameState"),
+        "gameDate": game_date,
     }
 
 
