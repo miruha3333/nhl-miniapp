@@ -425,10 +425,6 @@
 
   .video-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin: 12px 0; }
   .video-title { font-family: 'Oswald', sans-serif; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
-  .video-frame { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 10px; background: #000; display: block; }
-  .video-preview { width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; background: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
-  .video-preview-link { color: inherit; text-decoration: none; cursor: pointer; }
-  .video-preview-link:active { opacity: .82; }
   .video-play { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #222; font-size: 22px; }
   .video-preview-text { color: var(--silver); font-size: 13px; }
 
@@ -750,6 +746,10 @@
   }
 
   let lastMainTab = "schedule";
+  // Контекст, куда должна вернуть кнопка «Назад» из детального экрана.
+  // Это позволяет восстановить не только вкладку, но и выбранный клуб.
+  let detailBackState = null;
+  let activeTeamContext = null;
   let currentDate = new Date();
   let currentCat = "points";
   let currentLimit = 25;
@@ -792,7 +792,8 @@
 
   buildSeasonOptions();
 
-  function openDetail() {
+  function openDetail(backState = null) {
+    detailBackState = backState;
     document.getElementById("view-schedule").style.display = "none";
     document.getElementById("view-standings").style.display = "none";
     document.getElementById("view-players").style.display = "none";
@@ -869,6 +870,7 @@
     document.getElementById("main-nav").style.display = "flex";
 
     lastMainTab = tab;
+    detailBackState = null;
     if (tab === "standings") {
       loadStandings();
       // Сетку плей-офф показываем для текущего сезона, но только если
@@ -900,7 +902,23 @@
     if (tab === "players") loadPlayers();
   }
 
-  document.getElementById("back-btn").onclick = () => switchTab(lastMainTab);
+  document.getElementById("back-btn").onclick = async () => {
+    const state = detailBackState;
+    detailBackState = null;
+
+    if (state?.type === "team") {
+      await openTeamDetail(
+        state.teamAbbrev,
+        state.teamName,
+        state.teamLogo,
+        state.teamType || "regular",
+        { type: "main", tab: state.mainTab || lastMainTab }
+      );
+      return;
+    }
+
+    switchTab(state?.tab || lastMainTab);
+  };
   document.getElementById("tab-schedule").onclick = () => switchTab("schedule");
   document.getElementById("tab-standings").onclick = () => switchTab("standings");
   document.getElementById("tab-players").onclick = () => switchTab("players");
@@ -1448,7 +1466,10 @@
       });
 
       body.querySelectorAll("tr.clickable-row").forEach(el => {
-        el.addEventListener("click", () => openPlayerDetail(el.dataset.playerId));
+        el.addEventListener("click", () => openPlayerDetail(el.dataset.playerId, {
+          type: "main",
+          tab: "players"
+        }));
       });
     } catch (e) {
       body.innerHTML = '<div class="empty">Не удалось загрузить статистику вратарей</div>';
@@ -1485,8 +1506,12 @@
     return `${startYear}${endYear}`;
   }
 
-  async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
-    openDetail();
+  async function openTeamDetail(teamAbbrev, teamName, teamLogo, restoreType = "regular", backState = null) {
+    if (!backState) {
+      backState = { type: "main", tab: lastMainTab };
+    }
+    openDetail(backState);
+    activeTeamContext = { teamAbbrev, teamName, teamLogo, teamType: restoreType, mainTab: lastMainTab };
     try {
       const seasonId = seasonIdFromEndDate(selectedSeasonEndDate);
       const url = seasonId
@@ -1502,6 +1527,12 @@
       currentTeamScheduleLoaded = false;
 
       renderTeamTabsAndTables(teamAbbrev, teamName, teamLogo);
+
+      if (restoreType === "playoff") {
+        document.getElementById("btn-team-po")?.click();
+      } else if (restoreType === "calendar") {
+        document.getElementById("btn-team-calendar")?.click();
+      }
     } catch (e) {
       document.getElementById("detail-body").innerHTML = '<div class="empty">Не удалось загрузить состав команды</div>';
     }
@@ -1745,7 +1776,11 @@
     container.innerHTML = html;
 
     container.querySelectorAll("tr.clickable-row").forEach(el => {
-      el.addEventListener("click", () => openPlayerDetail(el.dataset.playerId));
+      el.addEventListener("click", () => openPlayerDetail(el.dataset.playerId, {
+        type: "team",
+        ...(activeTeamContext || {}),
+        teamType: currentTeamType
+      }));
     });
 
     container.querySelectorAll("th.sortable").forEach(th => {
@@ -1852,21 +1887,13 @@
       const recapUrl = recap?.url || '';
       if (!recapUrl) return '';
 
-      // NHL API отдаёт ссылку на официальную страницу ролика /video/....
-      // Это не прямой mp4/HLS-поток. Поэтому не рисуем нерабочий iframe:
-      // вся карточка и кнопка ведут на настоящий официальный обзор NHL.
+      // NHL API предоставляет страницу официального ролика, а не гарантированный
+      // прямой mp4/HLS-поток. Поэтому здесь оставляем только честную ссылку.
       return `
         <div class="section-title">Видео</div>
         <div class="video-card">
           <div class="video-title">🎥 Обзор матча ${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
-          <a class="video-preview video-preview-link" href="${escapeHtml(recapUrl)}" target="_blank" rel="noopener noreferrer" aria-label="Смотреть обзор матча на NHL.com">
-            <div class="video-play">▶</div>
-            <div class="video-preview-text">Нажмите, чтобы открыть официальный обзор</div>
-          </a>
-          <div class="video-actions">
-            <a class="video-link video-primary" href="${escapeHtml(recapUrl)}" target="_blank" rel="noopener noreferrer">▶ Смотреть обзор на NHL.com</a>
-          </div>
-          <div class="video-note">NHL API предоставляет ссылку на страницу официального ролика. Прямой видеопоток для безопасного воспроизведения внутри Mini App API не отдаёт.</div>
+          <a class="video-link video-primary" href="${escapeHtml(recapUrl)}" target="_blank" rel="noopener noreferrer">▶ Смотреть обзор на NHL.com</a>
         </div>
       `;
     } catch (e) {
@@ -1874,7 +1901,6 @@
       return '';
     }
   }
-
 
   async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
     openDetail();
@@ -1989,8 +2015,13 @@
   }
 
   // ----- ДЕТАЛИ ИГРОКА И ЕГО КАРЬЕРА -----
-  async function openPlayerDetail(playerId) {
-    openDetail();
+  async function openPlayerDetail(playerId, backState = null) {
+    if (!backState) {
+      backState = activeTeamContext
+        ? { type: "team", ...activeTeamContext, teamType: currentTeamType }
+        : { type: "main", tab: lastMainTab };
+    }
+    openDetail(backState);
     const body = document.getElementById("detail-body");
 
     try {
@@ -2031,7 +2062,42 @@
       const subSeason = p.featuredStats?.regularSeason?.subSeason;
       html += '<div class="section-title">Статистика в текущем сезоне</div>';
 
-      if (!subSeason) {
+      // Для вратарей используем тот же Stats REST источник, что и таблица
+      // вратарей. Это устраняет расхождение между вкладкой «Вратари» и
+      // карточкой конкретного голкипера.
+      let goalieStat = null;
+      if (pos === "G") {
+        try {
+          const goalieSeason = seasonIdFromEndDate(selectedSeasonEndDate);
+          const goalieUrl = goalieSeason
+            ? `${API_BASE}/api/goalie/${playerId}?season=${goalieSeason}`
+            : `${API_BASE}/api/goalie/${playerId}`;
+          const goalieRes = await fetch(goalieUrl);
+          const goalieData = await goalieRes.json();
+          if (goalieData?.found && goalieData.stats) goalieStat = goalieData.stats;
+        } catch (e) {
+          console.warn("Не удалось загрузить отдельную статистику вратаря:", e);
+        }
+      }
+
+      if (pos === "G" && goalieStat) {
+        const gamesPlayed = goalieStat.gamesPlayed;
+        const wins = goalieStat.wins;
+        const losses = goalieStat.losses;
+        const savePct = goalieStat.savePct ?? goalieStat.savePctg;
+        const gaa = goalieStat.goalsAgainstAverage ?? goalieStat.gaa;
+        html += `
+          <div class="table-scroll"><table class="stat-table"><thead><tr>
+            <th>И</th><th>В</th><th>П</th><th>%ОБ</th><th>ГКИ</th>
+          </tr></thead><tbody><tr>
+            <td class="num">${val(gamesPlayed)}</td>
+            <td class="num">${val(wins)}</td>
+            <td class="num">${val(losses)}</td>
+            <td class="num">${typeof savePct === "number" ? savePct.toFixed(3) : val(savePct)}</td>
+            <td class="num">${typeof gaa === "number" ? gaa.toFixed(2) : val(gaa)}</td>
+          </tr></tbody></table></div>
+        `;
+      } else if (!subSeason) {
         html += '<div class="empty">Статистика текущего сезона отсутствует</div>';
       } else if (pos === "G") {
         html += `
