@@ -1,3 +1,4 @@
+        return {
             "season": stats_season,
             "requestedSeason": target_season,
             "fallback": stats_season != target_season,
@@ -109,11 +110,19 @@ async def telegram_webhook(update: dict):
 
 # ---------- Раздача интерфейса ----------
 
-if os.path.exists("static"):
-    app.mount("/static", StaticFiles(directory="static"), name="static")
+# Render запускает приложение из корня репозитория. В текущей структуре
+# index.html лежит рядом с app.py, поэтому корневой URL / должен отдавать
+# именно этот файл. При этом оставляем поддержку старой структуры static/.
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+ROOT_INDEX = BASE_DIR / "index.html"
+STATIC_INDEX = STATIC_DIR / "index.html"
+
+if STATIC_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 @app.get("/")
 async def index():
-    if os.path.exists("static/index.html"):
-        return FileResponse("static/index.html")
-    return {"message": "NHL API работает успешно. Файл static/index.html не найден."}
+    if STATIC_INDEX.is_file():
+        return FileResponse(str(STATIC_INDEX), media_type="text/html")
+    if ROOT_INDEX.is_file():
