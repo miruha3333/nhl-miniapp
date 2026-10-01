@@ -1251,7 +1251,7 @@
                         <span style="color:var(--silver-dim);font-family:'Roboto Mono',monospace;width:20px;">${i + 1}</span>
                         <div>
                           <div>${escapeHtml(fullName || "Вратарь")}</div>
-                          <div style="font-size:10px;color:var(--silver-dim);margin-top:2px;">${clubLink(p.teamAbbrev || "", p.teamAbbrev || "", "", p.teamAbbrev || "")}</div>
+                          <div style="font-size:10px;color:var(--silver-dim);margin-top:2px;">${escapeHtml(p.teamAbbrev || "")}</div>
                         </div>
                       </div>
                     </td>
