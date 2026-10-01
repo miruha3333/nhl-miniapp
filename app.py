@@ -87,8 +87,127 @@ async def health():
 
 @app.get("/api/schedule")
 async def schedule(date: str):
-    url = f"{NHL_BASE}/schedule/{date}"
-    return await fetch_with_cache(f"schedule:{date}", url, CACHE_TTL["schedule"])
+    """Расписание дня + текущие показатели обеих команд.
+
+    В превью матча фронтенду нужны В/П/ПБО/О. Эти показатели берём
+    из текущей таблицы NHL, а не из календаря, чтобы они всегда отражали
+    актуальное положение клуба. Таблица кэшируется отдельно, поэтому
+    добавление этих данных не создаёт новый запрос к NHL на каждый матч.
+    """
+    schedule_url = f"{NHL_BASE}/schedule/{date}"
+    standings_url = f"{NHL_BASE}/standings/now"
+
+    schedule_data, standings_data = await asyncio.gather(
+        fetch_with_cache(f"schedule:{date}", schedule_url, CACHE_TTL["schedule"]),
+        fetch_with_cache("standings", standings_url, CACHE_TTL["standings"]),
+    )
+
+    if not isinstance(schedule_data, dict):
+        return schedule_data
+
+    standings_rows = standings_data.get("standings", []) if isinstance(standings_data, dict) else []
+    standings_map = {}
+    for row in standings_rows if isinstance(standings_rows, list) else []:
+        abbrev = row.get("teamAbbrev")
+        if isinstance(abbrev, dict):
+            abbrev = abbrev.get("default")
+        if abbrev:
+            standings_map[str(abbrev).upper()] = {
+                "wins": row.get("wins", 0),
+                "losses": row.get("losses", 0),
+                "otLosses": row.get("otLosses", 0),
+                "points": row.get("points", 0),
+            }
+
+    for day in schedule_data.get("gameWeek", []) if isinstance(schedule_data.get("gameWeek"), list) else []:
+        for game in day.get("games", []) if isinstance(day.get("games"), list) else []:
+            for side in ("awayTeam", "homeTeam"):
+                team = game.get(side) or {}
+                abbrev = team.get("abbrev") or team.get("teamAbbrev")
+                record = standings_map.get(str(abbrev).upper()) if abbrev else None
+                if record:
+                    team["currentRecord"] = record
+
+    return schedule_data
+
+
+@app.get("/api/daily-stars")
+async def daily_stars(date: str):
+    """Три звезды дня на основе официальных Three Stars отдельных матчей.
+
+    NHL landing для завершённых матчей содержит summary.threeStars.
+    Если NHL не отдаёт отдельный агрегированный рейтинг дня, мы не
+    придумываем его: берём игроков, которым NHL присвоила звезды в матчах
+    этого дня, и показываем максимум трёх игроков с высшей звездой.
+    """
+    score_url = f"{NHL_BASE}/score/{date}"
+    score_data = await fetch_with_cache(f"score-date:{date}", score_url, CACHE_TTL["score"])
+    games = score_data.get("games", []) if isinstance(score_data, dict) else []
+    completed = [g for g in games if g.get("gameState") in {"OFF", "FINAL", "FUTURE_FINAL"}]
+
+    async def get_landing(game):
+        game_id = game.get("id")
+        if not game_id:
+            return None
+        return await fetch_with_cache(
+            f"daily-stars-landing:{game_id}",
+            f"{NHL_BASE}/gamecenter/{game_id}/landing",
+            CACHE_TTL["score"],
+        )
+
+    landings = await asyncio.gather(*(get_landing(g) for g in completed))
+    candidates = []
+
+    for game, landing in zip(completed, landings):
+        if not isinstance(landing, dict):
+            continue
+        stars = (landing.get("summary") or {}).get("threeStars", [])
+        if not isinstance(stars, list):
+            continue
+        for index, star in enumerate(stars[:3]):
+            if not isinstance(star, dict):
+                continue
+            rank = star.get("star") or star.get("rank") or star.get("starNumber") or (index + 1)
+            try:
+                rank = int(rank)
+            except (TypeError, ValueError):
+                rank = index + 1
+
+            player_id = star.get("playerId") or star.get("id")
+            first_name = star.get("firstName") or star.get("playerName")
+            last_name = star.get("lastName") or ""
+            if isinstance(first_name, dict):
+                first_name = first_name.get("default", "")
+            if isinstance(last_name, dict):
+                last_name = last_name.get("default", "")
+
+            candidates.append({
+                "rank": rank,
+                "playerId": player_id,
+                "firstName": first_name or "",
+                "lastName": last_name or "",
+                "name": star.get("name") or star.get("playerName") or "",
+                "teamAbbrev": star.get("teamAbbrev") or star.get("team") or "",
+                "headshot": star.get("headshot") or "",
+                "gameId": game.get("id"),
+            })
+
+    # Берём не более одного упоминания игрока и отдаём сначала 1-, затем
+    # 2-, затем 3-звёздочных игроков. Это не заменяет отдельный NHL nightly
+    # editorial ranking, если NHL его не предоставляет через API.
+    candidates.sort(key=lambda x: (x["rank"], str(x.get("lastName") or x.get("name") or "")))
+    result = []
+    seen = set()
+    for item in candidates:
+        key = item.get("playerId") or f"{item.get('firstName')}|{item.get('lastName')}|{item.get('teamAbbrev')}"
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(item)
+        if len(result) == 3:
+            break
+
+    return {"date": date, "stars": result}
 
 
 @app.get("/api/standings")
