@@ -500,6 +500,7 @@
       <button data-cat="goals">Голы</button>
       <button data-cat="assists">Передачи</button>
       <button data-cat="plusMinus">+/-</button>
+      <button data-cat="goalies">Вратари</button>
     </div>
     <div class="card">
       <div id="players-body"><div class="loading">Загрузка...</div></div>
@@ -612,6 +613,8 @@
   let currentDate = new Date();
   let currentCat = "points";
   let currentLimit = 25;
+  let currentGoalieSortKey = "wins";
+  let currentGoalieSortAsc = false;
 
   const datePicker = document.getElementById("date-picker");
 
@@ -1089,6 +1092,11 @@
     const body = document.getElementById("players-body");
     body.innerHTML = '<div class="loading">Загрузка...</div>';
 
+    if (currentCat === "goalies") {
+      await loadGoalieLeaders();
+      return;
+    }
+
     try {
       const seasonId = seasonIdFromEndDate(selectedSeasonEndDate);
       const url = seasonId
@@ -1128,6 +1136,117 @@
       });
     } catch (e) {
       body.innerHTML = '<div class="empty">Не удалось загрузить лидеров</div>';
+    }
+  }
+
+
+  async function loadGoalieLeaders() {
+    const body = document.getElementById("players-body");
+    body.innerHTML = '<div class="loading">Загрузка статистики вратарей...</div>';
+
+    try {
+      const seasonId = seasonIdFromEndDate(selectedSeasonEndDate);
+      const url = seasonId
+        ? `${API_BASE}/api/goalie-leaders?limit=100&season=${seasonId}`
+        : `${API_BASE}/api/goalie-leaders?limit=100`;
+      const res = await fetch(url);
+      const data = await res.json();
+      let rows = Array.isArray(data.goalies) ? [...data.goalies] : [];
+
+      if (!rows.length) {
+        body.innerHTML = '<div class="empty">Нет данных вратарей</div>';
+        return;
+      }
+
+      const valueForSort = (p, key) => {
+        const value = p[key];
+        if (value === null || value === undefined || value === "") return -Infinity;
+        const n = Number(value);
+        return Number.isNaN(n) ? String(value).toLowerCase() : n;
+      };
+
+      rows.sort((a, b) => {
+        const av = valueForSort(a, currentGoalieSortKey);
+        const bv = valueForSort(b, currentGoalieSortKey);
+        if (typeof av === "string" || typeof bv === "string") {
+          const result = String(av).localeCompare(String(bv), "ru");
+          return currentGoalieSortAsc ? result : -result;
+        }
+        return currentGoalieSortAsc ? av - bv : bv - av;
+      });
+
+      const arrow = key => currentGoalieSortKey === key ? (currentGoalieSortAsc ? " ↑" : " ↓") : "";
+      const display = value => value === null || value === undefined || value === "" ? "—" : value;
+
+      body.innerHTML = `
+        <div class="section-title">Вратари</div>
+        <div class="table-scroll">
+          <table class="stat-table">
+            <thead>
+              <tr>
+                <th class="sortable" data-goalie-sort="name">Вратарь${arrow("name")}</th>
+                <th class="sortable" data-goalie-sort="gamesPlayed">И${arrow("gamesPlayed")}</th>
+                <th class="sortable" data-goalie-sort="wins">В${arrow("wins")}</th>
+                <th class="sortable" data-goalie-sort="losses">П${arrow("losses")}</th>
+                <th class="sortable" data-goalie-sort="otLosses">ПБО${arrow("otLosses")}</th>
+                <th class="sortable" data-goalie-sort="savePctg">%ОБ${arrow("savePctg")}</th>
+                <th class="sortable" data-goalie-sort="gaa" title="Голы в среднем за игру">Г (ср)${arrow("gaa")}</th>
+                <th class="sortable" data-goalie-sort="shutouts" title="Шатауты">SO${arrow("shutouts")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((p, i) => {
+                const sv = p.savePctg === null || p.savePctg === undefined ? "—" : Number(p.savePctg).toFixed(3);
+                const gaa = p.gaa === null || p.gaa === undefined ? "—" : Number(p.gaa).toFixed(2);
+                const fullName = `${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim();
+                return `
+                  <tr class="clickable-row" data-player-id="${p.playerId}">
+                    <td>
+                      <div style="display:flex;align-items:center;gap:7px;min-width:155px;">
+                        <span style="color:var(--silver-dim);font-family:'Roboto Mono',monospace;width:20px;">${i + 1}</span>
+                        <div>
+                          <div>${escapeHtml(fullName || "Вратарь")}</div>
+                          <div style="font-size:10px;color:var(--silver-dim);margin-top:2px;">${clubLink(p.teamAbbrev || "", p.teamAbbrev || "", "", p.teamAbbrev || "")}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="num">${display(p.gamesPlayed)}</td>
+                    <td class="num">${display(p.wins)}</td>
+                    <td class="num">${display(p.losses)}</td>
+                    <td class="num">${display(p.otLosses)}</td>
+                    <td class="num">${escapeHtml(sv)}</td>
+                    <td class="num">${escapeHtml(gaa)}</td>
+                    <td class="num">${display(p.shutouts)}</td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      body.querySelectorAll("th[data-goalie-sort]").forEach(th => {
+        th.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const key = th.dataset.goalieSort;
+          if (currentGoalieSortKey === key) {
+            currentGoalieSortAsc = !currentGoalieSortAsc;
+          } else {
+            currentGoalieSortKey = key;
+            currentGoalieSortAsc = false;
+          }
+          loadGoalieLeaders();
+        });
+      });
+
+      body.querySelectorAll("tr.clickable-row").forEach(el => {
+        el.addEventListener("click", () => openPlayerDetail(el.dataset.playerId, {
+          type: "main",
+          tab: "players"
+        }));
+      });
+    } catch (e) {
+      body.innerHTML = '<div class="empty">Не удалось загрузить статистику вратарей</div>';
     }
   }
 
