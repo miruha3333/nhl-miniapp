@@ -131,9 +131,51 @@
   /* Матчи */
   .game-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; }
 
-  .team { display: flex; align-items: center; gap: 10px; }
+  .team { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .team.right { justify-content: flex-end; text-align: right; }
-  .team .abbr { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: 0.04em; }
+  .team .abbr { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: 0.04em; min-width: 0; }
+  .team-record {
+    margin-top: 3px;
+    color: var(--silver-dim);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 9px;
+    line-height: 1.25;
+    white-space: nowrap;
+  }
+
+  .daily-stars { margin-top: 16px; }
+  .daily-star-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 7px;
+    cursor: pointer;
+  }
+  .daily-star-card:active { background: var(--surface-2); }
+  .daily-star-rank {
+    width: 22px;
+    flex-shrink: 0;
+    font-family: 'Roboto Mono', monospace;
+    font-weight: 700;
+    text-align: center;
+    color: var(--silver-dim);
+  }
+  .daily-star-headshot {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .daily-star-info { flex: 1; min-width: 0; }
+  .daily-star-name { font-family: 'Oswald', sans-serif; font-size: 14px; font-weight: 600; }
+  .daily-star-meta { color: var(--silver-dim); font-size: 10px; margin-top: 2px; }
 
   .team-logo { width: 32px; height: 32px; object-fit: contain; flex-shrink: 0; }
 
@@ -942,12 +984,17 @@
     const games = document.getElementById("games");
     games.innerHTML = '<div class="loading">Загрузка...</div>';
     datePicker.value = fmtDate(currentDate);
+    const date = fmtDate(currentDate);
 
     try {
-      const res = await fetch(`${API_BASE}/api/schedule?date=${fmtDate(currentDate)}`);
-      const data = await res.json();
+      const [scheduleRes, starsRes] = await Promise.all([
+        fetch(`${API_BASE}/api/schedule?date=${date}`),
+        fetch(`${API_BASE}/api/daily-stars?date=${date}`),
+      ]);
+      const data = await scheduleRes.json();
+      const starsData = starsRes.ok ? await starsRes.json() : { stars: [] };
       const week = data.gameWeek || [];
-      const day = week.find(d => d.date === fmtDate(currentDate));
+      const day = week.find(d => d.date === date);
       const list = day?.games || [];
 
       if (list.length === 0) {
@@ -955,14 +1002,21 @@
         loadSpotlight();
         return;
       }
-      games.innerHTML = list.map(renderGame).join("");
+      games.innerHTML = list.map(renderGame).join("") + renderDailyStars(starsData.stars);
 
       games.querySelectorAll(".score-box.clickable").forEach(el => {
         el.addEventListener("click", () => openGameDetail(
           el.dataset.gameId, el.dataset.away, el.dataset.home, el.dataset.awayLogo, el.dataset.homeLogo
         ));
       });
+
+      games.querySelectorAll(".daily-star-card").forEach(el => {
+        el.addEventListener("click", () => {
+          if (el.dataset.playerId) openPlayerDetail(el.dataset.playerId, { type: "main", tab: "schedule" });
+        });
+      });
     } catch (e) {
+      console.error('Ошибка загрузки матчей:', e);
       games.innerHTML = '<div class="empty">Не удалось загрузить матчи</div>';
     }
   }
@@ -1020,9 +1074,15 @@
     `;
   }
 
+  function renderTeamRecord(team) {
+    const r = team?.currentRecord;
+    if (!r) return '';
+    return `<div class="team-record">В ${val(r.wins, 0)} · П ${val(r.losses, 0)} · ПБО ${val(r.otLosses, 0)} · О ${val(r.points, 0)}</div>`;
+  }
+
   function renderGame(g) {
-    const away = g.awayTeam;
-    const home = g.homeTeam;
+    const away = g.awayTeam || {};
+    const home = g.homeTeam || {};
     const state = g.gameState; 
 
     let status = "—";
@@ -1045,20 +1105,50 @@
       <div class="card">
         <div class="game-row">
           <div class="team">
-            <img class="team-logo" src="${away.logo}" alt="" onerror="this.style.display='none'">
-            <div class="abbr">${clubLink(away.abbrev, teamFullName(away), away.logo, away.abbrev)}</div>
+            <img class="team-logo" src="${away.logo || ''}" alt="" onerror="this.style.display='none'">
+            <div class="abbr">
+              <div>${clubLink(away.abbrev, teamFullName(away), away.logo, away.abbrev)}</div>
+              ${renderTeamRecord(away)}
+            </div>
           </div>
           <div class="${scoreClass}" ${dataAttrs}>
             <div class="score">${awayScore !== "" ? awayScore + " : " + homeScore : "vs"}</div>
             <div class="status">${status}</div>
           </div>
           <div class="team right">
-            <div class="abbr">${clubLink(home.abbrev, teamFullName(home), home.logo, home.abbrev)}</div>
-            <img class="team-logo" src="${home.logo}" alt="" onerror="this.style.display='none'">
+            <div class="abbr">
+              <div>${clubLink(home.abbrev, teamFullName(home), home.logo, home.abbrev)}</div>
+              ${renderTeamRecord(home)}
+            </div>
+            <img class="team-logo" src="${home.logo || ''}" alt="" onerror="this.style.display='none'">
           </div>
         </div>
       </div>
     `;
+  }
+
+  function renderDailyStars(stars) {
+    if (!Array.isArray(stars) || !stars.length) return '';
+
+    const cards = stars.map((star, index) => {
+      const name = `${nameStr(star.firstName)} ${nameStr(star.lastName)}`.trim() || star.name || 'Игрок';
+      const playerId = star.playerId || '';
+      const rank = index + 1;
+      const headshot = star.headshot || '';
+      const team = star.teamAbbrev || '';
+      return `
+        <div class="daily-star-card" data-player-id="${escapeHtml(String(playerId))}">
+          <div class="daily-star-rank">★${rank}</div>
+          <img class="daily-star-headshot" src="${escapeHtml(headshot)}" alt="" onerror="this.style.visibility='hidden'">
+          <div class="daily-star-info">
+            <div class="daily-star-name">${escapeHtml(name)}</div>
+            <div class="daily-star-meta">${escapeHtml(team)}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `<div class="daily-stars"><div class="section-title">3 звезды дня</div>${cards}</div>`;
   }
 
   document.getElementById("prev-day").onclick = () => { currentDate.setDate(currentDate.getDate() - 1); loadSchedule(); };
