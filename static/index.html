@@ -133,7 +133,21 @@
 
   .team { display: flex; align-items: center; gap: 10px; }
   .team.right { justify-content: flex-end; text-align: right; }
-  .team .abbr { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: 0.04em; }
+  .team .team-record {
+    margin-top: 3px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 10px;
+    line-height: 1.1;
+    color: var(--silver-dim);
+    white-space: nowrap;
+  }
+
+  .team-record strong {
+    color: var(--silver);
+    font-weight: 700;
+  }
+
+.abbr { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: 0.04em; }
 
   .team-logo { width: 32px; height: 32px; object-fit: contain; flex-shrink: 0; }
 
@@ -842,6 +856,16 @@
     `;
   }
 
+  function renderTeamRecord(team) {
+    const r = team?.currentRecord;
+    if (!r) return "";
+    const n = (value, fallback = 0) => {
+      const v = value ?? fallback;
+      return Number.isFinite(Number(v)) ? Number(v) : fallback;
+    };
+    return `<div class="team-record"><strong>${n(r.wins)}-${n(r.losses)}-${n(r.otLosses)}-${n(r.points)}</strong></div>`;
+  }
+
   function renderGame(g) {
     const away = g.awayTeam;
     const home = g.homeTeam;
@@ -868,14 +892,20 @@
         <div class="game-row">
           <div class="team">
             <img class="team-logo" src="${away.logo}" alt="" onerror="this.style.display='none'">
-            <div class="abbr">${away.abbrev}</div>
+            <div>
+              <div class="abbr">${away.abbrev}</div>
+              ${renderTeamRecord(away)}
+            </div>
           </div>
           <div class="${scoreClass}" ${dataAttrs}>
             <div class="score">${awayScore !== "" ? awayScore + " : " + homeScore : "vs"}</div>
             <div class="status">${status}</div>
           </div>
           <div class="team right">
-            <div class="abbr">${home.abbrev}</div>
+            <div>
+              <div class="abbr">${home.abbrev}</div>
+              ${renderTeamRecord(home)}
+            </div>
             <img class="team-logo" src="${home.logo}" alt="" onerror="this.style.display='none'">
           </div>
         </div>
@@ -1149,12 +1179,27 @@
       const url = seasonId
         ? `${API_BASE}/api/goalie-leaders?limit=100&season=${seasonId}`
         : `${API_BASE}/api/goalie-leaders?limit=100`;
-      const res = await fetch(url);
-      const data = await res.json();
-      let rows = Array.isArray(data.goalies) ? [...data.goalies] : [];
+      const res = await fetch(url, { cache: "no-store" });
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (_) {
+        data = null;
+      }
+
+      if (!res.ok) {
+        const reason = data?.error || `HTTP ${res.status}`;
+        throw new Error(reason);
+      }
+
+      if (data?.error && !Array.isArray(data.goalies)) {
+        throw new Error(data.error);
+      }
+
+      let rows = Array.isArray(data?.goalies) ? [...data.goalies] : [];
 
       if (!rows.length) {
-        body.innerHTML = '<div class="empty">Нет данных вратарей</div>';
+        body.innerHTML = '<div class="empty">Нет данных вратарей за выбранный сезон</div>';
         return;
       }
 
@@ -1246,7 +1291,9 @@
         }));
       });
     } catch (e) {
-      body.innerHTML = '<div class="empty">Не удалось загрузить статистику вратарей</div>';
+      console.error("Goalie leaders load failed:", e);
+      const message = e?.message ? String(e.message) : "Ошибка загрузки";
+      body.innerHTML = `<div class="empty">Не удалось загрузить статистику вратарей<br><small>${escapeHtml(message)}</small></div>`;
     }
   }
 
