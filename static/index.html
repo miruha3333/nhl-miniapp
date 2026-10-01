@@ -143,40 +143,6 @@
     white-space: nowrap;
   }
 
-  .daily-stars { margin-top: 16px; }
-  .daily-star-card {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 10px 12px;
-    margin-bottom: 7px;
-    cursor: pointer;
-  }
-  .daily-star-card:active { background: var(--surface-2); }
-  .daily-star-rank {
-    width: 22px;
-    flex-shrink: 0;
-    font-family: 'Roboto Mono', monospace;
-    font-weight: 700;
-    text-align: center;
-    color: var(--silver-dim);
-  }
-  .daily-star-headshot {
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    object-fit: cover;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .daily-star-info { flex: 1; min-width: 0; }
-  .daily-star-name { font-family: 'Oswald', sans-serif; font-size: 14px; font-weight: 600; }
-  .daily-star-meta { color: var(--silver-dim); font-size: 10px; margin-top: 2px; }
-
   .team-logo { width: 32px; height: 32px; object-fit: contain; flex-shrink: 0; }
 
   .score-box { text-align: center; min-width: 70px; border-radius: 10px; padding: 4px 6px; }
@@ -987,12 +953,8 @@
     const date = fmtDate(currentDate);
 
     try {
-      const [scheduleRes, starsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/schedule?date=${date}`),
-        fetch(`${API_BASE}/api/daily-stars?date=${date}`),
-      ]);
+      const scheduleRes = await fetch(`${API_BASE}/api/schedule?date=${date}`);
       const data = await scheduleRes.json();
-      const starsData = starsRes.ok ? await starsRes.json() : { stars: [] };
       const week = data.gameWeek || [];
       const day = week.find(d => d.date === date);
       const list = day?.games || [];
@@ -1002,7 +964,7 @@
         loadSpotlight();
         return;
       }
-      games.innerHTML = list.map(renderGame).join("") + renderDailyStars(starsData.stars);
+      games.innerHTML = list.map(renderGame).join("");
 
       games.querySelectorAll(".score-box.clickable").forEach(el => {
         el.addEventListener("click", () => openGameDetail(
@@ -1010,11 +972,6 @@
         ));
       });
 
-      games.querySelectorAll(".daily-star-card").forEach(el => {
-        el.addEventListener("click", () => {
-          if (el.dataset.playerId) openPlayerDetail(el.dataset.playerId, { type: "main", tab: "schedule" });
-        });
-      });
     } catch (e) {
       console.error('Ошибка загрузки матчей:', e);
       games.innerHTML = '<div class="empty">Не удалось загрузить матчи</div>';
@@ -1077,7 +1034,7 @@
   function renderTeamRecord(team) {
     const r = team?.currentRecord;
     if (!r) return '';
-    return `<div class="team-record">В ${val(r.wins, 0)} · П ${val(r.losses, 0)} · ПБО ${val(r.otLosses, 0)} · О ${val(r.points, 0)}</div>`;
+    return `<div class="team-record"><strong>${val(r.wins, 0)}-${val(r.losses, 0)}-${val(r.otLosses, 0)}-${val(r.points, 0)}</strong></div>`;
   }
 
   function renderGame(g) {
@@ -1125,30 +1082,6 @@
         </div>
       </div>
     `;
-  }
-
-  function renderDailyStars(stars) {
-    if (!Array.isArray(stars) || !stars.length) return '';
-
-    const cards = stars.map((star, index) => {
-      const name = `${nameStr(star.firstName)} ${nameStr(star.lastName)}`.trim() || star.name || 'Игрок';
-      const playerId = star.playerId || '';
-      const rank = index + 1;
-      const headshot = star.headshot || '';
-      const team = star.teamAbbrev || '';
-      return `
-        <div class="daily-star-card" data-player-id="${escapeHtml(String(playerId))}">
-          <div class="daily-star-rank">★${rank}</div>
-          <img class="daily-star-headshot" src="${escapeHtml(headshot)}" alt="" onerror="this.style.visibility='hidden'">
-          <div class="daily-star-info">
-            <div class="daily-star-name">${escapeHtml(name)}</div>
-            <div class="daily-star-meta">${escapeHtml(team)}</div>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    return `<div class="daily-stars"><div class="section-title">3 звезды дня</div>${cards}</div>`;
   }
 
   document.getElementById("prev-day").onclick = () => { currentDate.setDate(currentDate.getDate() - 1); loadSchedule(); };
