@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse
 NHL_BASE = "https://api-web.nhle.com/v1"
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
-WEBAPP_URL = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("WEBAPP_URL", "")
+WEBAPP_URL = "https://nhl-miniapp-1.onrender.com"
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 CACHE_TTL = {
