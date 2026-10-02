@@ -570,19 +570,39 @@ async def telegram_webhook(update: dict):
     chat_id = message["chat"]["id"]
     text = message.get("text", "")
 
-    if text == "/start":
+    if text in ("/start", "/matches", "/standings", "/leaders", "/goalies", "/players"):
         keyboard = {
-            "inline_keyboard": [[
-                {"text": "🏒 Открыть NHL Live", "web_app": {"url": WEBAPP_URL}}
-            ]]
+            "inline_keyboard": [
+                [{"text": "🏒 ОТКРЫТЬ NHL", "web_app": {"url": WEBAPP_URL}}],
+                [
+                    {"text": "📅 Матчи", "web_app": {"url": WEBAPP_URL}},
+                    {"text": "📊 Таблица", "web_app": {"url": WEBAPP_URL}},
+                ],
+                [
+                    {"text": "🏆 Лидеры", "web_app": {"url": WEBAPP_URL}},
+                    {"text": "🥅 Вратари", "web_app": {"url": WEBAPP_URL}},
+                ],
+                [
+                    {"text": "👤 Игроки", "web_app": {"url": WEBAPP_URL}},
+                    {"text": "🎥 Обзоры", "web_app": {"url": WEBAPP_URL}},
+                ],
+            ]
         }
+        text_message = (
+            "🏒 NHL LIVE\n\n"
+            "Всё главное по NHL — в одном месте.\n\n"
+            "📅 Матчи и результаты\n"
+            "📊 Турнирная таблица\n"
+            "🏆 Лидеры сезона\n"
+            "👤 Статистика игроков\n"
+            "🥅 Статистика вратарей\n"
+            "🎥 Видеообзоры матчей\n\n"
+            "Открой приложение и смотри NHL прямо в Telegram."
+        )
         async with httpx.AsyncClient() as client:
             await client.post(f"{TELEGRAM_API}/sendMessage", json={
                 "chat_id": chat_id,
-                "text": (
-                    "Привет! Добро пожаловать в обновленный NHL Live. "
-                    "Смотри результаты матчей, таблицы и расширенную статистику клубов."
-                ),
+                "text": text_message,
                 "reply_markup": keyboard,
             })
 
