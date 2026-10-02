@@ -575,16 +575,16 @@ async def telegram_webhook(update: dict):
             "inline_keyboard": [
                 [{"text": "🏒 ОТКРЫТЬ NHL", "web_app": {"url": WEBAPP_URL}}],
                 [
-                    {"text": "📅 Матчи", "web_app": {"url": WEBAPP_URL}},
-                    {"text": "📊 Таблица", "web_app": {"url": WEBAPP_URL}},
+                    {"text": "📅 Матчи", "web_app": {"url": f"{WEBAPP_URL}?section=matches"}},
+                    {"text": "📊 Таблица", "web_app": {"url": f"{WEBAPP_URL}?section=standings"}},
                 ],
                 [
-                    {"text": "🏆 Лидеры", "web_app": {"url": WEBAPP_URL}},
-                    {"text": "🥅 Вратари", "web_app": {"url": WEBAPP_URL}},
+                    {"text": "🏆 Лидеры", "web_app": {"url": f"{WEBAPP_URL}?section=leaders"}},
+                    {"text": "🥅 Вратари", "web_app": {"url": f"{WEBAPP_URL}?section=goalies"}},
                 ],
                 [
-                    {"text": "👤 Игроки", "web_app": {"url": WEBAPP_URL}},
-                    {"text": "🎥 Обзоры", "web_app": {"url": WEBAPP_URL}},
+                    {"text": "👤 Игроки", "web_app": {"url": f"{WEBAPP_URL}?section=players"}},
+                    {"text": "🎥 Обзоры", "web_app": {"url": f"{WEBAPP_URL}?section=reviews"}},
                 ],
             ]
         }
