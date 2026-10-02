@@ -1465,9 +1465,15 @@
       rows.sort((a, b) => {
         const av = Number(a[metricKey]);
         const bv = Number(b[metricKey]);
-        const aa = Number.isFinite(av) ? av : -Infinity;
-        const bb = Number.isFinite(bv) ? bv : -Infinity;
-        return currentGoalieSortAsc ? aa - bb : bb - aa;
+        const aValid = Number.isFinite(av);
+        const bValid = Number.isFinite(bv);
+
+        // Пустые значения всегда отправляем вниз.
+        if (!aValid && !bValid) return 0;
+        if (!aValid) return 1;
+        if (!bValid) return -1;
+
+        return currentGoalieSortAsc ? av - bv : bv - av;
       });
 
       body.innerHTML = `
@@ -1486,7 +1492,7 @@
             return `
               <div class="player-row" data-player-id="${p.playerId || p.id}" data-player-type="goalie">
                 <div class="rank">${i + 1}</div>
-                <img class="headshot" src="https://assets.nhle.com/mugs/nhl/${p.playerId || p.id}.png" alt="" onerror="this.style.visibility='hidden'">
+                <img class="headshot" src="https://assets.nhle.com/mugs/nhl/${data.season}/${encodeURIComponent(String(team).split(",")[0].trim())}/${p.playerId || p.id}.png" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
                 <div class="info">
                   <div class="pname">${escapeHtml(fullName)}</div>
                   <div class="pteam">${clubLink(team, team, "", team)}</div>
@@ -1505,7 +1511,9 @@
             currentGoalieSortAsc = !currentGoalieSortAsc;
           } else {
             currentGoalieSortKey = key;
-            currentGoalieSortAsc = false;
+            // Для ПБО (голов, пропущенных в среднем за игру)
+            // первое открытие должно быть от меньшего к большему.
+            currentGoalieSortAsc = key === "gaa";
           }
           loadGoalieLeaders();
         };
@@ -1822,7 +1830,7 @@
         return `
           <tr class="clickable-row" data-player-id="${p.playerId}" data-player-type="goalie">
             <td><div style="display:flex;align-items:center;gap:8px;">
-              <img class="headshot" src="https://assets.nhle.com/mugs/nhl/${p.playerId}.png" alt="" onerror="this.style.visibility='hidden'" style="width:32px;height:32px;">
+              <img class="headshot" src="https://assets.nhle.com/mugs/nhl/${seasonIdFromEndDate(selectedSeasonEndDate) || "20252026"}/${teamAbbrev || ""}/${p.playerId}.png" alt="" loading="lazy" onerror="this.style.visibility='hidden'" style="width:32px;height:32px;">
               <span>${escapeHtml(nameStr(p.firstName))} ${escapeHtml(nameStr(p.lastName))}</span>
             </div></td>
             <td class="num">${val(p.gamesPlayed)}</td>
