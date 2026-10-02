@@ -134,6 +134,7 @@
   .team { display: flex; align-items: center; gap: 10px; }
   .team.right { justify-content: flex-end; text-align: right; }
   .team .abbr { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: 0.04em; }
+  .team-record { margin-top: 3px; font-family: 'Roboto Mono', monospace; font-size: 9px; color: var(--silver-dim); white-space: nowrap; }
 
   .team-logo { width: 32px; height: 32px; object-fit: contain; flex-shrink: 0; }
 
@@ -662,6 +663,7 @@
       <button data-cat="goals">Голы</button>
       <button data-cat="assists">Передачи</button>
       <button data-cat="plusMinus">+/-</button>
+      <button data-cat="goalies">Вратари</button>
     </div>
     <div class="card">
       <div id="leaders-body"><div class="loading">Загрузка...</div></div>
@@ -671,6 +673,9 @@
   <div id="view-players" style="display:none">
     <div class="card">
       <div class="section-title">Поиск игрока</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button id="players-goalies-button" class="show-more" style="margin-top:0;">🥅 Показать вратарей</button>
+      </div>
       <div class="player-search">
         <input id="player-search-input" type="search" placeholder="Введите имя или фамилию..." autocomplete="off">
         <button id="player-search-button">Найти</button>
@@ -940,6 +945,9 @@
         bracketLoadedOnce = true;
       }
     }
+    if (tab === "schedule") {
+      loadSchedule();
+    }
     if (tab === "leaders") {
       if (currentCat === "goalies") loadGoalieLeaders();
       else loadLeaders();
@@ -1090,19 +1098,35 @@
     const scoreClass = started ? "score-box clickable" : "score-box";
     const dataAttrs = started ? `data-game-id="${g.id}" data-away="${away.abbrev}" data-home="${home.abbrev}" data-away-logo="${away.logo ?? ""}" data-home-logo="${home.logo ?? ""}"` : "";
 
+    const awayRecord = away.currentRecord || {};
+    const homeRecord = home.currentRecord || {};
+    const formatRecord = (record) => {
+      const wins = record.wins ?? 0;
+      const losses = record.losses ?? 0;
+      const otLosses = record.otLosses ?? 0;
+      const points = record.points ?? 0;
+      return `${wins} - ${losses} - ${otLosses} - ${points}`;
+    };
+
     return `
       <div class="card">
         <div class="game-row">
           <div class="team">
             <img class="team-logo" src="${away.logo}" alt="" onerror="this.style.display='none'">
-            <div class="abbr">${clubLink(away.abbrev, teamFullName(away), away.logo, away.abbrev)}</div>
+            <div>
+              <div class="abbr">${clubLink(away.abbrev, teamFullName(away), away.logo, away.abbrev)}</div>
+              <div class="team-record">${formatRecord(awayRecord)}</div>
+            </div>
           </div>
           <div class="${scoreClass}" ${dataAttrs}>
             <div class="score">${awayScore !== "" ? awayScore + " : " + homeScore : "vs"}</div>
             <div class="status">${status}</div>
           </div>
           <div class="team right">
-            <div class="abbr">${clubLink(home.abbrev, teamFullName(home), home.logo, home.abbrev)}</div>
+            <div>
+              <div class="abbr">${clubLink(home.abbrev, teamFullName(home), home.logo, home.abbrev)}</div>
+              <div class="team-record">${formatRecord(homeRecord)}</div>
+            </div>
             <img class="team-logo" src="${home.logo}" alt="" onerror="this.style.display='none'">
           </div>
         </div>
@@ -1536,9 +1560,21 @@
       btn.classList.add("active");
       currentCat = btn.dataset.cat;
       currentLimit = 25;
-      loadLeaders();
+      if (currentCat === "goalies") {
+        loadGoalieLeaders();
+      } else {
+        loadLeaders();
+      }
     };
   });
+
+  document.getElementById("players-goalies-button").onclick = () => {
+    currentCat = "goalies";
+    document.querySelectorAll("#view-leaders .cat-row button").forEach(b => {
+      b.classList.toggle("active", b.dataset.cat === "goalies");
+    });
+    switchTab("leaders");
+  };
 
   // ----- ДЕТАЛИ КЛУБА -----
   // Вычисляет season ID в формате YYYYYYYY (например 20232024) из даты конца
@@ -2246,7 +2282,9 @@
   function openSection(section) {
     if (section === "goalies") {
       currentCat = "goalies";
-      document.querySelectorAll("#view-leaders .cat-row button").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll("#view-leaders .cat-row button").forEach(b => {
+        b.classList.toggle("active", b.dataset.cat === "goalies");
+      });
       switchTab("leaders");
       loadGoalieLeaders();
       return;
