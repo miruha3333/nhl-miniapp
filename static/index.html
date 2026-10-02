@@ -1440,86 +1440,64 @@
         ? `${API_BASE}/api/goalie-leaders?limit=100&season=${seasonId}`
         : `${API_BASE}/api/goalie-leaders?limit=100`;
       const res = await fetch(url);
+      if (!res.ok) throw new Error(`goalie leaders status ${res.status}`);
       const data = await res.json();
-      let rows = Array.isArray(data.goalies) ? [...data.goalies] : [];
+      const rows = Array.isArray(data.goalies) ? [...data.goalies] : [];
 
       if (!rows.length) {
         body.innerHTML = '<div class="empty">Нет данных вратарей</div>';
         return;
       }
 
-      const valueForSort = (p, key) => {
-        const value = p[key];
-        if (value === null || value === undefined || value === "") return -Infinity;
-        const n = Number(value);
-        return Number.isNaN(n) ? String(value).toLowerCase() : n;
+      const metricMap = {
+        gamesPlayed: { label: "И", title: "Игры", format: v => displayGoalieValue(v) },
+        wins: { label: "В", title: "Победы", format: v => displayGoalieValue(v) },
+        losses: { label: "П", title: "Поражения", format: v => displayGoalieValue(v) },
+        gaa: { label: "ПШ/И", title: "Пропущенные шайбы в среднем за игру", format: v => v == null || v === "" ? "—" : Number(v).toFixed(2) },
+        savePctg: { label: "%ОБ", title: "Процент отражённых бросков", format: v => v == null || v === "" ? "—" : Number(v).toFixed(3) },
       };
+      const metric = metricMap[currentGoalieSortKey] || metricMap.gamesPlayed;
+      const metricKey = currentGoalieSortKey in metricMap ? currentGoalieSortKey : "gamesPlayed";
 
       rows.sort((a, b) => {
-        const av = valueForSort(a, currentGoalieSortKey);
-        const bv = valueForSort(b, currentGoalieSortKey);
-        if (typeof av === "string" || typeof bv === "string") {
-          const result = String(av).localeCompare(String(bv), "ru");
-          return currentGoalieSortAsc ? result : -result;
-        }
-        return currentGoalieSortAsc ? av - bv : bv - av;
+        const av = Number(a[metricKey]);
+        const bv = Number(b[metricKey]);
+        const aa = Number.isFinite(av) ? av : -Infinity;
+        const bb = Number.isFinite(bv) ? bv : -Infinity;
+        return currentGoalieSortAsc ? aa - bb : bb - aa;
       });
 
-      const arrow = key => currentGoalieSortKey === key ? (currentGoalieSortAsc ? " ↑" : " ↓") : "";
-      const display = value => value === null || value === undefined || value === "" ? "—" : value;
-
       body.innerHTML = `
-        <div class="section-title">Вратари</div>
-        <div class="table-scroll">
-          <table class="stat-table">
-            <thead>
-              <tr>
-                <th class="sortable" data-goalie-sort="name">Вратарь${arrow("name")}</th>
-                <th class="sortable" data-goalie-sort="gamesPlayed">И${arrow("gamesPlayed")}</th>
-                <th class="sortable" data-goalie-sort="wins">В${arrow("wins")}</th>
-                <th class="sortable" data-goalie-sort="losses">П${arrow("losses")}</th>
-                <th class="sortable" data-goalie-sort="otLosses">ПБО${arrow("otLosses")}</th>
-                <th class="sortable" data-goalie-sort="savePctg">%ОБ${arrow("savePctg")}</th>
-                <th class="sortable" data-goalie-sort="gaa" title="Голы в среднем за игру">Г (ср)${arrow("gaa")}</th>
-                <th class="sortable" data-goalie-sort="shutouts" title="Шатауты">SO${arrow("shutouts")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map((p, i) => {
-                const sv = p.savePctg === null || p.savePctg === undefined ? "—" : Number(p.savePctg).toFixed(3);
-                const gaa = p.gaa === null || p.gaa === undefined ? "—" : Number(p.gaa).toFixed(2);
-                const fullName = `${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim();
-                return `
-                  <tr class="clickable-row" data-player-id="${p.playerId}" data-player-type="goalie">
-                    <td>
-                      <div style="display:flex;align-items:center;gap:7px;min-width:190px;">
-                        <img class="headshot" src="https://assets.nhle.com/mugs/nhl/${p.playerId}.png" alt="" onerror="this.style.visibility='hidden'" style="width:36px;height:36px;">
-                        <span style="color:var(--silver-dim);font-family:'Roboto Mono',monospace;width:20px;">${i + 1}</span>
-                        <div>
-                          <div>${escapeHtml(fullName || "Вратарь")}</div>
-                          <div style="font-size:10px;color:var(--silver-dim);margin-top:2px;">${clubLink(p.teamAbbrev || "", p.teamAbbrev || "", "", p.teamAbbrev || "")}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td class="num">${display(p.gamesPlayed)}</td>
-                    <td class="num">${display(p.wins)}</td>
-                    <td class="num">${display(p.losses)}</td>
-                    <td class="num">${display(p.otLosses)}</td>
-                    <td class="num">${escapeHtml(sv)}</td>
-                    <td class="num">${escapeHtml(gaa)}</td>
-                    <td class="num">${display(p.shutouts)}</td>
-                  </tr>
-                `;
-              }).join("")}
-            </tbody>
-          </table>
+        <div class="cat-row" id="goalie-categories-row">
+          <button data-goalie-cat="gamesPlayed" class="${metricKey === "gamesPlayed" ? "active" : ""}">Игры</button>
+          <button data-goalie-cat="wins" class="${metricKey === "wins" ? "active" : ""}">Победы</button>
+          <button data-goalie-cat="losses" class="${metricKey === "losses" ? "active" : ""}">Поражения</button>
+          <button data-goalie-cat="gaa" class="${metricKey === "gaa" ? "active" : ""}">ПШ/И</button>
+          <button data-goalie-cat="savePctg" class="${metricKey === "savePctg" ? "active" : ""}">%ОБ</button>
+        </div>
+        <div class="section-title">${metric.title}</div>
+        <div>
+          ${rows.map((p, i) => {
+            const fullName = `${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim() || p.name || "Вратарь";
+            const team = p.teamAbbrev || "";
+            return `
+              <div class="player-row" data-player-id="${p.playerId || p.id}" data-player-type="goalie">
+                <div class="rank">${i + 1}</div>
+                <img class="headshot" src="https://assets.nhle.com/mugs/nhl/${p.playerId || p.id}.png" alt="" onerror="this.style.visibility='hidden'">
+                <div class="info">
+                  <div class="pname">${escapeHtml(fullName)}</div>
+                  <div class="pteam">${clubLink(team, team, "", team)}</div>
+                </div>
+                <div class="pvalue">${metric.format(p[metricKey])}</div>
+              </div>
+            `;
+          }).join("")}
         </div>
       `;
 
-      body.querySelectorAll("th[data-goalie-sort]").forEach(th => {
-        th.addEventListener("click", (event) => {
-          event.stopPropagation();
-          const key = th.dataset.goalieSort;
+      body.querySelectorAll("#goalie-categories-row button").forEach(btn => {
+        btn.onclick = () => {
+          const key = btn.dataset.goalieCat;
           if (currentGoalieSortKey === key) {
             currentGoalieSortAsc = !currentGoalieSortAsc;
           } else {
@@ -1527,12 +1505,16 @@
             currentGoalieSortAsc = false;
           }
           loadGoalieLeaders();
-        });
+        };
       });
-
     } catch (e) {
+      console.error("Ошибка загрузки лидеров вратарей:", e);
       body.innerHTML = '<div class="empty">Не удалось загрузить статистику вратарей</div>';
     }
+  }
+
+  function displayGoalieValue(value) {
+    return value === null || value === undefined || value === "" ? "—" : value;
   }
 
   // Навигация внутри раздела «Лидеры»: отдельно полевые игроки и вратари.
@@ -1835,7 +1817,7 @@
         const svPct = p.savePercentage ?? p.savePctg;
         const gaa = p.goalsAgainstAverage ?? p.gaa;
         return `
-          <tr class="clickable-row" data-player-id="${p.playerId}">
+          <tr class="clickable-row" data-player-id="${p.playerId}" data-player-type="goalie">
             <td>${escapeHtml(nameStr(p.firstName))} ${escapeHtml(nameStr(p.lastName))}</td>
             <td class="num">${val(p.gamesPlayed)}</td>
             <td class="num">${val(p.wins)}</td>
@@ -2122,7 +2104,7 @@
     try {
       let p;
       let goalieData = null;
-      const res = await fetch(`${API_BASE}/api/player/${playerId}`);
+      let res = await fetch(`${API_BASE}/api/player/${encodeURIComponent(playerId)}`);
       if (!res.ok) throw new Error(`player endpoint status ${res.status}`);
       p = await res.json();
       if (!p || p.error) throw new Error(p?.error || "Профиль игрока недоступен");
@@ -2263,7 +2245,7 @@
 
       body.innerHTML = html;
     } catch (e) {
-      body.innerHTML = '<div class="empty">Не удалось загрузить карточку игрока</div>';
+      body.innerHTML = `<div class="empty">Не удалось загрузить карточку игрока<br><span style="font-size:11px;opacity:.7">${escapeHtml(e?.message || "Ошибка профиля")}</span></div>`;
     }
   }
 
