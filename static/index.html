@@ -658,12 +658,15 @@
   </div>
 
   <div id="view-leaders" style="display:none">
-    <div class="cat-row">
+    <div class="cat-row" id="leaders-type-row">
+      <button id="leaders-skaters-btn" class="active">🏒 Полевые</button>
+      <button id="leaders-goalies-btn">🥅 Вратари</button>
+    </div>
+    <div class="cat-row" id="skater-categories-row">
       <button data-cat="points" class="active">Очки</button>
       <button data-cat="goals">Голы</button>
       <button data-cat="assists">Передачи</button>
       <button data-cat="plusMinus">+/-</button>
-      <button data-cat="goalies">Вратари</button>
     </div>
     <div class="card">
       <div id="leaders-body"><div class="loading">Загрузка...</div></div>
@@ -949,8 +952,7 @@
       loadSchedule();
     }
     if (tab === "leaders") {
-      if (currentCat === "goalies") loadGoalieLeaders();
-      else loadLeaders();
+      setLeadersType(currentCat === "goalies" ? "goalies" : "skaters");
     }
     if (tab === "players") {
       const input = document.getElementById("player-search-input");
@@ -1043,11 +1045,6 @@
       html += players.map((p, i) => renderSpotlightCard(p, i + 1)).join("");
       games.insertAdjacentHTML("beforeend", html);
 
-      games.querySelectorAll(".spotlight-card").forEach(el => {
-        el.addEventListener("click", () => {
-          if (el.dataset.playerId) openPlayerDetail(el.dataset.playerId);
-        });
-      });
     } catch (e) {
       // Если лидеры не загрузились — просто оставляем сообщение
       // "матчей нет" без дополнительной ошибки, это не критично
@@ -1374,9 +1371,6 @@
         `;
       }).join("");
 
-      results.querySelectorAll(".search-result").forEach(el => {
-        el.addEventListener("click", () => openPlayerDetail(el.dataset.playerId));
-      });
     } catch (e) {
       results.innerHTML = '<div class="empty" style="padding:16px 0">Не удалось выполнить поиск</div>';
     }
@@ -1426,9 +1420,6 @@
         document.getElementById("show-more-players").onclick = () => { currentLimit = 50; loadLeaders(); };
       }
 
-      body.querySelectorAll(".player-row").forEach(el => {
-        el.addEventListener("click", () => openPlayerDetail(el.dataset.playerId));
-      });
     } catch (e) {
       body.innerHTML = '<div class="empty">Не удалось загрузить лидеров</div>';
     }
@@ -1499,9 +1490,10 @@
                 const gaa = p.gaa === null || p.gaa === undefined ? "—" : Number(p.gaa).toFixed(2);
                 const fullName = `${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim();
                 return `
-                  <tr class="clickable-row" data-player-id="${p.playerId}">
+                  <tr class="clickable-row" data-player-id="${p.playerId}" data-player-type="goalie">
                     <td>
-                      <div style="display:flex;align-items:center;gap:7px;min-width:155px;">
+                      <div style="display:flex;align-items:center;gap:7px;min-width:190px;">
+                        <img class="headshot" src="https://assets.nhle.com/mugs/nhl/${p.playerId}.png" alt="" onerror="this.style.visibility='hidden'" style="width:36px;height:36px;">
                         <span style="color:var(--silver-dim);font-family:'Roboto Mono',monospace;width:20px;">${i + 1}</span>
                         <div>
                           <div>${escapeHtml(fullName || "Вратарь")}</div>
@@ -1538,41 +1530,43 @@
         });
       });
 
-      body.querySelectorAll("tr.clickable-row").forEach(el => {
-        el.addEventListener("click", () => openPlayerDetail(el.dataset.playerId, {
-          type: "main",
-          tab: "players"
-        }));
-      });
     } catch (e) {
       body.innerHTML = '<div class="empty">Не удалось загрузить статистику вратарей</div>';
     }
   }
 
-  // Важно: исключаем кнопки std-mode-* (общая/конференции/дивизионы) из этого
-  // общего обработчика — они тоже лежат в .cat-row, но имеют свою собственную
-  // логику (setStandingsMode). Без этого исключения общий обработчик
-  // перезаписывал .onclick кнопок таблицы, и переключение режима ломалось:
-  // кнопка подсвечивалась активной, но реальный режим не менялся.
-  document.querySelectorAll("#view-leaders .cat-row button").forEach(btn => {
+  // Навигация внутри раздела «Лидеры»: отдельно полевые игроки и вратари.
+  function setLeadersType(type) {
+    const skaterBtn = document.getElementById("leaders-skaters-btn");
+    const goalieBtn = document.getElementById("leaders-goalies-btn");
+    const catRow = document.getElementById("skater-categories-row");
+    const isGoalie = type === "goalies";
+
+    skaterBtn.classList.toggle("active", !isGoalie);
+    goalieBtn.classList.toggle("active", isGoalie);
+    catRow.style.display = isGoalie ? "none" : "flex";
+    currentCat = isGoalie ? "goalies" : (currentCat === "goalies" ? "points" : currentCat);
+    currentLimit = 25;
+
+    if (isGoalie) loadGoalieLeaders();
+    else loadLeaders();
+  }
+
+  document.querySelectorAll("#skater-categories-row button").forEach(btn => {
     btn.onclick = () => {
-      document.querySelectorAll("#view-leaders .cat-row button").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll("#skater-categories-row button").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       currentCat = btn.dataset.cat;
       currentLimit = 25;
-      if (currentCat === "goalies") {
-        loadGoalieLeaders();
-      } else {
-        loadLeaders();
-      }
+      loadLeaders();
     };
   });
 
+  document.getElementById("leaders-skaters-btn").onclick = () => setLeadersType("skaters");
+  document.getElementById("leaders-goalies-btn").onclick = () => setLeadersType("goalies");
+
   document.getElementById("players-goalies-button").onclick = () => {
-    currentCat = "goalies";
-    document.querySelectorAll("#view-leaders .cat-row button").forEach(b => {
-      b.classList.toggle("active", b.dataset.cat === "goalies");
-    });
+    setLeadersType("goalies");
     switchTab("leaders");
   };
 
@@ -1856,14 +1850,6 @@
 
     container.innerHTML = html;
 
-    container.querySelectorAll("tr.clickable-row").forEach(el => {
-      el.addEventListener("click", () => openPlayerDetail(el.dataset.playerId, {
-        type: "team",
-        ...(activeTeamContext || {}),
-        teamType: currentTeamType
-      }));
-    });
-
     container.querySelectorAll("th.sortable").forEach(th => {
       th.onclick = () => {
         const key = th.dataset.sort;
@@ -2095,8 +2081,36 @@
     body.innerHTML = html;
   }
 
+  // Универсальный обработчик кликов по игрокам.
+  // Он нужен для всех путей входа: Telegram-кнопки, вкладки, таблицы команды и т.д.
+  // Делегирование на document исключает ситуацию, когда динамически созданная
+  // строка получила HTML, но отдельный listener на неё не был навешен.
+  document.addEventListener("click", (event) => {
+    const playerRow = event.target.closest(".player-row, tr.clickable-row[data-player-id], .search-result[data-player-id], .spotlight-card[data-player-id]");
+    if (!playerRow) return;
+
+    // Клики по названию клуба внутри строки должны открывать клуб, а не игрока.
+    if (event.target.closest(".club-link")) return;
+
+    const playerId = playerRow.dataset.playerId;
+    if (!playerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const playerType = playerRow.dataset.playerType || "";
+    const isTeamRow = playerRow.closest("#team-tables-container");
+    const backState = playerType === "goalie"
+      ? { type: "main", tab: "leaders" }
+      : (isTeamRow && activeTeamContext
+        ? { type: "team", ...activeTeamContext, teamType: currentTeamType }
+        : { type: "main", tab: lastMainTab });
+
+    openPlayerDetail(playerId, backState, playerType);
+  });
+
   // ----- ДЕТАЛИ ИГРОКА И ЕГО КАРЬЕРА -----
-  async function openPlayerDetail(playerId, backState = null) {
+  async function openPlayerDetail(playerId, backState = null, playerType = "") {
+    if (!playerId) return;
     if (!backState) {
       backState = activeTeamContext
         ? { type: "team", ...activeTeamContext, teamType: currentTeamType }
@@ -2106,8 +2120,12 @@
     const body = document.getElementById("detail-body");
 
     try {
+      let p;
+      let goalieData = null;
       const res = await fetch(`${API_BASE}/api/player/${playerId}`);
-      const p = await res.json();
+      if (!res.ok) throw new Error(`player endpoint status ${res.status}`);
+      p = await res.json();
+      if (!p || p.error) throw new Error(p?.error || "Профиль игрока недоступен");
 
       const name = `${nameStr(p.firstName)} ${nameStr(p.lastName)}`;
       const birthPlace = [nameStr(p.birthCity), p.birthCountry].filter(Boolean).join(", ");
@@ -2281,12 +2299,8 @@
   // ----- СТАРТОВАЯ НАВИГАЦИЯ -----
   function openSection(section) {
     if (section === "goalies") {
-      currentCat = "goalies";
-      document.querySelectorAll("#view-leaders .cat-row button").forEach(b => {
-        b.classList.toggle("active", b.dataset.cat === "goalies");
-      });
       switchTab("leaders");
-      loadGoalieLeaders();
+      setLeadersType("goalies");
       return;
     }
     if (section === "reviews") {
