@@ -799,7 +799,7 @@
   let currentDate = new Date();
   let currentCat = "points";
   let currentLimit = 25;
-  let currentGoalieSortKey = "wins";
+  let currentGoalieSortKey = "gamesPlayed";
   let currentGoalieSortAsc = false;
 
   const datePicker = document.getElementById("date-picker");
@@ -843,10 +843,13 @@
     document.getElementById("view-schedule").style.display = "none";
     document.getElementById("view-standings").style.display = "none";
     document.getElementById("view-players").style.display = "none";
+    document.getElementById("view-leaders").style.display = "none";
     document.getElementById("view-detail").style.display = "";
     document.getElementById("main-nav").style.display = "none";
     document.getElementById("detail-body").innerHTML = '<div class="loading">Загрузка...</div>';
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   }
 
   function nameStr(n) {
@@ -1472,7 +1475,7 @@
           <button data-goalie-cat="gamesPlayed" class="${metricKey === "gamesPlayed" ? "active" : ""}">Игры</button>
           <button data-goalie-cat="wins" class="${metricKey === "wins" ? "active" : ""}">Победы</button>
           <button data-goalie-cat="losses" class="${metricKey === "losses" ? "active" : ""}">Поражения</button>
-          <button data-goalie-cat="gaa" class="${metricKey === "gaa" ? "active" : ""}">ПШ/И</button>
+          <button data-goalie-cat="gaa" class="${metricKey === "gaa" ? "active" : ""}">ПБО</button>
           <button data-goalie-cat="savePctg" class="${metricKey === "savePctg" ? "active" : ""}">%ОБ</button>
         </div>
         <div class="section-title">${metric.title}</div>
@@ -1818,7 +1821,10 @@
         const gaa = p.goalsAgainstAverage ?? p.gaa;
         return `
           <tr class="clickable-row" data-player-id="${p.playerId}" data-player-type="goalie">
-            <td>${escapeHtml(nameStr(p.firstName))} ${escapeHtml(nameStr(p.lastName))}</td>
+            <td><div style="display:flex;align-items:center;gap:8px;">
+              <img class="headshot" src="https://assets.nhle.com/mugs/nhl/${p.playerId}.png" alt="" onerror="this.style.visibility='hidden'" style="width:32px;height:32px;">
+              <span>${escapeHtml(nameStr(p.firstName))} ${escapeHtml(nameStr(p.lastName))}</span>
+            </div></td>
             <td class="num">${val(p.gamesPlayed)}</td>
             <td class="num">${val(p.wins)}</td>
             <td class="num">${val(p.losses)}</td>
