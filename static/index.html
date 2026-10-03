@@ -799,8 +799,8 @@
   let currentDate = new Date();
   let currentCat = "points";
   let currentLimit = 25;
-  let currentGoalieSortKey = "gamesPlayed";
-  let currentGoalieSortAsc = false;
+  let currentGoalieSortKey = "gaa";
+  let currentGoalieSortAsc = true;
 
   const datePicker = document.getElementById("date-picker");
 
@@ -1492,7 +1492,13 @@
             return `
               <div class="player-row" data-player-id="${p.playerId || p.id}" data-player-type="goalie">
                 <div class="rank">${i + 1}</div>
-                <img class="headshot" src="https://assets.nhle.com/mugs/nhl/${data.season}/${encodeURIComponent(String(team).split(",")[0].trim())}/${p.playerId || p.id}.png" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+                <img
+                  class="headshot goalie-headshot"
+                  data-goalie-id="${p.playerId || p.id}"
+                  src="https://assets.nhle.com/mugs/nhl/latest/${p.playerId || p.id}.png"
+                  alt=""
+                  loading="lazy"
+                  onerror="this.onerror=null; loadGoalieHeadshot(this)">
                 <div class="info">
                   <div class="pname">${escapeHtml(fullName)}</div>
                   <div class="pteam">${clubLink(team, team, "", team)}</div>
@@ -1521,6 +1527,28 @@
     } catch (e) {
       console.error("Ошибка загрузки лидеров вратарей:", e);
       body.innerHTML = '<div class="empty">Не удалось загрузить статистику вратарей</div>';
+    }
+  }
+
+  async function loadGoalieHeadshot(img) {
+    const playerId = img?.dataset?.goalieId;
+    if (!playerId) {
+      img.style.visibility = "hidden";
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/player/${encodeURIComponent(playerId)}`);
+      if (!res.ok) throw new Error(`player status ${res.status}`);
+      const data = await res.json();
+      if (data?.headshot) {
+        img.src = data.headshot;
+        img.style.visibility = "visible";
+      } else {
+        img.style.visibility = "hidden";
+      }
+    } catch (_) {
+      img.style.visibility = "hidden";
     }
   }
 
