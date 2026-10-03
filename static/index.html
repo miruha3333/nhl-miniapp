@@ -12,14 +12,14 @@
 
 <style>
 :root {
-  --bg:#0A0A0A;
+  --bg:#0a0a0a;
   --surface:#161616;
   --surface-2:#232323;
-  --silver:#E6E9EA;
-  --silver-dim:#9CA3AA;
-  --blue:#1F5FCE;
-  --red:#C8102E;
-  --border:#2C2C2C;
+  --silver:#e6e9ea;
+  --silver-dim:#9ca3aa;
+  --blue:#1f5fce;
+  --red:#c8102e;
+  --border:#2c2c2c;
 }
 
 * {
@@ -29,10 +29,16 @@
 body {
   margin:0;
   padding-bottom:24px;
-  background:var(--bg);
   color:var(--silver);
+  background:var(--bg);
   font-family:"Inter",sans-serif;
   -webkit-font-smoothing:antialiased;
+}
+
+button,
+input,
+select {
+  font:inherit;
 }
 
 header {
@@ -46,7 +52,6 @@ header h1 {
   align-items:center;
   gap:8px;
   margin:0 0 2px;
-  color:var(--silver);
   font-family:"Oswald",sans-serif;
   font-size:22px;
   font-weight:700;
@@ -77,16 +82,13 @@ nav {
   background:var(--bg);
 }
 
-button {
-  font:inherit;
-}
-
 nav button,
 .cat-row button,
 .back-btn,
 .date-row button,
 .show-more {
   border:1px solid var(--border);
+  border-radius:10px;
   color:var(--silver-dim);
   background:var(--surface);
   cursor:pointer;
@@ -95,7 +97,6 @@ nav button,
 nav button {
   flex:1;
   padding:10px 8px;
-  border-radius:10px;
   font-family:"Oswald",sans-serif;
   font-size:13px;
   letter-spacing:.04em;
@@ -131,7 +132,6 @@ main {
   font-family:"Roboto Mono",monospace;
   font-size:14px;
   text-align:center;
-  cursor:pointer;
 }
 
 .date-input::-webkit-calendar-picker-indicator {
@@ -146,13 +146,12 @@ select.date-input {
 
 select.date-input option {
   color:var(--silver);
-  background:#1A1A1A;
+  background:#1a1a1a;
 }
 
 .date-row button {
   width:34px;
   height:34px;
-  border-radius:8px;
   color:var(--silver);
   font-size:16px;
 }
@@ -223,7 +222,7 @@ select.date-input option {
   cursor:pointer;
 }
 
-.score-box.clickable:active,
+.score-box:active,
 .team:active,
 .player-row:active,
 .spotlight-card:active {
@@ -231,7 +230,6 @@ select.date-input option {
 }
 
 .score-box .score {
-  color:var(--silver);
   font-family:"Roboto Mono",monospace;
   font-size:22px;
   font-weight:700;
@@ -247,7 +245,6 @@ select.date-input option {
 
 .table-wrapper,
 .table-scroll {
-  position:relative;
   width:100%;
   overflow-x:auto;
   -webkit-overflow-scrolling:touch;
@@ -364,7 +361,6 @@ select.date-input option {
   flex:1;
   min-width:0;
   padding:8px 6px;
-  border-radius:8px;
   font-family:"Oswald",sans-serif;
   font-size:12px;
   letter-spacing:.04em;
@@ -450,7 +446,6 @@ select.date-input option {
   width:100%;
   margin-top:10px;
   padding:10px;
-  border-radius:10px;
   background:var(--surface-2);
   font-family:"Oswald",sans-serif;
   font-size:12px;
@@ -550,8 +545,6 @@ select.date-input option {
   gap:6px;
   margin-bottom:12px;
   padding:8px 14px;
-  border-radius:10px;
-  color:var(--silver);
   font-family:"Oswald",sans-serif;
   font-size:13px;
   letter-spacing:.04em;
@@ -990,6 +983,7 @@ let leadersMode = "skaters";
 let currentGoalieSortKey = "wins";
 let currentGoalieSortAsc = false;
 
+const goalieHeadshotCache = new Map();
 const datePicker = document.getElementById("date-picker");
 
 function nameStr(value) {
@@ -1068,13 +1062,22 @@ function getTeamLogo(team) {
   return "";
 }
 
-function getHeadshot(player) {
-  if (player.headshot) return player.headshot;
+function getPlayerId(player) {
+  return String(player?.playerId || player?.id || "");
+}
 
-  const id = player.playerId || player.id;
-  return id
-    ? `https://assets.nhle.com/mugs/nhl/20252026/${id}.png`
-    : "";
+function getHeadshot(player) {
+  if (player?.headshot) {
+    return player.headshot;
+  }
+
+  const playerId = getPlayerId(player);
+
+  if (playerId && goalieHeadshotCache.has(playerId)) {
+    return goalieHeadshotCache.get(playerId);
+  }
+
+  return "";
 }
 
 function fmtDate(date) {
@@ -1097,7 +1100,9 @@ function seasonIdFromEndDate(endDate) {
 function formatPeriodLabel(descriptor) {
   if (!descriptor) return "Период";
 
-  if (descriptor.periodType === "SO") return "Буллиты";
+  if (descriptor.periodType === "SO") {
+    return "Буллиты";
+  }
 
   if (descriptor.periodType === "OT") {
     const number = descriptor.number && descriptor.number > 3
@@ -1123,6 +1128,27 @@ function openDetail() {
   document.getElementById("detail-body").innerHTML =
     '<div class="loading">Загрузка...</div>';
   window.scrollTo(0, 0);
+}
+
+function resetLeadersToSkaters() {
+  leadersMode = "skaters";
+  currentCat = "points";
+  currentLimit = 25;
+
+  document.getElementById("leaders-skaters-btn").classList.add("active");
+  document.getElementById("leaders-goalies-btn").classList.remove("active");
+
+  document.getElementById("skater-categories").style.display = "flex";
+  document.getElementById("goalie-categories").style.display = "none";
+
+  document
+    .querySelectorAll("#skater-categories button")
+    .forEach(button => {
+      button.classList.toggle(
+        "active",
+        button.dataset.cat === "points"
+      );
+    });
 }
 
 function switchTab(tab) {
@@ -1174,6 +1200,7 @@ function switchTab(tab) {
   }
 
   if (tab === "players") {
+    resetLeadersToSkaters();
     loadPlayers();
   }
 }
@@ -1260,7 +1287,10 @@ document.getElementById("season-select").addEventListener("change", event => {
 
   const playoffYear = String(Number(startYear) + 1);
 
-  if (option.dataset.startYear || new Date() >= new Date(Number(playoffYear), 3, 14)) {
+  if (
+    option.dataset.startYear ||
+    new Date() >= new Date(Number(playoffYear), 3, 14)
+  ) {
     loadPlayoffBracket(playoffYear);
   } else {
     document.getElementById("bracket-container").innerHTML = `
@@ -1447,6 +1477,66 @@ function renderGame(game) {
       </div>
     </div>
   `;
+}
+
+async function loadSpotlight() {
+  const games = document.getElementById("games");
+
+  try {
+    const response = await fetch(`${API_BASE}/api/leaders/points?limit=6`);
+    const data = await response.json();
+    const players = data.points || [];
+
+    if (!players.length) return;
+
+    let html = '<div class="spotlight-title">Лидеры лиги по очкам</div>';
+
+    html += players.map((player, index) => `
+      <div
+        class="spotlight-card"
+        data-player-id="${escapeHtml(getPlayerId(player))}"
+      >
+        <div class="spotlight-rank">${index + 1}</div>
+
+        <img
+          class="spotlight-headshot"
+          src="${escapeHtml(player.headshot || "")}"
+          alt=""
+          onerror="this.style.visibility='hidden'"
+        >
+
+        <div class="spotlight-info">
+          <div class="spotlight-name">
+            ${escapeHtml(`${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Игрок")}
+          </div>
+
+          <div class="spotlight-team">
+            <img
+              class="team-logo"
+              src="${escapeHtml(player.teamLogo || "")}"
+              alt=""
+              onerror="this.style.display='none'"
+            >
+            ${escapeHtml(player.teamAbbrev || "")}
+          </div>
+        </div>
+
+        <div class="spotlight-value">${escapeHtml(player.value ?? "")}</div>
+      </div>
+    `).join("");
+
+    games.insertAdjacentHTML("beforeend", html);
+
+    games.querySelectorAll(".spotlight-card").forEach(card => {
+      card.addEventListener("click", () => {
+        if (card.dataset.playerId) {
+          openPlayerDetail(card.dataset.playerId);
+        }
+      });
+    });
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 async function loadStandings() {
@@ -1823,7 +1913,10 @@ async function loadPlayers() {
     }
 
     body.innerHTML = list.map((player, index) => `
-      <div class="player-row" data-player-id="${escapeHtml(player.id || player.playerId || "")}">
+      <div
+        class="player-row"
+        data-player-id="${escapeHtml(getPlayerId(player))}"
+      >
         <div class="rank">${index + 1}</div>
 
         <img
@@ -1878,12 +1971,6 @@ async function loadPlayers() {
 }
 
 function goalieSortValue(player) {
-  if (currentGoalieSortKey === "name") {
-    return `${nameStr(player.firstName)} ${nameStr(player.lastName)}`
-      .trim()
-      .toLowerCase();
-  }
-
   if (currentGoalieSortKey === "savePctg") {
     return Number(player.savePctg ?? player.savePercentage ?? -Infinity);
   }
@@ -1897,11 +1984,14 @@ function goalieSortValue(player) {
 
 async function loadGoalieCards() {
   const body = document.getElementById("players-body");
-  body.innerHTML = '<div class="loading">Загрузка статистики вратарей...</div>';
+  body.innerHTML =
+    '<div class="loading">Загрузка статистики вратарей...</div>';
 
   try {
     const seasonId = seasonIdFromEndDate(selectedSeasonEndDate);
-    const params = new URLSearchParams({ limit:"100" });
+    const params = new URLSearchParams({
+      limit:"100"
+    });
 
     if (seasonId) params.set("season", seasonId);
 
@@ -1920,32 +2010,28 @@ async function loadGoalieCards() {
       ? [...data.goalies]
       : [];
 
-    rows.sort((a, b) => {
-      const valueA = goalieSortValue(a);
-      const valueB = goalieSortValue(b);
-
-      if (typeof valueA === "string" || typeof valueB === "string") {
-        const result = String(valueA).localeCompare(String(valueB), "ru");
-        return currentGoalieSortAsc ? result : -result;
-      }
-
-      return currentGoalieSortAsc
-        ? valueA - valueB
-        : valueB - valueA;
-    });
-
     if (!rows.length) {
       body.innerHTML =
         '<div class="empty">Нет данных вратарей за выбранный сезон</div>';
       return;
     }
 
+    await hydrateGoalieHeadshots(rows);
+
+    rows.sort((a, b) => {
+      const valueA = goalieSortValue(a);
+      const valueB = goalieSortValue(b);
+
+      return currentGoalieSortAsc
+        ? valueA - valueB
+        : valueB - valueA;
+    });
+
     body.innerHTML = rows.map((player, index) => {
       const savePct = player.savePctg ?? player.savePercentage;
       const gaa = player.gaa ?? player.goalsAgainstAverage;
-      const value = player[currentGoalieSortKey];
 
-      let mainValue = value;
+      let mainValue = player[currentGoalieSortKey] ?? "—";
 
       if (currentGoalieSortKey === "savePctg") {
         mainValue = typeof savePct === "number"
@@ -1959,14 +2045,10 @@ async function loadGoalieCards() {
           : "—";
       }
 
-      if (currentGoalieSortKey === "losses") {
-        mainValue = player.losses ?? "—";
-      }
-
       return `
         <div
           class="player-row"
-          data-player-id="${escapeHtml(player.playerId || player.id || "")}"
+          data-player-id="${escapeHtml(getPlayerId(player))}"
         >
           <div class="rank">${index + 1}</div>
 
@@ -1993,7 +2075,7 @@ async function loadGoalieCards() {
             </div>
           </div>
 
-          <div class="pvalue">${escapeHtml(mainValue ?? "—")}</div>
+          <div class="pvalue">${escapeHtml(mainValue)}</div>
         </div>
       `;
     }).join("");
@@ -2005,6 +2087,7 @@ async function loadGoalieCards() {
     });
   } catch (error) {
     console.error(error);
+
     body.innerHTML = `
       <div class="empty">
         Не удалось загрузить статистику вратарей
@@ -2013,6 +2096,47 @@ async function loadGoalieCards() {
       </div>
     `;
   }
+}
+
+async function hydrateGoalieHeadshots(players) {
+  await Promise.all(
+    players.map(async player => {
+      const playerId = getPlayerId(player);
+
+      if (!playerId || player.headshot || goalieHeadshotCache.has(playerId)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/player/${encodeURIComponent(playerId)}`
+        );
+
+        if (!response.ok) return;
+
+        const profile = await response.json();
+
+        if (profile.headshot) {
+          goalieHeadshotCache.set(playerId, profile.headshot);
+          player.headshot = profile.headshot;
+        }
+
+        if (!player.firstName && profile.firstName) {
+          player.firstName = profile.firstName;
+        }
+
+        if (!player.lastName && profile.lastName) {
+          player.lastName = profile.lastName;
+        }
+
+        if (!player.teamLogo && profile.teamLogo) {
+          player.teamLogo = profile.teamLogo;
+        }
+      } catch (error) {
+        console.error("Ошибка загрузки фото вратаря:", error);
+      }
+    })
+  );
 }
 
 async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
@@ -2125,7 +2249,10 @@ function renderTeamTabsAndTables(teamAbbrev, teamName, teamLogo) {
 
 function normalizeTeamDataset(data) {
   if (!data || typeof data !== "object") {
-    return { skaters:[], goalies:[] };
+    return {
+      skaters:[],
+      goalies:[]
+    };
   }
 
   const skaters =
@@ -2207,7 +2334,7 @@ function buildTeamTablesBlock() {
             ${skaters.map(player => `
               <tr
                 class="clickable-row"
-                data-player-id="${escapeHtml(player.playerId || player.id || "")}"
+                data-player-id="${escapeHtml(getPlayerId(player))}"
               >
                 <td>
                   ${escapeHtml(`${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Игрок")}
@@ -2253,7 +2380,7 @@ function buildTeamTablesBlock() {
               return `
                 <tr
                   class="clickable-row"
-                  data-player-id="${escapeHtml(player.playerId || player.id || "")}"
+                  data-player-id="${escapeHtml(getPlayerId(player))}"
                 >
                   <td>
                     ${escapeHtml(`${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Вратарь")}
@@ -2351,16 +2478,15 @@ function renderTeamGameStats(
   `;
 
   stats.forEach(stat => {
-    const category = stat.category;
-    const label = TEAM_STAT_LABELS[category] || category;
+    const label = TEAM_STAT_LABELS[stat.category] || stat.category;
 
     let awayValue = stat.awayValue;
     let homeValue = stat.homeValue;
 
     if (
       typeof awayValue === "number" &&
-      (category === "faceoffWinningPctg" ||
-       category === "powerPlayPctg")
+      (stat.category === "faceoffWinningPctg" ||
+       stat.category === "powerPlayPctg")
     ) {
       awayValue = `${(awayValue * 100).toFixed(1)}%`;
       homeValue = `${(homeValue * 100).toFixed(1)}%`;
