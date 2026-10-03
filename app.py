@@ -596,41 +596,36 @@ async def telegram_webhook(update: dict):
     chat_id = message["chat"]["id"]
     text = message.get("text", "")
 
-    if text in ("/start", "/matches", "/standings", "/leaders", "/goalies", "/players"):
-        keyboard = {
-            "inline_keyboard": [
-                [{"text": "🏒 ОТКРЫТЬ NHL", "web_app": {"url": WEBAPP_URL}}],
-                [
-                    {"text": "📅 Матчи", "web_app": {"url": f"{WEBAPP_URL}?section=matches"}},
-                    {"text": "📊 Таблица", "web_app": {"url": f"{WEBAPP_URL}?section=standings"}},
-                ],
-                [
-                    {"text": "🏆 Лидеры", "web_app": {"url": f"{WEBAPP_URL}?section=leaders"}},
-                    {"text": "🥅 Вратари", "web_app": {"url": f"{WEBAPP_URL}?section=goalies"}},
-                ],
-                [
-                    {"text": "👤 Игроки", "web_app": {"url": f"{WEBAPP_URL}?section=players"}},
-                    {"text": "🎥 Обзоры", "web_app": {"url": f"{WEBAPP_URL}?section=reviews"}},
-                ],
+    if text == "/start":
+    keyboard = {
+        "inline_keyboard": [
+            [
+                {"text": "🏒 ОТКРЫТЬ NHL", "web_app": {"url": WEBAPP_URL}}
+            ],
+            [
+                {"text": "📅 Матчи", "web_app": {"url": f"{WEBAPP_URL}?section=schedule"}},
+                {"text": "📊 Таблица", "web_app": {"url": f"{WEBAPP_URL}?section=standings"}}
+            ],
+            [
+                {"text": "🏆 Лидеры", "web_app": {"url": f"{WEBAPP_URL}?section=leaders"}},
+                {"text": "🥅 Вратари", "web_app": {"url": f"{WEBAPP_URL}?section=goalies"}}
+            ],
+            [
+                {"text": "👤 Игроки", "web_app": {"url": f"{WEBAPP_URL}?section=players"}},
+                {"text": "🎥 Обзоры", "web_app": {"url": f"{WEBAPP_URL}?section=videos"}}
             ]
-        }
-        text_message = (
-            "🏒 NHL LIVE\n\n"
-            "Всё главное по NHL — в одном месте.\n\n"
-            "📅 Матчи и результаты\n"
-            "📊 Турнирная таблица\n"
-            "🏆 Лидеры сезона\n"
-            "👤 Статистика игроков\n"
-            "🥅 Статистика вратарей\n"
-            "🎥 Видеообзоры матчей\n\n"
-            "Открой приложение и смотри NHL прямо в Telegram."
-        )
-        async with httpx.AsyncClient() as client:
-            await client.post(f"{TELEGRAM_API}/sendMessage", json={
-                "chat_id": chat_id,
-                "text": text_message,
-                "reply_markup": keyboard,
-            })
+        ]
+    }
+
+    async with httpx.AsyncClient() as client:
+        await client.post(f"{TELEGRAM_API}/sendMessage", json={
+            "chat_id": chat_id,
+            "text": (
+                "Привет! Добро пожаловать в обновленный NHL Live.\n\n"
+                "Выбирай нужный раздел:"
+            ),
+            "reply_markup": keyboard,
+        })
 
     return {"ok": True}
 
