@@ -17,6 +17,7 @@ NHL_BASE = "https://api-web.nhle.com/v1"
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 WEBAPP_URL = "https://nhl-miniapp-1.onrender.com"
+TELEGRAM_WEBHOOK_URL = "https://nhl-live-api.sergvolk504.workers.dev/webhook"
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 CACHE_TTL = {
@@ -35,6 +36,31 @@ CACHE_TTL = {
 _cache: dict[str, tuple[float, dict]] = {}
 
 app = FastAPI(title="NHL Mini App")
+
+
+@app.on_event("startup")
+async def configure_telegram_webhook():
+    """После деплоя переводим Telegram webhook на Cloudflare Worker.
+
+    Старый Render-сервис остаётся только как технический резерв и больше не
+    должен просыпаться при каждом сообщении Telegram.
+    """
+    if not BOT_TOKEN:
+        return
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(
+                f"{TELEGRAM_API}/setWebhook",
+                json={
+                    "url": TELEGRAM_WEBHOOK_URL,
+                    "allowed_updates": ["message"],
+                },
+            )
+    except Exception:
+        # Ошибка настройки webhook не должна мешать запуску самого сервиса.
+        pass
+
 
 app.add_middleware(
     CORSMiddleware,
