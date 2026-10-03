@@ -1,26 +1,21 @@
-"""
-NHL Mini App — единый сервер.
-Обновленная версия с поддержкой разделения статистики на Регулярный сезон и Плей-офф.
-"""
-
+import asyncio
 import os
 import time
-import asyncio
 from pathlib import Path
+from typing import Any
+
 import httpx
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
 
 NHL_BASE = "https://api-web.nhle.com/v1"
+NHL_STATS_BASE = "https://api.nhle.com/stats/rest/en"
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
-
-# Mini App теперь всегда открывается через Render Static Site,
-# а не через старый Render Web Service.
 WEBAPP_URL = "https://nhl-miniapp-1.onrender.com"
-
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 CACHE_TTL = {
@@ -32,11 +27,12 @@ CACHE_TTL = {
     "player": 60 * 45,
     "boxscore": 20,
     "rightrail": 20,
+    "matchup": 60 * 30,
     "player_search": 60 * 10,
     "team_schedule": 60 * 10,
 }
 
-_cache: dict[str, tuple[float, dict]] = {}
+_cache: dict[str, tuple[float, Any]] = {}
 
 app = FastAPI(title="NHL Mini App")
 
@@ -48,91 +44,148 @@ app.add_middleware(
 )
 
 
-async def fetch_with_cache(cache_key: str, url: str, ttl: int) -> dict:
+DEFAULT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    )
+}
+
+
+async def fetch_with_cache(
+    cache_key: str,
+    url: str,
+    ttl: int,
+) -> Any:
     now = time.time()
     cached = _cache.get(cache_key)
 
-    if cached and (now - cached[0]) < ttl:
+    if cached and now - cached[0] < ttl:
         return cached[1]
 
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        )
-    }
-
-    async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
+    async with httpx.AsyncClient(
+        timeout=12,
+        follow_redirects=True,
+    ) as client:
         try:
-            resp = await client.get(url, headers=headers)
-            if resp.status_code == 200:
-                data = resp.json()
+            response = await client.get(
+                url,
+                headers=DEFAULT_HEADERS,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
                 _cache[cache_key] = (now, data)
                 return data
-            else:
-                if cache_key in _cache:
-                    return _cache[cache_key][1]
-                return {"error": f"NHL API status {resp.status_code}"}
-        except Exception as e:
+
             if cache_key in _cache:
                 return _cache[cache_key][1]
-            return {"error": str(e)}
 
+            return {
+                "error": f"NHL API status {response.status_code}"
+            }
 
-# ---------- Служебный endpoint ----------
+        except Exception as error:
+            if cache_key in _cache:
+                return _cache[cache_key][1]
+
+            return {
+                "error": str(error)
+            }
+
 
 @app.get("/health")
 async def health():
-    """Простой ответ для проверки доступности сервиса."""
     return {"status": "ok"}
 
 
-# ---------- API для Mini App ----------
-
 @app.get("/api/schedule")
 async def schedule(date: str):
-    """Расписание дня + текущие показатели обеих команд.
-
-    В превью матча фронтенду нужны В/П/ПБО/О. Эти показатели берём
-    из текущей таблицы NHL, а не из календаря, чтобы они всегда отражали
-    актуальное положение клуба. Таблица кэшируется отдельно, поэтому
-    добавление этих данных не создаёт новый запрос к NHL на каждый матч.
-    """
     schedule_url = f"{NHL_BASE}/schedule/{date}"
     standings_url = f"{NHL_BASE}/standings/now"
 
     schedule_data, standings_data = await asyncio.gather(
-        fetch_with_cache(f"schedule:{date}", schedule_url, CACHE_TTL["schedule"]),
-        fetch_with_cache("standings", standings_url, CACHE_TTL["standings"]),
+        fetch_with_cache(
+            f"schedule:{date}",
+            schedule_url,
+            CACHE_TTL["schedule"],
+        ),
+        fetch_with_cache(
+            "standings",
+            standings_url,
+            CACHE_TTL["standings"],
+        ),
     )
 
     if not isinstance(schedule_data, dict):
         return schedule_data
 
-    standings_rows = standings_data.get("standings", []) if isinstance(standings_data, dict) else []
+    standings_rows = (
+        standings_data.get("standings", [])
+        if isinstance(standings_data, dict)
+        else []
+    )
+
     standings_map = {}
 
-    for row in standings_rows if isinstance(standings_rows, list) else []:
-        abbrev = row.get("teamAbbrev")
+    for row in standings_rows:
+        if not isinstance(row, dict):
+            continue
 
-        if isinstance(abbrev, dict):
-            abbrev = abbrev.get("default")
+        abbreviation = row.get("teamAbbrev")
 
-        if abbrev:
-            standings_map[str(abbrev).upper()] = {
-                "wins": row.get("wins", 0),
-                "losses": row.get("losses", 0),
-                "otLosses": row.get("otLosses", 0),
-                "points": row.get("points", 0),
-            }
+        if isinstance(abbreviation, dict):
+            abbreviation = abbreviation.get("default")
 
-    for day in schedule_data.get("gameWeek", []) if isinstance(schedule_data.get("gameWeek"), list) else []:
-        for game in day.get("games", []) if isinstance(day.get("games"), list) else []:
+        if not abbreviation:
+            continue
+
+        standings_map[str(abbreviation).upper()] = {
+            "wins": row.get("wins", 0),
+            "losses": row.get("losses", 0),
+            "otLosses": row.get("otLosses", 0),
+            "points": row.get("points", 0),
+        }
+
+    game_week = schedule_data.get("gameWeek", [])
+
+    if not isinstance(game_week, list):
+        return schedule_data
+
+    for day in game_week:
+        if not isinstance(day, dict):
+            continue
+
+        games = day.get("games", [])
+
+        if not isinstance(games, list):
+            continue
+
+        for game in games:
+            if not isinstance(game, dict):
+                continue
+
             for side in ("awayTeam", "homeTeam"):
                 team = game.get(side) or {}
-                abbrev = team.get("abbrev") or team.get("teamAbbrev")
-                record = standings_map.get(str(abbrev).upper()) if abbrev else None
+
+                if not isinstance(team, dict):
+                    continue
+
+                abbreviation = (
+                    team.get("abbrev")
+                    or team.get("teamAbbrev")
+                )
+
+                if isinstance(abbreviation, dict):
+                    abbreviation = abbreviation.get("default")
+
+                if not abbreviation:
+                    continue
+
+                record = standings_map.get(
+                    str(abbreviation).upper()
+                )
 
                 if record:
                     team["currentRecord"] = record
@@ -142,45 +195,37 @@ async def schedule(date: str):
 
 @app.get("/api/standings")
 async def standings():
-    url = f"{NHL_BASE}/standings/now"
-    return await fetch_with_cache("standings", url, CACHE_TTL["standings"])
+    return await fetch_with_cache(
+        "standings",
+        f"{NHL_BASE}/standings/now",
+        CACHE_TTL["standings"],
+    )
 
 
 @app.get("/api/standings-by-date/{date}")
 async def standings_by_date(date: str):
-    """Турнирная таблица на конкретную дату."""
-    url = f"{NHL_BASE}/standings/{date}"
     return await fetch_with_cache(
         f"standings:{date}",
-        url,
-        CACHE_TTL["standings"]
+        f"{NHL_BASE}/standings/{date}",
+        CACHE_TTL["standings"],
     )
 
 
 @app.get("/api/seasons-list")
 async def seasons_list():
-    """Список всех сезонов в истории НХЛ с точной датой окончания регулярного
-    сезона (standingsEnd). Это устраняет угадывание дат — для каждого сезона
-    NHL API сам говорит, когда закончилась регулярка.
-    """
-    url = f"{NHL_BASE}/standings-season"
     return await fetch_with_cache(
         "seasons-list",
-        url,
-        CACHE_TTL["standings"]
+        f"{NHL_BASE}/standings-season",
+        CACHE_TTL["standings"],
     )
 
 
 @app.get("/api/playoff-bracket/{year}")
 async def playoff_bracket(year: str):
-    """Сетка плей-офф за указанный год (год начала сезона, например 2024
-    для плей-офф сезона 2023-24).
-    """
-    url = f"{NHL_BASE}/playoff-bracket/{year}"
     return await fetch_with_cache(
         f"bracket:{year}",
-        url,
-        CACHE_TTL["standings"]
+        f"{NHL_BASE}/playoff-bracket/{year}",
+        CACHE_TTL["standings"],
     )
 
 
@@ -188,7 +233,7 @@ ALLOWED_CATEGORIES = {
     "points",
     "goals",
     "assists",
-    "plusMinus"
+    "plusMinus",
 }
 
 
@@ -196,15 +241,8 @@ ALLOWED_CATEGORIES = {
 async def leaders(
     category: str,
     limit: int = 25,
-    season: str | None = None
+    season: str | None = None,
 ):
-    """Лидеры лиги по категории статистики. Если season не указан — берутся
-    текущие лидеры (skater-stats-leaders/current). Если указан (формат
-    YYYYYYYY) — лидеры именно этого сезона за регулярный чемпионат (gameType=2),
-    иначе вкладка 'Игроки' всегда показывала текущий сезон независимо от
-    выбора в таблице.
-    """
-
     if category not in ALLOWED_CATEGORIES:
         category = "points"
 
@@ -213,35 +251,31 @@ async def leaders(
     if season:
         url = (
             f"{NHL_BASE}/skater-stats-leaders/"
-            f"{season}/2?categories={category}&limit={limit}"
+            f"{season}/2"
+            f"?categories={category}"
+            f"&limit={limit}"
         )
         cache_key = f"leaders:{category}:{limit}:{season}"
     else:
         url = (
             f"{NHL_BASE}/skater-stats-leaders/"
-            f"current?categories={category}&limit={limit}"
+            f"current?categories={category}"
+            f"&limit={limit}"
         )
         cache_key = f"leaders:{category}:{limit}"
 
     return await fetch_with_cache(
         cache_key,
         url,
-        CACHE_TTL["leaders"]
+        CACHE_TTL["leaders"],
     )
 
 
 @app.get("/api/goalie-leaders")
 async def goalie_leaders(
     limit: int = 100,
-    season: str | None = None
+    season: str | None = None,
 ):
-    """Полная таблица вратарей за регулярный сезон.
-
-    Основной источник — NHL Stats REST API /goalie/summary.
-    Для текущего сезона, если регулярная статистика ещё пустая,
-    автоматически используется последний завершённый сезон.
-    """
-
     limit = max(1, min(limit, 100))
 
     now = time.localtime()
@@ -259,14 +293,12 @@ async def goalie_leaders(
     target_season = season or current_season
 
     async def load_season(season_id: str):
-        url = "https://api.nhle.com/stats/rest/en/goalie/summary"
-
         params = {
             "isAggregate": "false",
             "isGame": "false",
             "cayenneExp": (
                 f"seasonId={season_id} "
-                f"and gameTypeId=2"
+                "and gameTypeId=2"
             ),
             "start": 0,
             "limit": limit,
@@ -276,29 +308,22 @@ async def goalie_leaders(
             ),
         }
 
-        query = httpx.QueryParams(params)
-        full_url = f"{url}?{query}"
-
-        cache_key = (
-            f"goalie-summary:"
-            f"{season_id}:{limit}"
+        url = (
+            f"{NHL_STATS_BASE}/goalie/summary?"
+            f"{httpx.QueryParams(params)}"
         )
 
         data = await fetch_with_cache(
-            cache_key,
-            full_url,
-            CACHE_TTL["leaders"]
+            f"goalie-summary:{season_id}:{limit}",
+            url,
+            CACHE_TTL["leaders"],
         )
 
         if not isinstance(data, dict):
-            return [], {
-                "error": "Некорректный ответ NHL Stats API"
-            }
+            return [], {"error": "Некорректный ответ NHL API"}
 
         if data.get("error"):
-            return [], {
-                "error": data.get("error")
-            }
+            return [], {"error": data["error"]}
 
         rows = data.get("data", [])
 
@@ -307,57 +332,52 @@ async def goalie_leaders(
 
         return rows, None
 
-    raw_rows, api_error = await load_season(target_season)
+    rows, api_error = await load_season(target_season)
     stats_season = target_season
 
-    if not raw_rows and target_season == current_season:
-        previous_start = current_start_year - 1
+    if not rows and target_season == current_season:
+        previous_start_year = current_start_year - 1
         previous_season = (
-            f"{previous_start}"
-            f"{previous_start + 1}"
+            f"{previous_start_year}"
+            f"{previous_start_year + 1}"
         )
 
-        raw_rows, previous_error = await load_season(
+        rows, previous_error = await load_season(
             previous_season
         )
 
-        if raw_rows:
+        if rows:
             stats_season = previous_season
             api_error = None
         elif previous_error:
             api_error = previous_error
 
-    if not raw_rows and api_error:
+    if not rows and api_error:
         return {
             "season": stats_season,
             "requestedSeason": target_season,
-            "fallback": (
-                stats_season != target_season
-            ),
+            "fallback": stats_season != target_season,
             "goalies": [],
             "error": api_error.get(
                 "error",
-                "Ошибка NHL Stats API"
+                "Ошибка NHL Stats API",
             ),
         }
 
     goalies = []
 
-    for row in raw_rows:
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+
         first_name = row.get("firstName", "")
         last_name = row.get("lastName", "")
 
         if isinstance(first_name, dict):
-            first_name = first_name.get(
-                "default",
-                ""
-            )
+            first_name = first_name.get("default", "")
 
         if isinstance(last_name, dict):
-            last_name = last_name.get(
-                "default",
-                ""
-            )
+            last_name = last_name.get("default", "")
 
         player_id = row.get("playerId")
 
@@ -368,16 +388,10 @@ async def goalie_leaders(
         )
 
         if isinstance(full_name, dict):
-            full_name = full_name.get(
-                "default",
-                ""
-            )
+            full_name = full_name.get("default", "")
 
         if not full_name:
-            full_name = (
-                f"{first_name} "
-                f"{last_name}"
-            ).strip()
+            full_name = f"{first_name} {last_name}".strip()
 
         team_abbrev = (
             row.get("teamAbbrevs")
@@ -387,8 +401,8 @@ async def goalie_leaders(
 
         if isinstance(team_abbrev, list):
             team_abbrev = ", ".join(
-                str(x)
-                for x in team_abbrev
+                str(value)
+                for value in team_abbrev
             )
 
         goalies.append({
@@ -405,41 +419,86 @@ async def goalie_leaders(
             "otLosses": row.get("otLosses"),
             "savePctg": row.get(
                 "savePctg",
-                row.get("savePct")
+                row.get("savePct"),
             ),
             "gaa": row.get(
                 "goalsAgainstAverage",
-                row.get("gaa")
+                row.get("gaa"),
             ),
             "shutouts": row.get("shutouts"),
             "saves": row.get("saves"),
-            "shotsAgainst": row.get(
-                "shotsAgainst"
-            ),
+            "shotsAgainst": row.get("shotsAgainst"),
         })
 
     return {
         "season": stats_season,
         "requestedSeason": target_season,
-        "fallback": (
-            stats_season != target_season
-        ),
+        "fallback": stats_season != target_season,
         "goalies": goalies,
+    }
+
+
+@app.get("/api/matchup/{game_id}")
+async def matchup(game_id: str):
+    """
+    Возвращает личные встречи команд из landing NHL API.
+
+    NHL может использовать один из двух форматов:
+    - matchup
+    - seasonSeries
+    """
+
+    url = f"{NHL_BASE}/gamecenter/{game_id}/landing"
+
+    data = await fetch_with_cache(
+        f"matchup:{game_id}",
+        url,
+        CACHE_TTL["matchup"],
+    )
+
+    if not isinstance(data, dict):
+        return {
+            "available": False,
+            "gameId": game_id,
+            "matchup": None,
+            "seasonSeries": None,
+        }
+
+    if data.get("error"):
+        return {
+            "available": False,
+            "gameId": game_id,
+            "matchup": None,
+            "seasonSeries": None,
+            "error": data["error"],
+        }
+
+    matchup_data = data.get("matchup")
+    season_series = data.get("seasonSeries")
+
+    if matchup_data is None:
+        summary = data.get("summary")
+
+        if isinstance(summary, dict):
+            matchup_data = summary.get("matchup")
+            season_series = (
+                season_series
+                or summary.get("seasonSeries")
+            )
+
+    return {
+        "available": bool(
+            matchup_data is not None
+            or season_series is not None
+        ),
+        "gameId": game_id,
+        "matchup": matchup_data,
+        "seasonSeries": season_series,
     }
 
 
 @app.get("/api/game-video/{game_id}")
 async def game_video(game_id: str):
-    """Возвращает официальные ссылки на видео обзора из NHL API.
-
-    В разных версиях NHL API видеоданные встречаются в двух местах:
-    1) в scoreboard/schedule как относительный путь /video/...
-    2) в landing.summary.gameVideo как ID ролика.
-
-    Поэтому сначала смотрим landing, затем scoreboard за дату матча.
-    Это позволяет не зависеть от одной конкретной формы ответа API.
-    """
-
     landing_url = (
         f"{NHL_BASE}/gamecenter/"
         f"{game_id}/landing"
@@ -448,7 +507,7 @@ async def game_video(game_id: str):
     landing = await fetch_with_cache(
         f"game-video-landing:{game_id}",
         landing_url,
-        CACHE_TTL["score"]
+        CACHE_TTL["score"],
     )
 
     if not isinstance(landing, dict) or landing.get("error"):
@@ -463,11 +522,7 @@ async def game_video(game_id: str):
 
     videos = []
 
-    def add_video(
-        kind: str,
-        value,
-        title: str
-    ):
+    def add_video(kind: str, value: Any, title: str):
         if value is None or value == "":
             return
 
@@ -484,38 +539,29 @@ async def game_video(game_id: str):
 
         value = value.strip()
 
-        if not value:
-            return
-
         if value.startswith("/video/"):
-            value = (
-                "https://www.nhl.com"
-                + value
-            )
+            value = "https://www.nhl.com" + value
         elif value.startswith("http://"):
-            value = (
-                "https://"
-                + value[7:]
-            )
+            value = "https://" + value[7:]
         elif not value.startswith("https://"):
             return
 
         videos.append({
             "kind": kind,
             "title": title,
-            "url": value
+            "url": value,
         })
 
     add_video(
         "recap",
         landing.get("threeMinRecap"),
-        "3-Minute Recap"
+        "3-Minute Recap",
     )
 
     add_video(
         "condensed",
         landing.get("condensedGame"),
-        "Condensed Game"
+        "Condensed Game",
     )
 
     summary = landing.get("summary") or {}
@@ -524,47 +570,46 @@ async def game_video(game_id: str):
         add_video(
             "recap",
             summary.get("threeMinRecap"),
-            "3-Minute Recap"
+            "3-Minute Recap",
         )
 
         add_video(
             "condensed",
             summary.get("condensedGame"),
-            "Condensed Game"
+            "Condensed Game",
         )
 
     game_date = landing.get("gameDate")
 
     if isinstance(game_date, str) and game_date:
-        score_url = (
-            f"{NHL_BASE}/score/"
-            f"{game_date}"
-        )
+        score_url = f"{NHL_BASE}/score/{game_date}"
 
         score_data = await fetch_with_cache(
             f"score-date-for-video:{game_date}",
             score_url,
-            CACHE_TTL["score"]
+            CACHE_TTL["score"],
         )
 
-        for game in (
+        games = (
             score_data.get("games", [])
             if isinstance(score_data, dict)
             else []
-        ):
+        )
+
+        for game in games:
             if str(game.get("id")) != str(game_id):
                 continue
 
             add_video(
                 "recap",
                 game.get("threeMinRecap"),
-                "3-Minute Recap"
+                "3-Minute Recap",
             )
 
             add_video(
                 "condensed",
                 game.get("condensedGame"),
-                "Condensed Game"
+                "Condensed Game",
             )
 
             break
@@ -573,10 +618,8 @@ async def game_video(game_id: str):
     seen = set()
 
     for video in videos:
-        key = video["url"]
-
-        if key not in seen:
-            seen.add(key)
+        if video["url"] not in seen:
+            seen.add(video["url"])
             unique.append(video)
 
     game_center = (
@@ -588,10 +631,7 @@ async def game_video(game_id: str):
         isinstance(game_center, str)
         and game_center.startswith("/")
     ):
-        game_center = (
-            "https://www.nhl.com"
-            + game_center
-        )
+        game_center = "https://www.nhl.com" + game_center
 
     return {
         "available": bool(unique),
@@ -604,85 +644,57 @@ async def game_video(game_id: str):
 
 @app.get("/api/search/player")
 async def search_player(q: str):
-    """Поиск игрока по имени через поисковый сервис NHL."""
-
     query = q.strip()
 
     if len(query) < 2:
         return []
 
-    url = (
-        "https://search.d3.nhle.com/"
-        "api/v1/search/player"
-    )
-
-    cache_key = (
-        f"player-search:"
-        f"{query.lower()}"
-    )
-
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        )
-    }
+    url = "https://search.d3.nhle.com/api/v1/search/player"
+    cache_key = f"player-search:{query.lower()}"
 
     cached = _cache.get(cache_key)
     now = time.time()
 
-    if (
-        cached
-        and (now - cached[0])
-        < CACHE_TTL["player_search"]
-    ):
+    if cached and now - cached[0] < CACHE_TTL["player_search"]:
         return cached[1]
 
     async with httpx.AsyncClient(
         timeout=12,
-        follow_redirects=True
+        follow_redirects=True,
     ) as client:
         try:
-            resp = await client.get(
+            response = await client.get(
                 url,
                 params={
                     "culture": "en-us",
                     "limit": 10,
                     "q": query,
-                    "active": "true"
+                    "active": "true",
                 },
-                headers=headers,
+                headers=DEFAULT_HEADERS,
             )
 
-            if resp.status_code == 200:
-                data = resp.json()
-                _cache[cache_key] = (
-                    now,
-                    data
-                )
+            if response.status_code == 200:
+                data = response.json()
+                _cache[cache_key] = (now, data)
                 return data
 
             return {
                 "error": (
                     f"NHL search status "
-                    f"{resp.status_code}"
-                )
+                    f"{response.status_code}"
+                ),
             }
 
-        except Exception as e:
-            return {
-                "error": str(e)
-            }
+        except Exception as error:
+            return {"error": str(error)}
 
 
 @app.get("/api/team-schedule/{team}")
 async def team_schedule(
     team: str,
-    season: str | None = None
+    season: str | None = None,
 ):
-    """Полный календарь команды за текущий или выбранный сезон."""
-
     team_upper = team.upper()
     season_key = season or "now"
 
@@ -692,38 +704,28 @@ async def team_schedule(
     )
 
     return await fetch_with_cache(
-        f"team-schedule:"
-        f"{team_upper}:{season_key}",
+        f"team-schedule:{team_upper}:{season_key}",
         url,
-        CACHE_TTL["team_schedule"]
+        CACHE_TTL["team_schedule"],
     )
 
 
 @app.get("/api/player/{player_id}")
 async def player(player_id: str):
-    url = (
-        f"{NHL_BASE}/player/"
-        f"{player_id}/landing"
-    )
+    url = f"{NHL_BASE}/player/{player_id}/landing"
 
     return await fetch_with_cache(
         f"player:{player_id}",
         url,
-        CACHE_TTL["player"]
+        CACHE_TTL["player"],
     )
 
 
 @app.get("/api/goalie/{player_id}")
 async def goalie_player(
     player_id: str,
-    season: str | None = None
+    season: str | None = None,
 ):
-    """Статистика конкретного вратаря.
-
-    Используется тот же источник, что и таблица вратарей. Если текущий сезон
-    ещё не содержит регулярной статистики, берём последний завершённый сезон.
-    """
-
     now = time.localtime()
 
     current_start_year = (
@@ -740,11 +742,6 @@ async def goalie_player(
     target_season = season or current_season
 
     async def load(season_id: str):
-        base_url = (
-            "https://api.nhle.com/"
-            "stats/rest/en/goalie/summary"
-        )
-
         params = {
             "isAggregate": "false",
             "isGame": "false",
@@ -757,19 +754,14 @@ async def goalie_player(
         }
 
         url = (
-            f"{base_url}?"
+            f"{NHL_STATS_BASE}/goalie/summary?"
             f"{httpx.QueryParams(params)}"
         )
 
-        cache_key = (
-            f"goalie-player:"
-            f"{player_id}:{season_id}"
-        )
-
         data = await fetch_with_cache(
-            cache_key,
+            f"goalie-player:{player_id}:{season_id}",
             url,
-            CACHE_TTL["player"]
+            CACHE_TTL["player"],
         )
 
         rows = (
@@ -787,41 +779,28 @@ async def goalie_player(
     row = await load(target_season)
     stats_season = target_season
 
-    if (
-        row is None
-        and target_season == current_season
-    ):
-        previous_start = (
-            current_start_year - 1
-        )
-
+    if row is None and target_season == current_season:
+        previous_start_year = current_start_year - 1
         previous_season = (
-            f"{previous_start}"
-            f"{previous_start + 1}"
+            f"{previous_start_year}"
+            f"{previous_start_year + 1}"
         )
 
-        row = await load(
-            previous_season
-        )
-
+        row = await load(previous_season)
         stats_season = previous_season
 
     if not isinstance(row, dict):
         return {
             "season": stats_season,
             "requestedSeason": target_season,
-            "fallback": (
-                stats_season != target_season
-            ),
+            "fallback": stats_season != target_season,
             "found": False,
         }
 
     return {
         "season": stats_season,
         "requestedSeason": target_season,
-        "fallback": (
-            stats_season != target_season
-        ),
+        "fallback": stats_season != target_season,
         "found": True,
         "stats": row,
     }
@@ -830,32 +809,20 @@ async def goalie_player(
 @app.get("/api/roster-stats/{team}")
 async def roster_stats(
     team: str,
-    season: str | None = None
+    season: str | None = None,
 ):
-    """
-    Состав и статистика команды за регулярку (gameType=2) и плей-офф (gameType=3).
-    Если season не указан — берётся текущий сезон (club-stats/.../now).
-    Если season указан (формат YYYYYYYY, например 20232024) — берётся состав
-    и статистика именно этого сезона, что важно для исторических данных:
-    без этого параметра при выборе старого сезона в таблице состав команды
-    всегда показывал бы текущих игроков.
-    """
-
     team_upper = team.upper()
 
     try:
         if season:
             target_season = season
         else:
-            now_url = (
-                f"{NHL_BASE}/club-stats/"
-                f"{team_upper}/now"
-            )
+            now_url = f"{NHL_BASE}/club-stats/{team_upper}/now"
 
             base_data = await fetch_with_cache(
-                f"roster_now:{team_upper}",
+                f"roster-now:{team_upper}",
                 now_url,
-                CACHE_TTL["roster"]
+                CACHE_TTL["roster"],
             )
 
             if "error" in base_data:
@@ -863,113 +830,74 @@ async def roster_stats(
 
             target_season = base_data.get(
                 "season",
-                20252026
+                20252026,
             )
 
-        reg_url = (
+        regular_url = (
             f"{NHL_BASE}/club-stats/"
             f"{team_upper}/{target_season}/2"
         )
 
-        po_url = (
+        playoff_url = (
             f"{NHL_BASE}/club-stats/"
             f"{team_upper}/{target_season}/3"
         )
 
         regular_data = await fetch_with_cache(
-            f"club_stats:"
-            f"{team_upper}:"
-            f"{target_season}:2",
-            reg_url,
-            CACHE_TTL["roster"]
+            f"club-stats:{team_upper}:{target_season}:2",
+            regular_url,
+            CACHE_TTL["roster"],
         )
 
         playoff_data = await fetch_with_cache(
-            f"club_stats:"
-            f"{team_upper}:"
-            f"{target_season}:3",
-            po_url,
-            CACHE_TTL["roster"]
+            f"club-stats:{team_upper}:{target_season}:3",
+            playoff_url,
+            CACHE_TTL["roster"],
         )
 
         return {
             "team": team_upper,
             "season": target_season,
             "regular": {
-                "skaters": regular_data.get(
-                    "skaters",
-                    []
-                ),
-                "goalies": regular_data.get(
-                    "goalies",
-                    []
-                )
+                "skaters": regular_data.get("skaters", []),
+                "goalies": regular_data.get("goalies", []),
             },
             "playoff": {
-                "skaters": playoff_data.get(
-                    "skaters",
-                    []
-                ),
-                "goalies": playoff_data.get(
-                    "goalies",
-                    []
-                )
-            }
+                "skaters": playoff_data.get("skaters", []),
+                "goalies": playoff_data.get("goalies", []),
+            },
         }
 
-    except Exception as e:
-        return {
-            "error": str(e)
-        }
+    except Exception as error:
+        return {"error": str(error)}
 
 
 @app.get("/api/boxscore/{game_id}")
 async def boxscore(game_id: str):
-    url = (
-        f"{NHL_BASE}/gamecenter/"
-        f"{game_id}/boxscore"
-    )
-
     return await fetch_with_cache(
         f"boxscore:{game_id}",
-        url,
-        CACHE_TTL["boxscore"]
+        f"{NHL_BASE}/gamecenter/{game_id}/boxscore",
+        CACHE_TTL["boxscore"],
     )
 
 
 @app.get("/api/right-rail/{game_id}")
 async def right_rail(game_id: str):
-    """Командная статистика матча: броски, хиты, вбрасывания, силовые приёмы,
-    штраф, потери/отборы шайбы — общие показатели и разбивка по периодам.
-    """
-
-    url = (
-        f"{NHL_BASE}/gamecenter/"
-        f"{game_id}/right-rail"
-    )
-
     return await fetch_with_cache(
         f"rightrail:{game_id}",
-        url,
-        CACHE_TTL["rightrail"]
+        f"{NHL_BASE}/gamecenter/{game_id}/right-rail",
+        CACHE_TTL["rightrail"],
     )
 
 
 @app.get("/api/score/{game_id}")
 async def score(game_id: str):
-    url = (
-        f"{NHL_BASE}/gamecenter/"
-        f"{game_id}/landing"
-    )
-
     return await fetch_with_cache(
         f"score:{game_id}",
-        url,
-        CACHE_TTL["score"]
+        f"{NHL_BASE}/gamecenter/{game_id}/landing",
+        CACHE_TTL["score"],
     )
 
-
-# ---------- Telegram-бот ----------
 
 @app.post("/webhook")
 async def telegram_webhook(update: dict):
@@ -982,16 +910,15 @@ async def telegram_webhook(update: dict):
     text = message.get("text", "")
 
     if text == "/start":
-
         keyboard = {
             "inline_keyboard": [
                 [
                     {
                         "text": "🏒 ОТКРЫТЬ NHL",
                         "web_app": {
-                            "url": WEBAPP_URL
-                        }
-                    }
+                            "url": WEBAPP_URL,
+                        },
+                    },
                 ],
                 [
                     {
@@ -999,19 +926,19 @@ async def telegram_webhook(update: dict):
                         "web_app": {
                             "url": (
                                 f"{WEBAPP_URL}"
-                                f"?section=schedule"
-                            )
-                        }
+                                "?section=schedule"
+                            ),
+                        },
                     },
                     {
                         "text": "📊 Таблица",
                         "web_app": {
                             "url": (
                                 f"{WEBAPP_URL}"
-                                f"?section=standings"
-                            )
-                        }
-                    }
+                                "?section=standings"
+                            ),
+                        },
+                    },
                 ],
                 [
                     {
@@ -1019,19 +946,19 @@ async def telegram_webhook(update: dict):
                         "web_app": {
                             "url": (
                                 f"{WEBAPP_URL}"
-                                f"?section=leaders"
-                            )
-                        }
+                                "?section=leaders"
+                            ),
+                        },
                     },
                     {
                         "text": "🥅 Вратари",
                         "web_app": {
                             "url": (
                                 f"{WEBAPP_URL}"
-                                f"?section=goalies"
-                            )
-                        }
-                    }
+                                "?section=goalies"
+                            ),
+                        },
+                    },
                 ],
                 [
                     {
@@ -1039,24 +966,24 @@ async def telegram_webhook(update: dict):
                         "web_app": {
                             "url": (
                                 f"{WEBAPP_URL}"
-                                f"?section=players"
-                            )
-                        }
+                                "?section=players"
+                            ),
+                        },
                     },
                     {
                         "text": "🎥 Обзоры",
                         "web_app": {
                             "url": (
                                 f"{WEBAPP_URL}"
-                                f"?section=videos"
-                            )
-                        }
-                    }
-                ]
-            ]
+                                "?section=videos"
+                            ),
+                        },
+                    },
+                ],
+            ],
         }
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=12) as client:
             await client.post(
                 f"{TELEGRAM_API}/sendMessage",
                 json={
@@ -1067,13 +994,11 @@ async def telegram_webhook(update: dict):
                         "Выбирай нужный раздел:"
                     ),
                     "reply_markup": keyboard,
-                }
+                },
             )
 
     return {"ok": True}
 
-
-# ---------- Раздача интерфейса ----------
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -1083,10 +1008,8 @@ STATIC_INDEX = STATIC_DIR / "index.html"
 if STATIC_DIR.is_dir():
     app.mount(
         "/static",
-        StaticFiles(
-            directory=str(STATIC_DIR)
-        ),
-        name="static"
+        StaticFiles(directory=str(STATIC_DIR)),
+        name="static",
     )
 
 
@@ -1095,15 +1018,15 @@ async def index():
     if STATIC_INDEX.is_file():
         return FileResponse(
             str(STATIC_INDEX),
-            media_type="text/html"
+            media_type="text/html",
         )
 
     if ROOT_INDEX.is_file():
         return FileResponse(
             str(ROOT_INDEX),
-            media_type="text/html"
+            media_type="text/html",
         )
 
     return {
-        "detail": "index.html not found"
+        "detail": "index.html not found",
     }
