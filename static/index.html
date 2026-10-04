@@ -218,7 +218,8 @@ select.date-input option {
   text-align:center;
 }
 
-.score-box.clickable {
+.score-box.clickable,
+.score-box.game-center {
   cursor:pointer;
 }
 
@@ -610,11 +611,20 @@ select.date-input option {
 }
 
 .back-btn {
+  position:fixed;
+  left:16px;
+  bottom:calc(16px + env(safe-area-inset-bottom));
+  z-index:1000;
   display:inline-flex;
   align-items:center;
   gap:6px;
-  margin-bottom:12px;
-  padding:8px 14px;
+  margin:0;
+  padding:9px 15px;
+  border:1px solid var(--blue);
+  border-radius:12px;
+  color:#fff;
+  background:rgba(31,95,206,.96);
+  box-shadow:0 6px 20px rgba(0,0,0,.45);
   font-family:"Oswald",sans-serif;
   font-size:13px;
   letter-spacing:.04em;
@@ -802,6 +812,95 @@ select.date-input option {
   font-size:11px;
   text-transform:uppercase;
 }
+.team-schedule-list {
+  margin-top:8px;
+}
+
+.team-schedule-row {
+  display:grid;
+  grid-template-columns:72px minmax(0,1fr) 72px 80px 28px;
+  align-items:center;
+  gap:8px;
+  padding:9px 0;
+  border-bottom:1px solid var(--border);
+  font-size:11px;
+}
+
+.team-schedule-date,
+.team-schedule-location,
+.team-schedule-score,
+.team-schedule-result {
+  color:var(--silver-dim);
+  font-family:"Roboto Mono",monospace;
+  font-size:10px;
+}
+
+.team-schedule-opponent {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+
+.team-schedule-opponent .team-logo {
+  width:24px;
+  height:24px;
+}
+
+.team-schedule-opponent .abbr {
+  font-size:12px;
+}
+
+.team-schedule-score {
+  color:var(--silver);
+  font-weight:700;
+  text-align:right;
+}
+
+.team-schedule-score.winner,
+.team-schedule-result.winner {
+  color:#2ecc71;
+}
+
+.team-schedule-score.loser,
+.team-schedule-result.loser {
+  color:var(--red);
+}
+
+.team-schedule-result {
+  color:var(--silver);
+  font-weight:700;
+  text-align:center;
+}
+
+.team-schedule-seasons {
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-bottom:10px;
+}
+
+.team-season-btn {
+  border:1px solid var(--border);
+  border-radius:9px;
+  padding:7px 9px;
+  color:var(--silver-dim);
+  background:var(--surface);
+  cursor:pointer;
+  font-family:"Oswald",sans-serif;
+  font-size:11px;
+}
+
+.team-season-btn.active {
+  border-color:var(--blue);
+  color:#fff;
+  background:var(--blue);
+}
+
+.game-player-table {
+  min-width:760px;
+}
+
 .bracket-wrap {
   margin-top:16px;
 }
@@ -1035,6 +1134,9 @@ let currentTeamFullData = null;
 let currentTeamType = "regular";
 let currentTeamSortKey = "points";
 let currentTeamSortAsc = false;
+let currentTeamSchedule = null;
+let currentTeamScheduleSeason = "";
+let currentTeamScheduleSeasons = [];
 
 let currentStandingsData = [];
 let standingsSortKey = "points";
@@ -1519,7 +1621,7 @@ async function loadSchedule() {
       .join("");
 
     games
-      .querySelectorAll(".score-box.clickable")
+      .querySelectorAll(".score-box.game-center")
       .forEach(element => {
         element.addEventListener("click", () => {
           const gameId = element.dataset.gameId;
@@ -1640,14 +1742,12 @@ function renderGame(game) {
         </div>
 
         <div
-          class="${started ? "score-box clickable" : "score-box"}"
-          ${started ? `
-            data-game-id="${escapeHtml(game.id)}"
-            data-away="${escapeHtml(away.abbrev || "")}"
-            data-home="${escapeHtml(home.abbrev || "")}"
-            data-away-logo="${escapeHtml(away.logo || "")}"
-            data-home-logo="${escapeHtml(home.logo || "")}"
-          ` : ""}
+          class="score-box game-center${started ? " clickable" : ""}"
+          data-game-id="${escapeHtml(game.id)}"
+          data-away="${escapeHtml(away.abbrev || "")}"
+          data-home="${escapeHtml(home.abbrev || "")}"
+          data-away-logo="${escapeHtml(away.logo || "")}"
+          data-home-logo="${escapeHtml(home.logo || "")}"
         >
           <div class="score">
             ${
@@ -1691,35 +1791,40 @@ function isFutureGame(game) {
     game.gameState === "PRE";
 }
 
-function getMatchupArray(value) {
-  if (Array.isArray(value)) {
-    return value;
+function getScheduleGames(data) {
+  if (!data || typeof data !== "object") return [];
+
+  if (Array.isArray(data.games)) return data.games;
+
+  const result = [];
+  if (Array.isArray(data.gameWeek)) {
+    data.gameWeek.forEach(day => {
+      if (Array.isArray(day?.games)) result.push(...day.games);
+    });
   }
 
-  if (Array.isArray(value?.games)) {
-    return value.games;
-  }
-
-  if (Array.isArray(value?.series)) {
-    return value.series;
-  }
-
-  if (Array.isArray(value?.seasonSeries)) {
-    return value.seasonSeries;
-  }
-
-  return [];
+  return result;
 }
 
-function getMatchupTeamName(team, fallback = "") {
-  if (!team) {
-    return fallback;
-  }
+function getGameDateValue(game) {
+  return game?.gameDate || game?.date || game?.startTimeUTC || "";
+}
 
-  if (typeof team === "string") {
-    return team;
-  }
+function getGameTeamAbbrev(team) {
+  if (!team) return "";
+  if (typeof team === "string") return team.toUpperCase();
+  return String(
+    team.abbrev ||
+    team.teamAbbrev?.default ||
+    team.teamAbbrev ||
+    team.abbreviation ||
+    ""
+  ).toUpperCase();
+}
 
+function getGameTeamName(team, fallback = "") {
+  if (!team) return fallback;
+  if (typeof team === "string") return team;
   return (
     team.abbrev ||
     team.teamAbbrev?.default ||
@@ -1731,256 +1836,193 @@ function getMatchupTeamName(team, fallback = "") {
   );
 }
 
-function getMatchupScore(game, side) {
-  if (!game || typeof game !== "object") {
-    return null;
-  }
-
+function getGameScore(game, side) {
   const value =
-    game[`${side}Score`] ??
-    game[`${side}TeamScore`] ??
-    game[side]?.score ??
-    null;
+    game?.[`${side}Team`]?.score ??
+    game?.[`${side}Score`] ??
+    game?.[`${side}TeamScore`] ??
+    game?.[side]?.score;
 
-  return value === null || value === undefined
-    ? null
-    : Number(value);
+  return value === undefined || value === null ? null : Number(value);
 }
 
-function getMatchupDate(game) {
-  return (
-    game.gameDate ||
-    game.date ||
-    game.startTimeUTC ||
-    ""
-  );
+function isCompletedGame(game) {
+  const state = String(game?.gameState || "").toUpperCase();
+  return state === "OFF" || state === "FINAL" || state === "F" ||
+    (game?.awayTeam?.score !== undefined &&
+     game?.homeTeam?.score !== undefined &&
+     !["FUT", "PRE", "LIVE", "CRIT"].includes(state));
 }
 
-function getMatchupWinner(game) {
-  if (!game || typeof game !== "object") {
-    return "";
+async function loadMatchupHistory(awayAbbrev, homeAbbrev) {
+  const away = String(awayAbbrev || "").toUpperCase();
+  const home = String(homeAbbrev || "").toUpperCase();
+
+  if (!away || !home) return [];
+
+  let seasonIds = [];
+
+  try {
+    const response = await fetch(`${API_BASE}/api/seasons-list`, { cache: "no-store" });
+    const data = await response.json();
+    const seasons = Array.isArray(data?.seasons) ? data.seasons : [];
+
+    seasonIds = seasons
+      .map(item => String(item?.id || item?.season || ""))
+      .filter(id => /^\d{8}$/.test(id))
+      .sort((a, b) => Number(b) - Number(a));
+  } catch (error) {
+    console.error("Ошибка загрузки списка сезонов для личных встреч:", error);
   }
 
-  return (
-    game.winnerTeamAbbrev ||
-    game.winner ||
-    game.winningTeam ||
-    ""
-  );
+  const now = new Date();
+  const startYear = now.getMonth() >= 8
+    ? now.getFullYear()
+    : now.getFullYear() - 1;
+  const currentSeasonId = `${startYear}${startYear + 1}`;
+
+  seasonIds = [currentSeasonId, ...seasonIds]
+    .filter((id, index, array) => array.indexOf(id) === index)
+    .slice(0, 7);
+
+  const allGames = [];
+
+  await Promise.all(seasonIds.map(async seasonId => {
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/team-schedule/${encodeURIComponent(away)}?season=${encodeURIComponent(seasonId)}`,
+        { cache: "no-store" }
+      );
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+      const games = getScheduleGames(data);
+
+      games.forEach(game => {
+        if (!isCompletedGame(game)) return;
+
+        const gameAway = getGameTeamAbbrev(game.awayTeam);
+        const gameHome = getGameTeamAbbrev(game.homeTeam);
+
+        if (
+          (gameAway === away && gameHome === home) ||
+          (gameAway === home && gameHome === away)
+        ) {
+          allGames.push({ ...game, __season: seasonId });
+        }
+      });
+    } catch (error) {
+      console.error(`Ошибка расписания ${away} за сезон ${seasonId}:`, error);
+    }
+  }));
+
+  const unique = [];
+  const seen = new Set();
+
+  allGames
+    .sort((a, b) => {
+      const da = new Date(getGameDateValue(a)).getTime() || 0;
+      const db = new Date(getGameDateValue(b)).getTime() || 0;
+      return db - da;
+    })
+    .forEach(game => {
+      const key = String(game.id || `${getGameDateValue(game)}:${getGameTeamAbbrev(game.awayTeam)}:${getGameTeamAbbrev(game.homeTeam)}`);
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(game);
+      }
+    });
+
+  return unique.slice(0, 5);
 }
 
-function renderMatchupBlock(
-  data,
-  awayAbbrev,
-  homeAbbrev
-) {
-  if (!data || data.available === false) {
-    return "";
-  }
-
-  const source =
-    data.seasonSeries ??
-    data.matchup ??
-    null;
-
-  if (!source) {
-    return "";
-  }
-
-  const games = getMatchupArray(source);
-
-  const summary =
-    source.summary ||
-    source.record ||
-    source.seriesRecord ||
-    data.matchup?.summary ||
-    data.seasonSeries?.summary ||
-    {};
-
-  const awayWins =
-    summary.awayWins ??
-    summary.visitorWins ??
-    summary.awayTeamWins ??
-    summary.team1Wins ??
-    null;
-
-  const homeWins =
-    summary.homeWins ??
-    summary.homeTeamWins ??
-    summary.team2Wins ??
-    null;
-
-  const ties =
-    summary.ties ??
-    summary.tied ??
-    null;
-
+function renderMatchupHistory(games, awayAbbrev, homeAbbrev) {
   let html = `
     <div class="matchup-card">
-      <div class="matchup-title">
-        Личные встречи в сезоне
-      </div>
+      <div class="matchup-title">Последние 5 результатов между командами</div>
   `;
 
-  if (
-    awayWins !== null ||
-    homeWins !== null ||
-    ties !== null
-  ) {
+  if (!games.length) {
+    return html + '<div class="empty">История личных встреч недоступна</div></div>';
+  }
+
+  const wins = {
+    [String(awayAbbrev).toUpperCase()]: 0,
+    [String(homeAbbrev).toUpperCase()]: 0
+  };
+
+  games.forEach(game => {
+    const away = getGameTeamAbbrev(game.awayTeam) || awayAbbrev;
+    const home = getGameTeamAbbrev(game.homeTeam) || homeAbbrev;
+    const awayScore = getGameScore(game, "away");
+    const homeScore = getGameScore(game, "home");
+
+    if (awayScore !== null && homeScore !== null) {
+      if (awayScore > homeScore) wins[away] = (wins[away] || 0) + 1;
+      if (homeScore > awayScore) wins[home] = (wins[home] || 0) + 1;
+    }
+  });
+
+  html += `
+    <div class="matchup-summary">
+      <div>
+        <div class="matchup-team">${escapeHtml(awayAbbrev)}</div>
+        <div class="matchup-record">Побед: ${wins[String(awayAbbrev).toUpperCase()] || 0}</div>
+      </div>
+      <div class="matchup-record">5 матчей</div>
+      <div>
+        <div class="matchup-team">${escapeHtml(homeAbbrev)}</div>
+        <div class="matchup-record">Побед: ${wins[String(homeAbbrev).toUpperCase()] || 0}</div>
+      </div>
+    </div>
+
+    <div class="matchup-games">
+  `;
+
+  games.forEach(game => {
+    const gameAway = getGameTeamAbbrev(game.awayTeam) || awayAbbrev;
+    const gameHome = getGameTeamAbbrev(game.homeTeam) || homeAbbrev;
+    const awayScore = getGameScore(game, "away");
+    const homeScore = getGameScore(game, "home");
+    const date = getGameDateValue(game);
+    const dateText = date
+      ? new Date(date).toLocaleDateString("ru-RU")
+      : "";
+
+    const awayWinner = awayScore !== null && homeScore !== null && awayScore > homeScore;
+    const homeWinner = awayScore !== null && homeScore !== null && homeScore > awayScore;
+
     html += `
-      <div class="matchup-summary">
-        <div>
-          <div class="matchup-team">
-            ${escapeHtml(awayAbbrev)}
-          </div>
-
-          <div class="matchup-record">
-            ${escapeHtml(val(awayWins, "—"))}
-          </div>
+      <div class="matchup-game">
+        <div class="${awayWinner ? "winner" : ""}">
+          ${escapeHtml(gameAway)}
+          ${dateText ? `<small>${escapeHtml(dateText)} · ${escapeHtml(String(game.__season || "").replace(/^(\d{4})(\d{4})$/, "$1-$2"))}</small>` : ""}
         </div>
 
-        <div class="matchup-record">
-          Победы
+        <div class="score">
+          ${awayScore === null ? "—" : escapeHtml(awayScore)} :
+          ${homeScore === null ? "—" : escapeHtml(homeScore)}
         </div>
 
-        <div>
-          <div class="matchup-team">
-            ${escapeHtml(homeAbbrev)}
-          </div>
-
-          <div class="matchup-record">
-            ${escapeHtml(val(homeWins, "—"))}
-          </div>
+        <div class="${homeWinner ? "winner" : ""}">
+          ${escapeHtml(gameHome)}
         </div>
       </div>
     `;
+  });
 
-    if (ties !== null) {
-      html += `
-        <div
-          class="matchup-record"
-          style="text-align:center;margin-bottom:8px;"
-        >
-          Ничьи: ${escapeHtml(ties)}
-        </div>
-      `;
-    }
-  }
-
-  if (games.length) {
-    html += '<div class="matchup-games">';
-
-    games.slice(-10).forEach(game => {
-      const awayScore = getMatchupScore(game, "away");
-      const homeScore = getMatchupScore(game, "home");
-
-      const gameAway = getMatchupTeamName(
-        game.awayTeam,
-        awayAbbrev
-      );
-
-      const gameHome = getMatchupTeamName(
-        game.homeTeam,
-        homeAbbrev
-      );
-
-      const winner = getMatchupWinner(game);
-      const date = getMatchupDate(game);
-
-      const dateText = date
-        ? new Date(date).toLocaleDateString("ru-RU")
-        : "";
-
-      const awayClass =
-        winner &&
-        String(winner).toUpperCase() ===
-        String(gameAway).toUpperCase()
-          ? "winner"
-          : "";
-
-      const homeClass =
-        winner &&
-        String(winner).toUpperCase() ===
-        String(gameHome).toUpperCase()
-          ? "winner"
-          : "";
-
-      html += `
-        <div class="matchup-game">
-          <div class="${awayClass}">
-            ${escapeHtml(gameAway)}
-
-            ${
-              dateText
-                ? `<small>${escapeHtml(dateText)}</small>`
-                : ""
-            }
-          </div>
-
-          <div class="score">
-            ${
-              awayScore === null
-                ? "—"
-                : escapeHtml(awayScore)
-            }
-            :
-            ${
-              homeScore === null
-                ? "—"
-                : escapeHtml(homeScore)
-            }
-          </div>
-
-          <div class="${homeClass}">
-            ${escapeHtml(gameHome)}
-          </div>
-        </div>
-      `;
-    });
-
-    html += "</div>";
-  }
-
-  html += "</div>";
-
+  html += '</div></div>';
   return html;
 }
 
-async function loadMatchupPreview(
-  gameId,
-  awayAbbrev,
-  homeAbbrev
-) {
-  if (!gameId) {
-    return "";
-  }
-
+async function loadMatchupPreview(awayAbbrev, homeAbbrev) {
   try {
-    const response = await fetch(
-      `${API_BASE}/api/matchup/${encodeURIComponent(gameId)}`,
-      {
-        cache:"no-store"
-      }
-    );
-
-    if (!response.ok) {
-      return "";
-    }
-
-    const data = await response.json();
-
-    return renderMatchupBlock(
-      data,
-      awayAbbrev,
-      homeAbbrev
-    );
+    const games = await loadMatchupHistory(awayAbbrev, homeAbbrev);
+    return renderMatchupHistory(games, awayAbbrev, homeAbbrev);
   } catch (error) {
-    console.error(
-      "Ошибка загрузки личных встреч:",
-      error
-    );
-
-    return "";
+    console.error("Ошибка загрузки личных встреч:", error);
+    return '<div class="matchup-card"><div class="empty">Личные встречи недоступны</div></div>';
   }
 }
 
@@ -1997,71 +2039,28 @@ async function openFutureGamePreview(
 
   body.innerHTML = `
     <div class="detail-head-game">
-      <img
-        class="team-logo"
-        src="${escapeHtml(awayLogo)}"
-        alt=""
-      >
-
+      <img class="team-logo" src="${escapeHtml(awayLogo)}" alt="">
       <div>
-        <div class="title">
-          ${escapeHtml(awayAbbrev)} —
-          ${escapeHtml(homeAbbrev)}
-        </div>
-
-        <div class="subtitle">
-          Предстоящий матч
-        </div>
+        <div class="title">${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
+        <div class="subtitle">Предстоящий матч</div>
       </div>
-
-      <img
-        class="team-logo"
-        src="${escapeHtml(homeLogo)}"
-        alt=""
-      >
+      <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="">
     </div>
-
-    <div class="loading">
-      Загрузка личных встреч...
-    </div>
+    <div class="loading">Загрузка последних встреч...</div>
   `;
 
-  const matchupHtml = await loadMatchupPreview(
-    gameId,
-    awayAbbrev,
-    homeAbbrev
-  );
+  const matchupHtml = await loadMatchupPreview(awayAbbrev, homeAbbrev);
 
   body.innerHTML = `
     <div class="detail-head-game">
-      <img
-        class="team-logo"
-        src="${escapeHtml(awayLogo)}"
-        alt=""
-      >
-
+      <img class="team-logo" src="${escapeHtml(awayLogo)}" alt="">
       <div>
-        <div class="title">
-          ${escapeHtml(awayAbbrev)} —
-          ${escapeHtml(homeAbbrev)}
-        </div>
-
-        <div class="subtitle">
-          Предстоящий матч
-        </div>
+        <div class="title">${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
+        <div class="subtitle">Предстоящий матч</div>
       </div>
-
-      <img
-        class="team-logo"
-        src="${escapeHtml(homeLogo)}"
-        alt=""
-      >
+      <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="">
     </div>
-
-    ${
-      matchupHtml ||
-      '<div class="empty">Личные встречи недоступны</div>'
-    }
+    ${matchupHtml}
   `;
 }
 
@@ -2895,62 +2894,44 @@ async function openTeamDetail(
   if (!abbreviation) {
     document.getElementById("detail-body").innerHTML =
       '<div class="empty">Не удалось определить клуб</div>';
-
     return;
   }
 
   try {
-    const seasonId =
-      seasonIdFromEndDate(selectedSeasonEndDate);
-
+    const seasonId = seasonIdFromEndDate(selectedSeasonEndDate);
     const params = new URLSearchParams();
 
-    if (seasonId) {
-      params.set("season", seasonId);
-    }
+    if (seasonId) params.set("season", seasonId);
 
-    const query = params.toString()
-      ? `?${params}`
-      : "";
+    const query = params.toString() ? `?${params}` : "";
 
     const response = await fetch(
-      `${API_BASE}/api/roster-stats/` +
-      `${encodeURIComponent(abbreviation)}${query}`,
+      `${API_BASE}/api/roster-stats/${encodeURIComponent(abbreviation)}${query}`,
       {
         cache: "no-store",
-        headers: {
-          Accept: "application/json"
-        }
+        headers: { Accept: "application/json" }
       }
     );
 
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(
-        data?.error || `HTTP ${response.status}`
-      );
+      throw new Error(data?.error || `HTTP ${response.status}`);
     }
 
     if (data?.error) {
       throw new Error(data.error);
     }
 
-    currentTeamFullData =
-      data.data ||
-      data.result ||
-      data.roster ||
-      data;
-
+    currentTeamFullData = data.data || data.result || data.roster || data;
     currentTeamType = "regular";
     currentTeamSortKey = "points";
     currentTeamSortAsc = false;
+    currentTeamSchedule = null;
+    currentTeamScheduleSeason = "";
+    currentTeamScheduleSeasons = [];
 
-    renderTeamTabsAndTables(
-      abbreviation,
-      name,
-      logo
-    );
+    renderTeamTabsAndTables(abbreviation, name, logo);
   } catch (error) {
     console.error(error);
 
@@ -2961,6 +2942,214 @@ async function openTeamDetail(
         <small>${escapeHtml(error.message || "Ошибка сервера")}</small>
       </div>
     `;
+  }
+}
+
+async function loadTeamScheduleSeasons() {
+  try {
+    const response = await fetch(`${API_BASE}/api/seasons-list`, { cache: "no-store" });
+    const data = await response.json();
+
+    currentTeamScheduleSeasons = (Array.isArray(data?.seasons) ? data.seasons : [])
+      .map(item => ({
+        id: String(item?.id || item?.season || ""),
+        end: item?.standingsEnd || ""
+      }))
+      .filter(item => /^\d{8}$/.test(item.id))
+      .sort((a, b) => Number(b.id) - Number(a.id));
+  } catch (error) {
+    console.error("Ошибка загрузки сезонов расписания команды:", error);
+    currentTeamScheduleSeasons = [];
+  }
+}
+
+function formatSeasonId(seasonId) {
+  const value = String(seasonId || "");
+  return /^\d{8}$/.test(value)
+    ? `${value.slice(0, 4)}-${value.slice(6, 8)}`
+    : value;
+}
+
+function teamScheduleGameDate(game) {
+  const raw = game?.gameDate || game?.startTimeUTC || game?.date || "";
+  if (!raw) return "";
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return String(raw);
+
+  return date.toLocaleDateString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  });
+}
+
+function renderTeamScheduleGame(game, teamAbbrev) {
+  const team = String(teamAbbrev || "").toUpperCase();
+  const away = game?.awayTeam || {};
+  const home = game?.homeTeam || {};
+  const awayAbbrev = getGameTeamAbbrev(away);
+  const homeAbbrev = getGameTeamAbbrev(home);
+  const isHome = homeAbbrev === team;
+  const opponent = isHome ? home : away;
+  const opponentAbbrev = isHome ? awayAbbrev : homeAbbrev;
+  const opponentName = getGameTeamName(opponent, opponentAbbrev);
+  const opponentLogo = opponent?.logo || opponent?.teamLogo || "";
+  const state = String(game?.gameState || "").toUpperCase();
+  const completed = isCompletedGame(game);
+  const scoreFor = isHome ? getGameScore(game, "home") : getGameScore(game, "away");
+  const scoreAgainst = isHome ? getGameScore(game, "away") : getGameScore(game, "home");
+  const result = completed && scoreFor !== null && scoreAgainst !== null
+    ? (scoreFor > scoreAgainst ? "В" : scoreFor < scoreAgainst ? "П" : "ОТ")
+    : "";
+  const resultClass = result === "В" ? "winner" : result === "П" ? "loser" : "";
+  const status = completed
+    ? `${scoreFor ?? "—"} : ${scoreAgainst ?? "—"}`
+    : state === "LIVE" || state === "CRIT"
+      ? "LIVE"
+      : game?.startTimeUTC
+        ? new Date(game.startTimeUTC).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
+        : "—";
+
+  return `
+    <div class="team-schedule-row">
+      <div class="team-schedule-date">${escapeHtml(teamScheduleGameDate(game))}</div>
+      <div class="team-schedule-opponent">
+        <img class="team-logo" src="${escapeHtml(opponentLogo)}" alt="" onerror="this.style.display='none'">
+        <div>
+          <div class="abbr">${escapeHtml(opponentAbbrev)}</div>
+          <div class="team-record">${escapeHtml(opponentName)}</div>
+        </div>
+      </div>
+      <div class="team-schedule-location">${isHome ? "Дома" : "В гостях"}</div>
+      <div class="team-schedule-score ${resultClass}">${escapeHtml(status)}</div>
+      <div class="team-schedule-result">${escapeHtml(result)}</div>
+    </div>
+  `;
+}
+
+async function loadTeamSchedule(teamAbbrev, seasonId) {
+  const container = document.getElementById("team-tables-container");
+  currentTeamScheduleSeason = seasonId;
+  currentTeamSchedule = null;
+
+  container.innerHTML = '<div class="loading">Загрузка расписания...</div>';
+
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/team-schedule/${encodeURIComponent(teamAbbrev)}?season=${encodeURIComponent(seasonId)}`,
+      { cache: "no-store" }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || data?.error) {
+      throw new Error(data?.error || `HTTP ${response.status}`);
+    }
+
+    currentTeamSchedule = data;
+    renderTeamSchedule(teamAbbrev, seasonId);
+  } catch (error) {
+    console.error(error);
+    container.innerHTML = `
+      <div class="empty">
+        Не удалось загрузить расписание
+        <br>
+        <small>${escapeHtml(error.message || "Ошибка загрузки")}</small>
+      </div>
+    `;
+  }
+}
+
+function renderTeamSchedule(teamAbbrev, seasonId) {
+  const container = document.getElementById("team-tables-container");
+  const games = getScheduleGames(currentTeamSchedule)
+    .sort((a, b) => {
+      const da = new Date(getGameDateValue(a)).getTime() || 0;
+      const db = new Date(getGameDateValue(b)).getTime() || 0;
+      return da - db;
+    });
+
+  let html = `
+    <div class="section-title">Расписание ${escapeHtml(formatSeasonId(seasonId))}</div>
+  `;
+
+  if (!games.length) {
+    container.innerHTML = html + '<div class="empty">Матчи за этот сезон не найдены</div>';
+    return;
+  }
+
+  html += '<div class="team-schedule-list">';
+  games.forEach(game => {
+    html += renderTeamScheduleGame(game, teamAbbrev);
+  });
+  html += '</div>';
+
+  container.innerHTML = html;
+}
+
+function renderTeamScheduleSeasonButtons(teamAbbrev) {
+  const seasons = currentTeamScheduleSeasons.length
+    ? currentTeamScheduleSeasons
+    : currentTeamFullData?.season
+      ? [{ id: String(currentTeamFullData.season), end: "" }]
+      : [];
+
+  if (!seasons.length) {
+    return '<div class="empty">Список сезонов недоступен</div>';
+  }
+
+  const currentId = String(currentTeamFullData?.season || seasons[0].id);
+
+  return `
+    <div class="section-title">Сезон расписания</div>
+    <div class="team-schedule-seasons">
+      ${seasons.map(season => `
+        <button
+          class="team-season-btn ${season.id === currentId ? "active" : ""}"
+          data-team-season="${escapeHtml(season.id)}"
+        >
+          ${escapeHtml(formatSeasonId(season.id))}
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+async function openTeamScheduleTab(teamAbbrev) {
+  currentTeamType = "schedule";
+
+  const container = document.getElementById("team-tables-container");
+
+  if (!currentTeamScheduleSeasons.length) {
+    await loadTeamScheduleSeasons();
+  }
+
+  container.innerHTML = renderTeamScheduleSeasonButtons(teamAbbrev);
+
+  container
+    .querySelectorAll(".team-season-btn")
+    .forEach(button => {
+      button.onclick = async () => {
+        container
+          .querySelectorAll(".team-season-btn")
+          .forEach(item => item.classList.remove("active"));
+        button.classList.add("active");
+        await loadTeamSchedule(teamAbbrev, button.dataset.teamSeason);
+      };
+    });
+
+  const initialSeason =
+    currentTeamFullData?.season ||
+    currentTeamScheduleSeasons[0]?.id;
+
+  if (initialSeason) {
+    const button = container.querySelector(
+      `.team-season-btn[data-team-season="${CSS.escape(String(initialSeason))}"]`
+    );
+
+    if (button) button.classList.add("active");
+    await loadTeamSchedule(teamAbbrev, String(initialSeason));
   }
 }
 
@@ -2981,24 +3170,15 @@ function renderTeamTabsAndTables(
       >
 
       <div>
-        <div class="title">
-          ${escapeHtml(teamName || teamAbbrev)}
-        </div>
-
-        <div class="subtitle">
-          ${escapeHtml(teamAbbrev)}
-        </div>
+        <div class="title">${escapeHtml(teamName || teamAbbrev)}</div>
+        <div class="subtitle">${escapeHtml(teamAbbrev)}</div>
       </div>
     </div>
 
     <div class="cat-row" style="margin-top:14px;">
-      <button id="btn-team-reg" class="active">
-        Регулярный сезон
-      </button>
-
-      <button id="btn-team-po">
-        Плей-офф
-      </button>
+      <button id="btn-team-reg" class="active">Регулярный сезон</button>
+      <button id="btn-team-po">Плей-офф</button>
+      <button id="btn-team-schedule">Расписание</button>
     </div>
 
     <div id="team-tables-container"></div>
@@ -3006,30 +3186,25 @@ function renderTeamTabsAndTables(
 
   document.getElementById("btn-team-reg").onclick = () => {
     currentTeamType = "regular";
-
-    document
-      .getElementById("btn-team-reg")
-      .classList.add("active");
-
-    document
-      .getElementById("btn-team-po")
-      .classList.remove("active");
-
+    document.getElementById("btn-team-reg").classList.add("active");
+    document.getElementById("btn-team-po").classList.remove("active");
+    document.getElementById("btn-team-schedule").classList.remove("active");
     buildTeamTablesBlock();
   };
 
   document.getElementById("btn-team-po").onclick = () => {
     currentTeamType = "playoff";
-
-    document
-      .getElementById("btn-team-po")
-      .classList.add("active");
-
-    document
-      .getElementById("btn-team-reg")
-      .classList.remove("active");
-
+    document.getElementById("btn-team-po").classList.add("active");
+    document.getElementById("btn-team-reg").classList.remove("active");
+    document.getElementById("btn-team-schedule").classList.remove("active");
     buildTeamTablesBlock();
+  };
+
+  document.getElementById("btn-team-schedule").onclick = async () => {
+    document.getElementById("btn-team-schedule").classList.add("active");
+    document.getElementById("btn-team-reg").classList.remove("active");
+    document.getElementById("btn-team-po").classList.remove("active");
+    await openTeamScheduleTab(teamAbbrev);
   };
 
   buildTeamTablesBlock();
@@ -3410,6 +3585,145 @@ function renderTeamGameStats(
   return html;
 }
 
+function getSkaterStatValue(player, keys, fallback = null) {
+  for (const key of keys) {
+    if (player?.[key] !== undefined && player?.[key] !== null && player?.[key] !== "") {
+      return player[key];
+    }
+  }
+  return fallback;
+}
+
+function formatPct(value) {
+  if (value === undefined || value === null || value === "") return "—";
+  const number = Number(value);
+  if (!Number.isFinite(number)) return String(value);
+  return `${(number <= 1 ? number * 100 : number).toFixed(1)}%`;
+}
+
+function renderGamePlayerStats(team, teamAbbrev) {
+  const skaters = Array.isArray(team?.skaters) ? team.skaters : [];
+
+  let html = `
+    <div class="section-title">Игроки — ${escapeHtml(teamAbbrev)}</div>
+  `;
+
+  if (!skaters.length) {
+    return html + '<div class="empty">Статистика полевых игроков недоступна</div>';
+  }
+
+  html += `
+    <div class="table-scroll">
+      <table class="stat-table game-player-table">
+        <thead>
+          <tr>
+            <th>Игрок</th>
+            <th>Г</th>
+            <th>П</th>
+            <th>О</th>
+            <th>+/-</th>
+            <th>Броски</th>
+            <th>Время</th>
+            <th>Хиты</th>
+            <th>Блоки</th>
+            <th>Вбрасывания %</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  skaters.forEach(player => {
+    const name =
+      player.name?.default ||
+      player.name ||
+      `${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() ||
+      "Игрок";
+
+    const faceoff = getSkaterStatValue(player, ["faceoffWinningPctg", "faceoffWinPctg"]);
+
+    html += `
+      <tr>
+        <td>${escapeHtml(name)}</td>
+        <td class="num">${escapeHtml(val(getSkaterStatValue(player, ["goals"])))}</td>
+        <td class="num">${escapeHtml(val(getSkaterStatValue(player, ["assists"])))}</td>
+        <td class="num">${escapeHtml(val(getSkaterStatValue(player, ["points"])))}</td>
+        <td class="num">${escapeHtml(val(getSkaterStatValue(player, ["plusMinus"])))}</td>
+        <td class="num">${escapeHtml(val(getSkaterStatValue(player, ["sog", "shotsOnGoal", "shots"])))}</td>
+        <td class="num">${escapeHtml(val(getSkaterStatValue(player, ["toi", "timeOnIce"])))}</td>
+        <td class="num">${escapeHtml(val(getSkaterStatValue(player, ["hits"])))}</td>
+        <td class="num">${escapeHtml(val(getSkaterStatValue(player, ["blockedShots", "blocks"])))}</td>
+        <td class="num">${escapeHtml(formatPct(faceoff))}</td>
+      </tr>
+    `;
+  });
+
+  html += '</tbody></table></div>';
+  return html;
+}
+
+function renderGameGoalieStats(team, teamAbbrev) {
+  const goalies = Array.isArray(team?.goalies) ? team.goalies : [];
+
+  let html = `
+    <div class="section-title">Вратари — ${escapeHtml(teamAbbrev)}</div>
+  `;
+
+  if (!goalies.length) {
+    return html + '<div class="empty">Статистика вратарей недоступна</div>';
+  }
+
+  html += `
+    <div class="table-scroll">
+      <table class="stat-table game-player-table">
+        <thead>
+          <tr>
+            <th>Вратарь</th>
+            <th>Броски по воротам</th>
+            <th>Отражено</th>
+            <th>%ОБ</th>
+            <th>Время</th>
+            <th>ГКИ</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  goalies.forEach(goalie => {
+    const name =
+      goalie.name?.default ||
+      goalie.name ||
+      `${nameStr(goalie.firstName)} ${nameStr(goalie.lastName)}`.trim() ||
+      "Вратарь";
+
+    const shotsAgainst = getSkaterStatValue(goalie, ["shotsAgainst"]);
+    const saves = getSkaterStatValue(goalie, ["saves"]);
+    const saveShotsAgainst = getSkaterStatValue(goalie, ["saveShotsAgainst"]);
+    const shots = shotsAgainst ?? (
+      typeof saveShotsAgainst === "string" && saveShotsAgainst.includes("/")
+        ? saveShotsAgainst.split("/").pop().trim()
+        : null
+    );
+
+    html += `
+      <tr>
+        <td>${escapeHtml(name)}</td>
+        <td class="num">${escapeHtml(val(shots))}</td>
+        <td class="num">${escapeHtml(val(saves))}</td>
+        <td class="num">${escapeHtml(formatPct(goalie.savePctg ?? goalie.savePercentage))}</td>
+        <td class="num">${escapeHtml(val(goalie.toi ?? goalie.timeOnIce))}</td>
+        <td class="num">${
+          typeof goalie.goalsAgainstAverage === "number"
+            ? goalie.goalsAgainstAverage.toFixed(2)
+            : escapeHtml(val(goalie.goalsAgainstAverage ?? goalie.gaa))
+        }</td>
+      </tr>
+    `;
+  });
+
+  html += '</tbody></table></div>';
+  return html;
+}
+
 async function openGameDetail(
   gameId,
   awayAbbrev,
@@ -3423,46 +3737,20 @@ async function openGameDetail(
 
   let html = `
     <div class="detail-head-game">
-      <img
-        class="team-logo"
-        src="${escapeHtml(awayLogo)}"
-        alt=""
-      >
-
+      <img class="team-logo" src="${escapeHtml(awayLogo)}" alt="">
       <div>
-        <div class="title">
-          ${escapeHtml(awayAbbrev)} —
-          ${escapeHtml(homeAbbrev)}
-        </div>
-
-        <div class="subtitle">
-          Статистика матча
-        </div>
+        <div class="title">${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
+        <div class="subtitle">Статистика матча</div>
       </div>
-
-      <img
-        class="team-logo"
-        src="${escapeHtml(homeLogo)}"
-        alt=""
-      >
+      <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="">
     </div>
   `;
 
   try {
-    const [
-      scoreResponse,
-      railResponse,
-      boxResponse
-    ] = await Promise.all([
-      fetch(
-        `${API_BASE}/api/score/${encodeURIComponent(gameId)}`
-      ),
-      fetch(
-        `${API_BASE}/api/right-rail/${encodeURIComponent(gameId)}`
-      ),
-      fetch(
-        `${API_BASE}/api/boxscore/${encodeURIComponent(gameId)}`
-      )
+    const [scoreResponse, railResponse, boxResponse] = await Promise.all([
+      fetch(`${API_BASE}/api/score/${encodeURIComponent(gameId)}`),
+      fetch(`${API_BASE}/api/right-rail/${encodeURIComponent(gameId)}`),
+      fetch(`${API_BASE}/api/boxscore/${encodeURIComponent(gameId)}`)
     ]);
 
     const score = await scoreResponse.json();
@@ -3471,72 +3759,38 @@ async function openGameDetail(
 
     html += '<div class="section-title">Голы</div>';
 
-    const scoring =
-      score?.summary?.scoring || [];
-
+    const scoring = score?.summary?.scoring || [];
     let hasGoals = false;
 
     scoring.forEach(period => {
       const goals = period.goals || [];
-
-      if (!goals.length) {
-        return;
-      }
+      if (!goals.length) return;
 
       hasGoals = true;
 
       html += `
         <div class="period-label">
-          ${escapeHtml(
-            formatPeriodLabel(period.periodDescriptor)
-          )}
+          ${escapeHtml(formatPeriodLabel(period.periodDescriptor))}
         </div>
       `;
 
       goals.forEach(goal => {
-        const scorer =
-          `${nameStr(goal.firstName)} ${nameStr(goal.lastName)}`
-            .trim();
-
+        const scorer = `${nameStr(goal.firstName)} ${nameStr(goal.lastName)}`.trim();
         const assists = Array.isArray(goal.assists)
-          ? goal.assists
-              .map(item =>
-                `${nameStr(item.firstName)} ${nameStr(item.lastName)}`
-              )
-              .join(", ")
+          ? goal.assists.map(item => `${nameStr(item.firstName)} ${nameStr(item.lastName)}`).join(", ")
           : "";
 
         html += `
           <div class="goal-row">
-            <div class="time">
-              ${escapeHtml(val(goal.timeInPeriod))}
-            </div>
-
+            <div class="time">${escapeHtml(val(goal.timeInPeriod))}</div>
             <div class="desc">
               <div class="scorer">
-                ${escapeHtml(scorer)}
-                (${escapeHtml(
-                  goal.teamAbbrev?.default ||
-                  goal.teamAbbrev ||
-                  ""
-                )})
+                ${escapeHtml(scorer)} (${escapeHtml(goal.teamAbbrev?.default || goal.teamAbbrev || "")})
               </div>
-
-              ${
-                assists
-                  ? `
-                    <div class="assists">
-                      Передачи: ${escapeHtml(assists)}
-                    </div>
-                  `
-                  : ""
-              }
+              ${assists ? `<div class="assists">Передачи: ${escapeHtml(assists)}</div>` : ""}
             </div>
-
             <div class="scoreline">
-              ${escapeHtml(val(goal.awayScore))}
-              :
-              ${escapeHtml(val(goal.homeScore))}
+              ${escapeHtml(val(goal.awayScore))} : ${escapeHtml(val(goal.homeScore))}
             </div>
           </div>
         `;
@@ -3555,79 +3809,23 @@ async function openGameDetail(
       homeLogo
     );
 
-    html += '<div class="section-title">Вратари</div>';
+    const awayPlayers = box?.playerByGameStats?.awayTeam || {};
+    const homePlayers = box?.playerByGameStats?.homeTeam || {};
 
-    const goalies = [
-      ...(box?.playerByGameStats?.awayTeam?.goalies || []),
-      ...(box?.playerByGameStats?.homeTeam?.goalies || [])
-    ];
-
-    if (!goalies.length) {
-      html += '<div class="empty">Нет данных о вратарях</div>';
-    } else {
-      html += `
-        <div class="table-scroll">
-          <table class="stat-table">
-            <thead>
-              <tr>
-                <th>Вратарь</th>
-                <th>Броски</th>
-                <th>%ОБ</th>
-                <th>Время</th>
-                <th>ГКИ</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              ${goalies.map(goalie => `
-                <tr>
-                  <td>
-                    ${escapeHtml(
-                      goalie.name?.default ||
-                      goalie.playerName?.default ||
-                      `${nameStr(goalie.firstName)} ${nameStr(goalie.lastName)}`
-                        .trim() ||
-                      "Вратарь"
-                    )}
-                  </td>
-
-                  <td class="num">
-                    ${escapeHtml(
-                      val(goalie.saveShotsAgainst)
-                    )}
-                  </td>
-
-                  <td class="num">
-                    ${
-                      typeof goalie.savePctg === "number"
-                        ? goalie.savePctg.toFixed(3)
-                        : escapeHtml(val(goalie.savePctg))
-                    }
-                  </td>
-
-                  <td class="num">
-                    ${escapeHtml(val(goalie.toi))}
-                  </td>
-
-                  <td class="num">
-                    ${
-                      typeof goalie.goalsAgainstAverage === "number"
-                        ? goalie.goalsAgainstAverage.toFixed(2)
-                        : "—"
-                    }
-                  </td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        </div>
-      `;
-    }
+    html += '<div class="section-title">Статистика игроков</div>';
+    html += renderGamePlayerStats(awayPlayers, awayAbbrev);
+    html += renderGamePlayerStats(homePlayers, homeAbbrev);
+    html += renderGameGoalieStats(awayPlayers, awayAbbrev);
+    html += renderGameGoalieStats(homePlayers, homeAbbrev);
   } catch (error) {
     console.error(error);
-
-    html +=
-      '<div class="empty">Не удалось загрузить подробности матча</div>';
+    html += `
+      <div class="empty">
+        Не удалось загрузить подробности матча
+        <br>
+        <small>${escapeHtml(error.message || "Ошибка загрузки")}</small>
+      </div>
+    `;
   }
 
   body.innerHTML = html;
