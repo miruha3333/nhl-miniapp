@@ -899,6 +899,52 @@ select.date-input option {
 
 .game-player-table {
   min-width:760px;
+  border-collapse:separate;
+  border-spacing:0;
+}
+
+/* В статистике матча первый столбец с именем игрока остаётся на месте,
+   а остальные показатели можно горизонтально прокручивать. */
+.game-player-table th:first-child,
+.game-player-table td:first-child {
+  position:sticky;
+  left:0;
+  z-index:3;
+  min-width:150px;
+  background:var(--surface);
+  box-shadow:6px 0 10px -9px rgba(0,0,0,.9);
+}
+
+.game-player-table thead th:first-child {
+  z-index:5;
+}
+
+.game-player-table th[data-sort-key] {
+  cursor:pointer;
+  user-select:none;
+  -webkit-user-select:none;
+  white-space:nowrap;
+}
+
+.game-player-table th[data-sort-key]::after {
+  content:"↕";
+  margin-left:5px;
+  opacity:.35;
+  font-size:9px;
+}
+
+.game-player-table th.sort-asc::after {
+  content:"↑";
+  opacity:.9;
+}
+
+.game-player-table th.sort-desc::after {
+  content:"↓";
+  opacity:.9;
+}
+
+.game-player-table th[data-sort-key]:active {
+  background:var(--surface-2);
 }
 
 .game-player-table + .section-title {
@@ -3627,6 +3673,78 @@ function normalizeGameGoalies(team) {
   return Array.isArray(team.goalies) ? team.goalies : [];
 }
 
+function gameSortValue(value, type = "number") {
+  if (value === undefined || value === null || value === "") return "";
+  if (type === "name") return String(value).toLocaleLowerCase("ru");
+  if (type === "time") {
+    const parts = String(value).split(":").map(Number);
+    if (parts.length === 2 && parts.every(Number.isFinite)) {
+      return String(parts[0] * 60 + parts[1]);
+    }
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? String(number) : String(value).toLocaleLowerCase("ru");
+}
+
+function gameStatCell(key, value, type = "number", display = null) {
+  const shown = display === null ? val(value) : display;
+  const sortValue = gameSortValue(value, type);
+  return `<td class="num" data-sort-column="${escapeHtml(key)}" data-sort-value="${escapeHtml(sortValue)}">${escapeHtml(shown)}</td>`;
+}
+
+function initGameStatSorting() {
+  document.querySelectorAll(".game-player-table[data-sortable]").forEach(table => {
+    if (table.dataset.sortReady === "1") return;
+    table.dataset.sortReady = "1";
+
+    table.querySelectorAll("thead th[data-sort-key]").forEach(th => {
+      th.addEventListener("click", () => {
+        const key = th.dataset.sortKey;
+        const type = th.dataset.sortType || "number";
+        const tbody = table.querySelector("tbody");
+        if (!tbody) return;
+
+        const currentKey = table.dataset.sortKey || "";
+        const currentDir = table.dataset.sortDir === "desc" ? "desc" : "asc";
+        const direction = currentKey === key
+          ? (currentDir === "asc" ? "desc" : "asc")
+          : "desc";
+
+        const rows = Array.from(tbody.querySelectorAll("tr"));
+        rows.sort((a, b) => {
+          const aCell = a.querySelector(`[data-sort-column="${CSS.escape(key)}"]`);
+          const bCell = b.querySelector(`[data-sort-column="${CSS.escape(key)}"]`);
+          const av = aCell?.dataset.sortValue ?? "";
+          const bv = bCell?.dataset.sortValue ?? "";
+
+          if (type === "name") {
+            return av.localeCompare(bv, "ru") * (direction === "asc" ? 1 : -1);
+          }
+
+          const an = Number(av);
+          const bn = Number(bv);
+          const aEmpty = av === "" || !Number.isFinite(an);
+          const bEmpty = bv === "" || !Number.isFinite(bn);
+
+          if (aEmpty && bEmpty) return 0;
+          if (aEmpty) return 1;
+          if (bEmpty) return -1;
+          return (an - bn) * (direction === "asc" ? 1 : -1);
+        });
+
+        rows.forEach(row => tbody.appendChild(row));
+        table.dataset.sortKey = key;
+        table.dataset.sortDir = direction;
+
+        table.querySelectorAll("thead th[data-sort-key]").forEach(item => {
+          item.classList.remove("sort-asc", "sort-desc");
+        });
+        th.classList.add(direction === "asc" ? "sort-asc" : "sort-desc");
+      });
+    });
+  });
+}
+
 function renderGamePlayerStats(team, teamAbbrev) {
   const skaters = normalizeGameSkaters(team);
 
@@ -3640,19 +3758,19 @@ function renderGamePlayerStats(team, teamAbbrev) {
 
   html += `
     <div class="table-scroll game-player-section">
-      <table class="stat-table game-player-table">
+      <table class="stat-table game-player-table" data-sortable="1">
         <thead>
           <tr>
-            <th>Игрок</th>
-            <th>Г</th>
-            <th>П</th>
-            <th>О</th>
-            <th>+/-</th>
-            <th>Броски</th>
-            <th>Время</th>
-            <th>Хиты</th>
-            <th>Блоки</th>
-            <th>Вбрасывания %</th>
+            <th data-sort-key="name" data-sort-type="name">Игрок</th>
+            <th data-sort-key="goals">Г</th>
+            <th data-sort-key="assists">П</th>
+            <th data-sort-key="points">О</th>
+            <th data-sort-key="plusMinus">+/-</th>
+            <th data-sort-key="shots">Броски</th>
+            <th data-sort-key="toi" data-sort-type="time">Время</th>
+            <th data-sort-key="hits">Хиты</th>
+            <th data-sort-key="blocks">Блоки</th>
+            <th data-sort-key="faceoff">Вбрасывания %</th>
           </tr>
         </thead>
         <tbody>
@@ -3665,6 +3783,14 @@ function renderGamePlayerStats(team, teamAbbrev) {
       `${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() ||
       "Игрок";
 
+    const goals = getSkaterStatValue(player, ["goals"]);
+    const assists = getSkaterStatValue(player, ["assists"]);
+    const points = getSkaterStatValue(player, ["points"]);
+    const plusMinus = getSkaterStatValue(player, ["plusMinus"]);
+    const shots = getSkaterStatValue(player, ["sog", "shotsOnGoal", "shots"]);
+    const toi = getSkaterStatValue(player, ["toi", "timeOnIce"]);
+    const hits = getSkaterStatValue(player, ["hits"]);
+    const blocks = getSkaterStatValue(player, ["blockedShots", "blocks"]);
     const faceoff = getSkaterStatValue(player, [
       "faceoffWinningPctg",
       "faceoffWinPctg",
@@ -3673,18 +3799,19 @@ function renderGamePlayerStats(team, teamAbbrev) {
 
     html += `
       <tr>
-        <td>${escapeHtml(name)}</td>
-        <td class="num">${escapeHtml(val(getSkaterStatValue(player, ["goals"])))}</td>
-        <td class="num">${escapeHtml(val(getSkaterStatValue(player, ["assists"])))}</td>
-        <td class="num">${escapeHtml(val(getSkaterStatValue(player, ["points"])))}</td>
-        <td class="num">${escapeHtml(val(getSkaterStatValue(player, ["plusMinus"])))}</td>
-        <td class="num">${escapeHtml(val(getSkaterStatValue(player, ["sog", "shotsOnGoal", "shots"])))}</td>
-        <td class="num">${escapeHtml(val(getSkaterStatValue(player, ["toi", "timeOnIce"])))}</td>
-        <td class="num">${escapeHtml(val(getSkaterStatValue(player, ["hits"])))}</td>
-        <td class="num">${escapeHtml(val(getSkaterStatValue(player, ["blockedShots", "blocks"])))}</td>
-        <td class="num">${escapeHtml(formatPct(faceoff))}</td>
+        <td data-sort-column="name" data-sort-value="${escapeHtml(gameSortValue(name, "name"))}">${escapeHtml(name)}</td>
+        ${gameStatCell("goals", goals)}
+        ${gameStatCell("assists", assists)}
+        ${gameStatCell("points", points)}
+        ${gameStatCell("plusMinus", plusMinus)}
+        ${gameStatCell("shots", shots)}
+        ${gameStatCell("toi", toi, "time")}
+        ${gameStatCell("hits", hits)}
+        ${gameStatCell("blocks", blocks)}
+        ${gameStatCell("faceoff", faceoff, "number", formatPct(faceoff))}
       </tr>
     `;
+
   });
 
   html += '</tbody></table></div>';
@@ -3704,15 +3831,15 @@ function renderGameGoalieStats(team, teamAbbrev) {
 
   html += `
     <div class="table-scroll game-player-section">
-      <table class="stat-table game-player-table">
+      <table class="stat-table game-player-table" data-sortable="1">
         <thead>
           <tr>
-            <th>Вратарь</th>
-            <th>Броски по воротам</th>
-            <th>Отражено</th>
-            <th>%ОБ</th>
-            <th>Время</th>
-            <th>ГКИ</th>
+            <th data-sort-key="name" data-sort-type="name">Вратарь</th>
+            <th data-sort-key="shotsAgainst">Броски по воротам</th>
+            <th data-sort-key="saves">Отражено</th>
+            <th data-sort-key="savePct">%ОБ</th>
+            <th data-sort-key="toi" data-sort-type="time">Время</th>
+            <th data-sort-key="gaa">ГКИ</th>
           </tr>
         </thead>
         <tbody>
@@ -3725,10 +3852,7 @@ function renderGameGoalieStats(team, teamAbbrev) {
       `${nameStr(goalie.firstName)} ${nameStr(goalie.lastName)}`.trim() ||
       "Вратарь";
 
-    const shotsAgainst = getSkaterStatValue(goalie, [
-      "shotsAgainst",
-      "shots"
-    ]);
+    const shotsAgainst = getSkaterStatValue(goalie, ["shotsAgainst", "shots"]);
     const saves = getSkaterStatValue(goalie, ["saves"]);
     const saveShotsAgainst = getSkaterStatValue(goalie, ["saveShotsAgainst"]);
     const shots = shotsAgainst ?? (
@@ -3756,20 +3880,19 @@ function renderGameGoalieStats(team, teamAbbrev) {
       }
     }
 
+    const gaaDisplay = typeof gaa === "number" ? gaa.toFixed(2) : val(gaa);
+
     html += `
       <tr>
-        <td>${escapeHtml(name)}</td>
-        <td class="num">${escapeHtml(val(shots))}</td>
-        <td class="num">${escapeHtml(val(saves))}</td>
-        <td class="num">${escapeHtml(formatPct(savePct))}</td>
-        <td class="num">${escapeHtml(val(toi))}</td>
-        <td class="num">${
-          typeof gaa === "number"
-            ? gaa.toFixed(2)
-            : escapeHtml(val(gaa))
-        }</td>
+        <td data-sort-column="name" data-sort-value="${escapeHtml(gameSortValue(name, "name"))}">${escapeHtml(name)}</td>
+        ${gameStatCell("shotsAgainst", shots, "number")}
+        ${gameStatCell("saves", saves, "number")}
+        ${gameStatCell("savePct", savePct, "number", formatPct(savePct))}
+        ${gameStatCell("toi", toi, "time")}
+        ${gameStatCell("gaa", gaa, "number", gaaDisplay)}
       </tr>
     `;
+
   });
 
   html += '</tbody></table></div>';
@@ -3881,6 +4004,7 @@ async function openGameDetail(
   }
 
   body.innerHTML = html;
+  initGameStatSorting();
 }
 
 async function openPlayerDetail(playerId) {
