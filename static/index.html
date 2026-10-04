@@ -457,7 +457,7 @@ select.date-input option {
 .empty,
 .loading {
   grid-column:1/-1;
-  padding:30px 0;
+  padding:14px 0;
   color:var(--silver-dim);
   font-size:13px;
   text-align:center;
@@ -680,7 +680,7 @@ select.date-input option {
 }
 
 .section-title {
-  margin:16px 0 8px;
+  margin:12px 0 6px;
   color:var(--silver-dim);
   font-family:"Oswald",sans-serif;
   font-size:13px;
@@ -715,7 +715,7 @@ select.date-input option {
 
 .stat-table th,
 .stat-table td {
-  padding:7px 4px;
+  padding:5px 4px;
   border-bottom:1px solid var(--border);
   text-align:center;
   white-space:nowrap;
@@ -899,6 +899,14 @@ select.date-input option {
 
 .game-player-table {
   min-width:760px;
+}
+
+.game-player-table + .section-title {
+  margin-top:10px;
+}
+
+.game-player-section {
+  margin-bottom:4px;
 }
 
 .bracket-wrap {
@@ -3601,8 +3609,26 @@ function formatPct(value) {
   return `${(number <= 1 ? number * 100 : number).toFixed(1)}%`;
 }
 
+function normalizeGameSkaters(team) {
+  if (!team || typeof team !== "object") return [];
+
+  // NHL boxscore отдаёт полевых игроков отдельно:
+  // forwards + defense. Старый код искал только skaters, поэтому
+  // на экране и появлялось «Статистика полевых игроков недоступна».
+  const forwards = Array.isArray(team.forwards) ? team.forwards : [];
+  const defense = Array.isArray(team.defense) ? team.defense : [];
+  const skaters = Array.isArray(team.skaters) ? team.skaters : [];
+
+  return [...forwards, ...defense, ...skaters];
+}
+
+function normalizeGameGoalies(team) {
+  if (!team || typeof team !== "object") return [];
+  return Array.isArray(team.goalies) ? team.goalies : [];
+}
+
 function renderGamePlayerStats(team, teamAbbrev) {
-  const skaters = Array.isArray(team?.skaters) ? team.skaters : [];
+  const skaters = normalizeGameSkaters(team);
 
   let html = `
     <div class="section-title">Игроки — ${escapeHtml(teamAbbrev)}</div>
@@ -3613,7 +3639,7 @@ function renderGamePlayerStats(team, teamAbbrev) {
   }
 
   html += `
-    <div class="table-scroll">
+    <div class="table-scroll game-player-section">
       <table class="stat-table game-player-table">
         <thead>
           <tr>
@@ -3639,7 +3665,11 @@ function renderGamePlayerStats(team, teamAbbrev) {
       `${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() ||
       "Игрок";
 
-    const faceoff = getSkaterStatValue(player, ["faceoffWinningPctg", "faceoffWinPctg"]);
+    const faceoff = getSkaterStatValue(player, [
+      "faceoffWinningPctg",
+      "faceoffWinPctg",
+      "faceoffPctg"
+    ]);
 
     html += `
       <tr>
@@ -3662,7 +3692,7 @@ function renderGamePlayerStats(team, teamAbbrev) {
 }
 
 function renderGameGoalieStats(team, teamAbbrev) {
-  const goalies = Array.isArray(team?.goalies) ? team.goalies : [];
+  const goalies = normalizeGameGoalies(team);
 
   let html = `
     <div class="section-title">Вратари — ${escapeHtml(teamAbbrev)}</div>
@@ -3673,7 +3703,7 @@ function renderGameGoalieStats(team, teamAbbrev) {
   }
 
   html += `
-    <div class="table-scroll">
+    <div class="table-scroll game-player-section">
       <table class="stat-table game-player-table">
         <thead>
           <tr>
@@ -3695,7 +3725,10 @@ function renderGameGoalieStats(team, teamAbbrev) {
       `${nameStr(goalie.firstName)} ${nameStr(goalie.lastName)}`.trim() ||
       "Вратарь";
 
-    const shotsAgainst = getSkaterStatValue(goalie, ["shotsAgainst"]);
+    const shotsAgainst = getSkaterStatValue(goalie, [
+      "shotsAgainst",
+      "shots"
+    ]);
     const saves = getSkaterStatValue(goalie, ["saves"]);
     const saveShotsAgainst = getSkaterStatValue(goalie, ["saveShotsAgainst"]);
     const shots = shotsAgainst ?? (
@@ -3704,17 +3737,36 @@ function renderGameGoalieStats(team, teamAbbrev) {
         : null
     );
 
+    const savePct = goalie.savePctg ?? goalie.savePercentage ?? (
+      shots !== null && saves !== null && Number(shots) > 0
+        ? Number(saves) / Number(shots)
+        : null
+    );
+
+    const toi = goalie.toi ?? goalie.timeOnIce ?? "";
+    let gaa = goalie.goalsAgainstAverage ?? goalie.gaa;
+
+    if ((gaa === undefined || gaa === null || gaa === "") && toi && goalie.goalsAgainst !== undefined) {
+      const parts = String(toi).split(":").map(Number);
+      if (parts.length >= 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1])) {
+        const minutes = parts[0] + parts[1] / 60;
+        if (minutes > 0) {
+          gaa = Number(goalie.goalsAgainst) / (minutes / 60);
+        }
+      }
+    }
+
     html += `
       <tr>
         <td>${escapeHtml(name)}</td>
         <td class="num">${escapeHtml(val(shots))}</td>
         <td class="num">${escapeHtml(val(saves))}</td>
-        <td class="num">${escapeHtml(formatPct(goalie.savePctg ?? goalie.savePercentage))}</td>
-        <td class="num">${escapeHtml(val(goalie.toi ?? goalie.timeOnIce))}</td>
+        <td class="num">${escapeHtml(formatPct(savePct))}</td>
+        <td class="num">${escapeHtml(val(toi))}</td>
         <td class="num">${
-          typeof goalie.goalsAgainstAverage === "number"
-            ? goalie.goalsAgainstAverage.toFixed(2)
-            : escapeHtml(val(goalie.goalsAgainstAverage ?? goalie.gaa))
+          typeof gaa === "number"
+            ? gaa.toFixed(2)
+            : escapeHtml(val(gaa))
         }</td>
       </tr>
     `;
