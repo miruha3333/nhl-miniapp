@@ -812,6 +812,7 @@ select.date-input option {
   font-size:11px;
   text-transform:uppercase;
 }
+
 .team-schedule-list {
   margin-top:8px;
 }
@@ -956,6 +957,7 @@ select.date-input option {
 .game-player-section {
   margin-bottom:4px;
 }
+
 .game-player-table th:first-child,
 .game-player-table td:first-child {
   padding-right:8px;
@@ -1169,10 +1171,10 @@ select.date-input option {
     </div>
 
     <div id="goalie-categories" class="cat-row" style="display:none;">
-      <button data-goalie-sort="wins" class="active">Победы</button>
+      <button data-goalie-sort="wins">Победы</button>
       <button data-goalie-sort="losses">Поражения</button>
       <button data-goalie-sort="savePctg">%ОБ</button>
-      <button data-goalie-sort="gaa">ГКИ</button>
+      <button data-goalie-sort="gaa" class="active">ГКИ</button>
     </div>
 
     <div class="card">
@@ -1219,8 +1221,9 @@ let currentCat = "points";
 let currentLimit = 25;
 
 let leadersMode = "skaters";
-let currentGoalieSortKey = "wins";
+let currentGoalieSortKey = "gaa";
 let currentGoalieSortAsc = false;
+const DEFAULT_GOALIE_MIN_GAMES = 5;
 
 const goalieHeadshotCache = new Map();
 const datePicker = document.getElementById("date-picker");
@@ -2873,9 +2876,18 @@ async function loadGoalieCards() {
       );
     }
 
-    const rows = Array.isArray(data.goalies)
+    let rows = Array.isArray(data.goalies)
       ? [...data.goalies]
       : [];
+
+    // Для ГКИ по умолчанию исключаем вратарей с совсем малой выборкой.
+    // Минимум 5 матчей соответствует минимальному порогу,
+    // который используется в официальных таблицах NHL для GAA.
+    if (currentGoalieSortKey === "gaa") {
+      rows = rows.filter(player =>
+        Number(player.gamesPlayed ?? player.gp ?? 0) >= DEFAULT_GOALIE_MIN_GAMES
+      );
+    }
 
     if (!rows.length) {
       body.innerHTML =
