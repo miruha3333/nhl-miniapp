@@ -253,7 +253,7 @@ select.date-input option {
 
 .standings-table {
   display:grid;
-  grid-template-columns:24px 30px 110px repeat(8,35px);
+  grid-template-columns:24px 30px 110px repeat(10,35px);
   min-width:600px;
   align-items:center;
 }
@@ -899,6 +899,7 @@ select.date-input option {
 
 .game-player-table {
   min-width:760px;
+  width:max-content;
   border-collapse:separate;
   border-spacing:0;
 }
@@ -910,7 +911,8 @@ select.date-input option {
   position:sticky;
   left:0;
   z-index:3;
-  min-width:150px;
+  min-width:0;
+  width:max-content;
   background:var(--surface);
   box-shadow:6px 0 10px -9px rgba(0,0,0,.9);
 }
@@ -953,6 +955,16 @@ select.date-input option {
 
 .game-player-section {
   margin-bottom:4px;
+}
+.game-player-table th:first-child,
+.game-player-table td:first-child {
+  padding-right:8px;
+  white-space:nowrap;
+}
+
+.special-team-pct {
+  color:var(--blue);
+  font-weight:700;
 }
 
 .bracket-wrap {
@@ -1129,6 +1141,8 @@ select.date-input option {
             <div class="sortable" data-sort="goalAgainst">ПШ</div>
             <div class="sortable" data-sort="goalDifferential">+/-</div>
             <div class="sortable" data-sort="points">О</div>
+            <div class="sortable" data-sort="powerPlayPctg">% Б</div>
+            <div class="sortable" data-sort="penaltyKillPctg">% М</div>
           </div>
 
           <div id="standings-body" style="display:contents;">
@@ -1143,7 +1157,7 @@ select.date-input option {
 
   <div id="view-players" style="display:none">
     <div class="cat-row">
-      <button id="leaders-skaters-btn" class="active">Игроки</button>
+      <button id="leaders-skaters-btn" class="active">Полевые</button>
       <button id="leaders-goalies-btn">Вратари</button>
     </div>
 
@@ -1900,6 +1914,27 @@ function getGameScore(game, side) {
   return value === undefined || value === null ? null : Number(value);
 }
 
+function getGoalStrengthLabel(goal) {
+  const raw = String(
+    goal?.strengthCode ??
+    goal?.strength ??
+    goal?.situationCode ??
+    goal?.typeCode ??
+    goal?.goalType ??
+    ""
+  ).toUpperCase();
+
+  if (goal?.isShortHanded === true || goal?.isShorthanded === true || /SH/.test(raw)) {
+    return "М";
+  }
+
+  if (goal?.isPowerPlay === true || goal?.isPowerplay === true || /PP/.test(raw)) {
+    return "Б";
+  }
+
+  return "";
+}
+
 function isCompletedGame(game) {
   const state = String(game?.gameState || "").toUpperCase();
   return state === "OFF" || state === "FINAL" || state === "F" ||
@@ -1988,13 +2023,13 @@ async function loadMatchupHistory(awayAbbrev, homeAbbrev) {
       }
     });
 
-  return unique.slice(0, 5);
+  return unique.slice(0, 10);
 }
 
 function renderMatchupHistory(games, awayAbbrev, homeAbbrev) {
   let html = `
     <div class="matchup-card">
-      <div class="matchup-title">Последние 5 результатов между командами</div>
+      <div class="matchup-title">Последние 10 результатов между командами</div>
   `;
 
   if (!games.length) {
@@ -2024,7 +2059,7 @@ function renderMatchupHistory(games, awayAbbrev, homeAbbrev) {
         <div class="matchup-team">${escapeHtml(awayAbbrev)}</div>
         <div class="matchup-record">Побед: ${wins[String(awayAbbrev).toUpperCase()] || 0}</div>
       </div>
-      <div class="matchup-record">5 матчей</div>
+      <div class="matchup-record">${games.length} матчей</div>
       <div>
         <div class="matchup-team">${escapeHtml(homeAbbrev)}</div>
         <div class="matchup-record">Побед: ${wins[String(homeAbbrev).toUpperCase()] || 0}</div>
@@ -2199,14 +2234,57 @@ async function loadStandings() {
     '<div class="loading">Загрузка...</div>';
 
   try {
-    const url = selectedSeasonEndDate
+    const standingsUrl = selectedSeasonEndDate
       ? `${API_BASE}/api/standings-by-date/${encodeURIComponent(selectedSeasonEndDate)}`
       : `${API_BASE}/api/standings`;
 
-    const response = await fetch(url);
-    const data = await response.json();
+    const specialTeamsSeason =
+      seasonIdFromEndDate(selectedSeasonEndDate);
 
-    currentStandingsData = data.standings || [];
+    const specialTeamsUrl = specialTeamsSeason
+      ? `${API_BASE}/api/team-special-teams?season=${encodeURIComponent(specialTeamsSeason)}`
+      : `${API_BASE}/api/team-special-teams`;
+
+    const [response, specialResponse] = await Promise.all([
+      fetch(standingsUrl),
+      fetch(specialTeamsUrl)
+    ]);
+
+    const data = await response.json();
+    let specialData = {};
+
+    try {
+      specialData = await specialResponse.json();
+    } catch (_) {}
+
+    const specialMap = new Map();
+    const specialTeams = Array.isArray(specialData?.teams)
+      ? specialData.teams
+      : [];
+
+    specialTeams.forEach(row => {
+      let abbrev = row?.teamAbbrev ?? row?.teamAbbrevs ?? row?.team;
+      if (Array.isArray(abbrev)) abbrev = abbrev[0];
+      if (!abbrev) return;
+
+      specialMap.set(String(abbrev).toUpperCase(), row);
+    });
+
+    currentStandingsData = (data.standings || []).map(team => {
+      let abbrev = team.teamAbbrev || team.abbrev || team.team;
+      if (abbrev && typeof abbrev === "object") {
+        abbrev = abbrev.default;
+      }
+
+      const special = specialMap.get(String(abbrev || "").toUpperCase());
+
+      return {
+        ...team,
+        powerPlayPctg: special?.powerPlayPctg ?? special?.powerPlayPct ?? special?.powerPlayPercentage,
+        penaltyKillPctg: special?.penaltyKillPctg ?? special?.penaltyKillPct ?? special?.penaltyKillPercentage,
+      };
+    });
+
     renderStandings();
   } catch (error) {
     console.error(error);
@@ -2214,6 +2292,17 @@ async function loadStandings() {
     body.innerHTML =
       '<div class="empty">Не удалось загрузить таблицу</div>';
   }
+}
+
+function getTeamSpecialPct(team, keys) {
+  for (const key of keys) {
+    const value = team?.[key];
+    if (value !== undefined && value !== null && value !== "") {
+      const number = Number(value);
+      if (Number.isFinite(number)) return number <= 1 ? number * 100 : number;
+    }
+  }
+  return null;
 }
 
 function renderTeamRow(team, rank) {
@@ -2240,6 +2329,13 @@ function renderTeamRow(team, rank) {
     team.goalDifferential ??
     goalFor - goalAgainst
   );
+
+  const powerPlayPctg = getTeamSpecialPct(team, [
+    "powerPlayPctg", "powerPlayPct", "powerPlayPercentage", "powerPlaySuccessPctg"
+  ]);
+  const penaltyKillPctg = getTeamSpecialPct(team, [
+    "penaltyKillPctg", "penaltyKillPct", "penaltyKillPercentage", "penaltyKillSuccessPctg"
+  ]);
 
   return `
     <div
@@ -2280,6 +2376,9 @@ function renderTeamRow(team, rank) {
       </div>
 
       <div class="pts">${team.points ?? 0}</div>
+
+      <div class="num special-team-pct">${powerPlayPctg === null ? "—" : `${powerPlayPctg.toFixed(1)}%`}</div>
+      <div class="num special-team-pct">${penaltyKillPctg === null ? "—" : `${penaltyKillPctg.toFixed(1)}%`}</div>
     </div>
   `;
 }
@@ -2295,6 +2394,12 @@ function sortTeams(teams) {
 
       valueB = b.goalDifferential ??
         ((b.goalFor ?? 0) - (b.goalAgainst ?? 0));
+    } else if (standingsSortKey === "powerPlayPctg") {
+      valueA = getTeamSpecialPct(a, ["powerPlayPctg", "powerPlayPct", "powerPlayPercentage", "powerPlaySuccessPctg"]) ?? -1;
+      valueB = getTeamSpecialPct(b, ["powerPlayPctg", "powerPlayPct", "powerPlayPercentage", "powerPlaySuccessPctg"]) ?? -1;
+    } else if (standingsSortKey === "penaltyKillPctg") {
+      valueA = getTeamSpecialPct(a, ["penaltyKillPctg", "penaltyKillPct", "penaltyKillPercentage", "penaltyKillSuccessPctg"]) ?? -1;
+      valueB = getTeamSpecialPct(b, ["penaltyKillPctg", "penaltyKillPct", "penaltyKillPercentage", "penaltyKillSuccessPctg"]) ?? -1;
     }
 
     return standingsSortAsc
@@ -3745,6 +3850,19 @@ function initGameStatSorting() {
   });
 }
 
+function getGamePlayerPosition(player) {
+  const value =
+    player?.positionCode ??
+    player?.position ??
+    player?.positionAbbrev ??
+    player?.positionCodeAbbrev ??
+    "";
+
+  const position = String(value || "").toUpperCase();
+  if (["D", "L", "R", "C"].includes(position)) return position;
+  return "";
+}
+
 function renderGamePlayerStats(team, teamAbbrev) {
   const skaters = normalizeGameSkaters(team);
 
@@ -3766,22 +3884,24 @@ function renderGamePlayerStats(team, teamAbbrev) {
             <th data-sort-key="assists">П</th>
             <th data-sort-key="points">О</th>
             <th data-sort-key="plusMinus">+/-</th>
-            <th data-sort-key="shots">Броски</th>
-            <th data-sort-key="toi" data-sort-type="time">Время</th>
-            <th data-sort-key="hits">Хиты</th>
-            <th data-sort-key="blocks">Блоки</th>
-            <th data-sort-key="faceoff">Вбрасывания %</th>
+            <th data-sort-key="shots">Б</th>
+            <th data-sort-key="toi" data-sort-type="time">В</th>
+            <th data-sort-key="hits">Х</th>
+            <th data-sort-key="blocks">Бл</th>
+            <th data-sort-key="faceoff">% Вбр</th>
           </tr>
         </thead>
         <tbody>
   `;
 
   skaters.forEach(player => {
-    const name =
+    const baseName =
       player.name?.default ||
       player.name ||
       `${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() ||
       "Игрок";
+    const position = getGamePlayerPosition(player);
+    const name = position ? `${baseName} (${position})` : baseName;
 
     const goals = getSkaterStatValue(player, ["goals"]);
     const assists = getSkaterStatValue(player, ["assists"]);
@@ -3835,10 +3955,10 @@ function renderGameGoalieStats(team, teamAbbrev) {
         <thead>
           <tr>
             <th data-sort-key="name" data-sort-type="name">Вратарь</th>
-            <th data-sort-key="shotsAgainst">Броски по воротам</th>
-            <th data-sort-key="saves">Отражено</th>
+            <th data-sort-key="shotsAgainst">Бр</th>
+            <th data-sort-key="saves">О</th>
             <th data-sort-key="savePct">%ОБ</th>
-            <th data-sort-key="toi" data-sort-type="time">Время</th>
+            <th data-sort-key="toi" data-sort-type="time">В</th>
             <th data-sort-key="gaa">ГКИ</th>
           </tr>
         </thead>
@@ -3951,6 +4071,7 @@ async function openGameDetail(
 
       goals.forEach(goal => {
         const scorer = `${nameStr(goal.firstName)} ${nameStr(goal.lastName)}`.trim();
+        const strengthLabel = getGoalStrengthLabel(goal);
         const assists = Array.isArray(goal.assists)
           ? goal.assists.map(item => `${nameStr(item.firstName)} ${nameStr(item.lastName)}`).join(", ")
           : "";
@@ -3960,7 +4081,7 @@ async function openGameDetail(
             <div class="time">${escapeHtml(val(goal.timeInPeriod))}</div>
             <div class="desc">
               <div class="scorer">
-                ${escapeHtml(scorer)} (${escapeHtml(goal.teamAbbrev?.default || goal.teamAbbrev || "")})
+                ${escapeHtml(scorer)} (${escapeHtml(goal.teamAbbrev?.default || goal.teamAbbrev || "")})${strengthLabel ? ` (${strengthLabel})` : ""}
               </div>
               ${assists ? `<div class="assists">Передачи: ${escapeHtml(assists)}</div>` : ""}
             </div>
