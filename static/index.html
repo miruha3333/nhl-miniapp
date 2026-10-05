@@ -812,7 +812,6 @@ select.date-input option {
   font-size:11px;
   text-transform:uppercase;
 }
-
 .team-schedule-list {
   margin-top:8px;
 }
@@ -912,7 +911,7 @@ select.date-input option {
   position:sticky;
   left:0;
   z-index:3;
-  min-width:0;
+  min-width:max-content;
   width:max-content;
   background:var(--surface);
   box-shadow:6px 0 10px -9px rgba(0,0,0,.9);
@@ -957,7 +956,6 @@ select.date-input option {
 .game-player-section {
   margin-bottom:4px;
 }
-
 .game-player-table th:first-child,
 .game-player-table td:first-child {
   padding-right:8px;
@@ -1171,10 +1169,11 @@ select.date-input option {
     </div>
 
     <div id="goalie-categories" class="cat-row" style="display:none;">
-      <button data-goalie-sort="wins">Победы</button>
+      <button data-goalie-sort="wins" class="active">П</button>
       <button data-goalie-sort="losses">Поражения</button>
       <button data-goalie-sort="savePctg">%ОБ</button>
-      <button data-goalie-sort="gaa" class="active">ГКИ</button>
+      <button data-goalie-sort="gaa">ГКИ</button>
+      <button data-goalie-sort="shutouts" title="Сухие матчи">С</button>
     </div>
 
     <div class="card">
@@ -1221,7 +1220,7 @@ let currentCat = "points";
 let currentLimit = 25;
 
 let leadersMode = "skaters";
-let currentGoalieSortKey = "gaa";
+let currentGoalieSortKey = "wins";
 let currentGoalieSortAsc = false;
 const DEFAULT_GOALIE_MIN_GAMES = 5;
 
@@ -2266,17 +2265,33 @@ async function loadStandings() {
       : [];
 
     specialTeams.forEach(row => {
-      let abbrev = row?.teamAbbrev ?? row?.teamAbbrevs ?? row?.team;
+      let abbrev =
+        row?.teamAbbrev ??
+        row?.teamAbbrevs ??
+        row?.rawTricode ??
+        row?.triCode ??
+        row?.team;
+
       if (Array.isArray(abbrev)) abbrev = abbrev[0];
+      if (abbrev && typeof abbrev === "object") {
+        abbrev = abbrev.default ?? abbrev.abbrev ?? abbrev.triCode ?? "";
+      }
       if (!abbrev) return;
 
       specialMap.set(String(abbrev).toUpperCase(), row);
     });
 
     currentStandingsData = (data.standings || []).map(team => {
-      let abbrev = team.teamAbbrev || team.abbrev || team.team;
+      let abbrev =
+        team.teamAbbrev ||
+        team.abbrev ||
+        team.rawTricode ||
+        team.triCode ||
+        team.team;
+
+      if (Array.isArray(abbrev)) abbrev = abbrev[0];
       if (abbrev && typeof abbrev === "object") {
-        abbrev = abbrev.default;
+        abbrev = abbrev.default ?? abbrev.abbrev ?? abbrev.triCode ?? "";
       }
 
       const special = specialMap.get(String(abbrev || "").toUpperCase());
