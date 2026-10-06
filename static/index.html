@@ -1224,7 +1224,7 @@ let currentLimit = 25;
 let leadersMode = "skaters";
 let currentGoalieSortKey = "wins";
 let currentGoalieSortAsc = false;
-const DEFAULT_GOALIE_MIN_GAMES = 5;
+const DEFAULT_GOALIE_MIN_GAMES = 0;
 
 const goalieHeadshotCache = new Map();
 const datePicker = document.getElementById("date-picker");
@@ -2900,12 +2900,6 @@ async function loadGoalieCards() {
     // Для ГКИ по умолчанию исключаем вратарей с совсем малой выборкой.
     // Минимум 5 матчей соответствует минимальному порогу,
     // который используется в официальных таблицах NHL для GAA.
-    if (currentGoalieSortKey === "gaa") {
-      rows = rows.filter(player =>
-        Number(player.gamesPlayed ?? player.gp ?? 0) >= DEFAULT_GOALIE_MIN_GAMES
-      );
-    }
-
     if (!rows.length) {
       body.innerHTML =
         '<div class="empty">Нет данных вратарей за выбранный сезон</div>';
