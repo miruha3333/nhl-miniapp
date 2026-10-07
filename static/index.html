@@ -6,6 +6,8 @@
 <title>NHL Live</title>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<!-- Подключение HLS.js для проигрывания m3u8 видеопотоков -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -610,6 +612,26 @@ select.date-input option {
   font-size:9px;
 }
 
+/* Видеоплеер обзора */
+.video-container {
+  position:relative;
+  width:100%;
+  aspect-ratio:16/9;
+  background:#000;
+  border-radius:12px;
+  overflow:hidden;
+  margin-bottom:14px;
+  border:1px solid var(--border);
+}
+
+.video-container video,
+.video-container iframe {
+  width:100%;
+  height:100%;
+  border:0;
+  display:block;
+}
+
 .back-btn {
   position:fixed;
   left:16px;
@@ -906,8 +928,6 @@ select.date-input option {
   border-spacing:0;
 }
 
-/* В статистике матча первый столбец с именем игрока остаётся на месте,
-   а остальные показатели можно горизонтально прокручивать. */
 .game-player-table th:first-child,
 .game-player-table td:first-child {
   position:sticky;
@@ -958,6 +978,7 @@ select.date-input option {
 .game-player-section {
   margin-bottom:4px;
 }
+
 .game-player-table th:first-child,
 .game-player-table td:first-child {
   padding-right:8px;
@@ -1086,25 +1107,6 @@ select.date-input option {
   text-align:center;
   text-transform:uppercase;
 }
-
-
-
-
-
-
-
-
-
-
-
-.pregame-group:first-child {
-  margin-top:0;
-}
-
-
-
-
-
 </style>
 </head>
 
@@ -2138,8 +2140,6 @@ async function loadMatchupPreview(awayAbbrev, homeAbbrev) {
   }
 }
 
-
-
 async function openFutureGamePreview(
   gameId,
   awayAbbrev,
@@ -2163,13 +2163,7 @@ async function openFutureGamePreview(
     <div class="loading">Загрузка последних встреч...</div>
   `;
 
-  let matchup = '';
-  try {
-    matchup = await loadMatchupPreview(awayAbbrev, homeAbbrev);
-  } catch (error) {
-    console.error("Ошибка загрузки личных встреч:", error);
-    matchup = '<div class="matchup-card"><div class="empty">Личные встречи недоступны</div></div>';
-  }
+  const matchupHtml = await loadMatchupPreview(awayAbbrev, homeAbbrev);
 
   body.innerHTML = `
     <div class="detail-head-game">
@@ -2180,7 +2174,7 @@ async function openFutureGamePreview(
       </div>
       <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="">
     </div>
-    ${matchup}
+    ${matchupHtml}
   `;
 }
 
@@ -2924,9 +2918,6 @@ async function loadGoalieCards() {
       ? [...data.goalies]
       : [];
 
-    // Для ГКИ по умолчанию исключаем вратарей с совсем малой выборкой.
-    // Минимум 5 матчей соответствует минимальному порогу,
-    // который используется в официальных таблицах NHL для GAA.
     if (!rows.length) {
       body.innerHTML =
         '<div class="empty">Нет данных вратарей за выбранный сезон</div>';
@@ -3813,9 +3804,6 @@ function formatPct(value) {
 function normalizeGameSkaters(team) {
   if (!team || typeof team !== "object") return [];
 
-  // NHL boxscore отдаёт полевых игроков отдельно:
-  // forwards + defense. Старый код искал только skaters, поэтому
-  // на экране и появлялось «Статистика полевых игроков недоступна».
   const forwards = Array.isArray(team.forwards) ? team.forwards : [];
   const defense = Array.isArray(team.defense) ? team.defense : [];
   const skaters = Array.isArray(team.skaters) ? team.skaters : [];
@@ -4069,6 +4057,56 @@ function renderGameGoalieStats(team, teamAbbrev) {
   return html;
 }
 
+// Генерация блока видеообзора
+function buildVideoRecapBlock(landingData, gameId) {
+  if (!landingData) return "";
+
+  // Проверяем наличие видеопотока (.m3u8/.mp4) или ссылки на видео
+  const streamUrl = landingData.threeMinRecapStream || landingData.condensedGameStream;
+  const videoPath = landingData.threeMinRecap || landingData.condensedGame;
+
+  if (streamUrl) {
+    // Способ 1: Прямой видеоплеер HTML5 / HLS
+    return `
+      <div class="section-title">Видеообзор матча</div>
+      <div class="video-container">
+        <video id="recap-player-${gameId}" controls poster="${escapeHtml(landingData.heroImage || '')}">
+          <source src="${escapeHtml(streamUrl)}" type="application/x-mpegURL">
+        </video>
+      </div>
+    `;
+  } else if (videoPath) {
+    // Способ 2: Запасной вариант (Ссылка / Ифрейм)
+    const fullUrl = videoPath.startsWith('http') ? videoPath : `https://www.nhl.com${videoPath}`;
+    return `
+      <div class="section-title">Видеообзор матча</div>
+      <div class="card" style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px;">
+        <span style="font-size:13px; font-weight:600;">Смотреть хайлайты игры</span>
+        <a href="${escapeHtml(fullUrl)}" target="_blank" class="show-more" style="width:auto; margin:0; padding:6px 14px; text-decoration:none; display:inline-block; text-align:center;">▶ Открыть видео</a>
+      </div>
+    `;
+  }
+
+  return "";
+}
+
+// Инициализация видеоплеера HLS
+function initRecapPlayer(landingData, gameId) {
+  const streamUrl = landingData?.threeMinRecapStream || landingData?.condensedGameStream;
+  if (!streamUrl) return;
+
+  const video = document.getElementById(`recap-player-${gameId}`);
+  if (!video) return;
+
+  if (Hls && Hls.isSupported() && streamUrl.includes('.m3u8')) {
+    const hls = new Hls();
+    hls.loadSource(streamUrl);
+    hls.attachMedia(video);
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = streamUrl;
+  }
+}
+
 async function openGameDetail(
   gameId,
   awayAbbrev,
@@ -4092,15 +4130,24 @@ async function openGameDetail(
   `;
 
   try {
-    const [scoreResponse, railResponse, boxResponse] = await Promise.all([
+    const [scoreResponse, railResponse, boxResponse, landingResponse] = await Promise.all([
       fetch(`${API_BASE}/api/score/${encodeURIComponent(gameId)}`),
       fetch(`${API_BASE}/api/right-rail/${encodeURIComponent(gameId)}`),
-      fetch(`${API_BASE}/api/boxscore/${encodeURIComponent(gameId)}`)
+      fetch(`${API_BASE}/api/boxscore/${encodeURIComponent(gameId)}`),
+      fetch(`${API_BASE}/api/landing/${encodeURIComponent(gameId)}`).catch(() => null)
     ]);
 
     const score = await scoreResponse.json();
     const rail = await railResponse.json();
     const box = await boxResponse.json();
+    let landing = null;
+
+    if (landingResponse && landingResponse.ok) {
+      try { landing = await landingResponse.json(); } catch (_) {}
+    }
+
+    // Встраиваем видеообзор сразу под счётом матча
+    html += buildVideoRecapBlock(landing || score, gameId);
 
     html += '<div class="section-title">Голы</div>';
 
@@ -4176,6 +4223,7 @@ async function openGameDetail(
 
   body.innerHTML = html;
   initGameStatSorting();
+  initRecapPlayer(landing, gameId);
 }
 
 async function openPlayerDetail(playerId) {
