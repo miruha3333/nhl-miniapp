@@ -6,7 +6,6 @@
 <title>NHL Live</title>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -1088,119 +1087,23 @@ select.date-input option {
   text-transform:uppercase;
 }
 
-.video-card {
-  margin:12px 0 14px;
-  padding:12px;
-  border:1px solid var(--border);
-  border-radius:12px;
-  background:var(--surface);
-}
 
-.video-title {
-  margin-bottom:8px;
-  color:var(--silver-dim);
-  font-family:"Oswald",sans-serif;
-  font-size:13px;
-  font-weight:700;
-  letter-spacing:.06em;
-  text-transform:uppercase;
-}
 
-.video-frame {
-  display:block;
-  width:100%;
-  max-height:420px;
-  border-radius:10px;
-  background:#000;
-}
 
-.video-actions {
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  margin-top:9px;
-}
 
-.video-link {
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding:7px 10px;
-  border:1px solid var(--border);
-  border-radius:8px;
-  color:var(--silver);
-  background:var(--surface-2);
-  font-family:"Oswald",sans-serif;
-  font-size:11px;
-  text-decoration:none;
-  text-transform:uppercase;
-}
 
-.video-note {
-  color:var(--silver-dim);
-  font-size:11px;
-  line-height:1.4;
-}
 
-.pregame-teams {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-  margin-top:14px;
-}
 
-.pregame-team {
-  min-width:0;
-  padding:12px;
-  border:1px solid var(--border);
-  border-radius:12px;
-  background:var(--surface);
-}
 
-.pregame-team-title {
-  margin-bottom:10px;
-  font-family:"Oswald",sans-serif;
-  font-size:14px;
-  font-weight:700;
-  text-align:center;
-  text-transform:uppercase;
-}
 
-.pregame-group {
-  margin-top:10px;
-}
 
 .pregame-group:first-child {
   margin-top:0;
 }
 
-.pregame-group-title {
-  margin-bottom:4px;
-  color:var(--silver-dim);
-  font-family:"Oswald",sans-serif;
-  font-size:11px;
-  font-weight:700;
-  letter-spacing:.04em;
-  text-transform:uppercase;
-}
 
-.pregame-list {
-  margin:0;
-  padding-left:18px;
-  color:var(--silver);
-  font-size:12px;
-  line-height:1.55;
-}
 
-.pregame-scratches {
-  color:var(--silver-dim);
-}
 
-@media (max-width:700px) {
-  .pregame-teams {
-    grid-template-columns:1fr;
-  }
-}
 
 </style>
 </head>
@@ -2236,223 +2139,6 @@ async function loadMatchupPreview(awayAbbrev, homeAbbrev) {
 }
 
 
-function preGamePlayerName(player) {
-  if (!player || typeof player !== "object") return "";
-
-  const first = nameStr(
-    player.firstName ||
-    player.firstName?.default ||
-    player.firstName?.en
-  );
-  const last = nameStr(
-    player.lastName ||
-    player.lastName?.default ||
-    player.lastName?.en
-  );
-
-  const full = `${first} ${last}`.trim();
-  if (full) return full;
-
-  return String(
-    player.fullName?.default ||
-    player.fullName ||
-    player.name?.default ||
-    player.name ||
-    player.playerName?.default ||
-    player.playerName ||
-    ""
-  ).trim();
-}
-
-function preGamePlayerList(players) {
-  if (!Array.isArray(players) || !players.length) {
-    return '<div class="empty">Нет данных</div>';
-  }
-
-  const names = players
-    .map(preGamePlayerName)
-    .filter(Boolean);
-
-  if (!names.length) {
-    return '<div class="empty">Нет данных</div>';
-  }
-
-  return `<ul class="pregame-list">${names
-    .map(name => `<li>${escapeHtml(name)}</li>`)
-    .join("")}</ul>`;
-}
-
-function getPreGameTeamBlock(team, fallbackAbbrev) {
-  const data = team && typeof team === "object" ? team : {};
-  const abbrev = getGameTeamAbbrev(data) || fallbackAbbrev || "";
-  const goalies = Array.isArray(data.goalies) ? data.goalies : [];
-  const defense = Array.isArray(data.defense) ? data.defense : [];
-  const forwards = Array.isArray(data.forwards) ? data.forwards : [];
-  const scratches = Array.isArray(data.scratches) ? data.scratches : [];
-
-  return `
-    <div class="pregame-team">
-      <div class="pregame-team-title">${escapeHtml(abbrev)}</div>
-
-      <div class="pregame-group">
-        <div class="pregame-group-title">Вратари</div>
-        ${preGamePlayerList(goalies)}
-      </div>
-
-      <div class="pregame-group">
-        <div class="pregame-group-title">Защитники</div>
-        ${preGamePlayerList(defense)}
-      </div>
-
-      <div class="pregame-group">
-        <div class="pregame-group-title">Нападающие</div>
-        ${preGamePlayerList(forwards)}
-      </div>
-
-      <div class="pregame-group pregame-scratches">
-        <div class="pregame-group-title">Вне заявки</div>
-        ${preGamePlayerList(scratches)}
-      </div>
-    </div>
-  `;
-}
-
-function renderPreGameLineups(box, awayAbbrev, homeAbbrev) {
-  const away = box?.awayTeam || {};
-  const home = box?.homeTeam || {};
-
-  const hasAway = [away.goalies, away.defense, away.forwards, away.scratches]
-    .some(list => Array.isArray(list) && list.length);
-  const hasHome = [home.goalies, home.defense, home.forwards, home.scratches]
-    .some(list => Array.isArray(list) && list.length);
-
-  if (!hasAway && !hasHome) {
-    return `
-      <div class="section-title">Официальные составы</div>
-      <div class="empty">
-        Официальные составы пока не опубликованы. Обычно они появляются ближе к началу матча.
-      </div>
-    `;
-  }
-
-  return `
-    <div class="section-title">Официальные составы</div>
-    <div class="pregame-teams">
-      ${getPreGameTeamBlock(away, awayAbbrev)}
-      ${getPreGameTeamBlock(home, homeAbbrev)}
-    </div>
-  `;
-}
-
-async function loadGameVideoBlock(gameId) {
-  try {
-    const response = await fetch(
-      `${API_BASE}/api/game-video/${encodeURIComponent(gameId)}`,
-      { cache: "no-store" }
-    );
-
-    if (!response.ok) return "";
-
-    const data = await response.json();
-    const videos = Array.isArray(data?.videos) ? data.videos : [];
-
-    if (!videos.length) return "";
-
-    const recap = videos.find(video => video?.kind === "recap") || videos[0];
-    const condensed = videos.find(video =>
-      video?.kind === "condensed" && video?.url && video.url !== recap?.url
-    );
-
-    if (!recap?.url) return "";
-
-    const url = String(recap.url);
-    const lowerUrl = url.toLowerCase();
-    let player = "";
-
-    if (lowerUrl.includes(".m3u8")) {
-      player = `
-        <video
-          class="video-frame"
-          controls
-          playsinline
-          preload="metadata"
-          data-hls-src="${escapeHtml(url)}"
-        ></video>
-      `;
-    } else if (lowerUrl.includes(".mp4")) {
-      player = `
-        <video
-          class="video-frame"
-          controls
-          playsinline
-          preload="metadata"
-          src="${escapeHtml(url)}"
-        ></video>
-      `;
-    } else {
-      player = `
-        <div class="video-note">
-          NHL не вернул прямой видеофайл для встроенного проигрывателя.
-        </div>
-      `;
-    }
-
-    const actions = `
-      <div class="video-actions">
-        <a
-          class="video-link"
-          href="${escapeHtml(url)}"
-          target="_blank"
-          rel="noopener noreferrer"
-        >Открыть обзор</a>
-        ${condensed?.url ? `
-          <a
-            class="video-link"
-            href="${escapeHtml(condensed.url)}"
-            target="_blank"
-            rel="noopener noreferrer"
-          >Полный condensed game</a>
-        ` : ""}
-      </div>
-    `;
-
-    return `
-      <div class="video-card">
-        <div class="video-title">Видео матча</div>
-        ${player}
-        ${actions}
-        <div class="video-note" style="margin-top:7px;">
-          Видео загружается непосредственно из официального NHL Gamecenter.
-        </div>
-      </div>
-    `;
-  } catch (error) {
-    console.error("Ошибка загрузки видео матча:", error);
-    return "";
-  }
-}
-
-function initHlsPlayers(root = document) {
-  root.querySelectorAll("video[data-hls-src]").forEach(video => {
-    const src = video.dataset.hlsSrc;
-    if (!src) return;
-
-    if (window.Hls && Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: false
-      });
-      hls.loadSource(src);
-      hls.attachMedia(video);
-      video._hlsInstance = hls;
-      return;
-    }
-
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = src;
-    }
-  });
-}
 
 async function openFutureGamePreview(
   gameId,
@@ -2474,28 +2160,15 @@ async function openFutureGamePreview(
       </div>
       <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="">
     </div>
-    <div class="loading">Загрузка последних встреч и официальных составов...</div>
+    <div class="loading">Загрузка последних встреч...</div>
   `;
 
-  const [matchupHtml, boxscoreResult] = await Promise.allSettled([
-    loadMatchupPreview(awayAbbrev, homeAbbrev),
-    fetch(`${API_BASE}/api/boxscore/${encodeURIComponent(gameId)}`, { cache: "no-store" })
-      .then(response => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.json();
-      })
-  ]);
-
-  const matchup = matchupHtml.status === "fulfilled"
-    ? matchupHtml.value
-    : '<div class="matchup-card"><div class="empty">Личные встречи недоступны</div></div>';
-
-  const box = boxscoreResult.status === "fulfilled"
-    ? boxscoreResult.value
-    : null;
-
-  if (boxscoreResult.status === "rejected") {
-    console.error("Ошибка загрузки официальных составов:", boxscoreResult.reason);
+  let matchup = '';
+  try {
+    matchup = await loadMatchupPreview(awayAbbrev, homeAbbrev);
+  } catch (error) {
+    console.error("Ошибка загрузки личных встреч:", error);
+    matchup = '<div class="matchup-card"><div class="empty">Личные встречи недоступны</div></div>';
   }
 
   body.innerHTML = `
@@ -2508,12 +2181,6 @@ async function openFutureGamePreview(
       <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="">
     </div>
     ${matchup}
-    ${box ? renderPreGameLineups(box, awayAbbrev, homeAbbrev) : `
-      <div class="section-title">Официальные составы</div>
-      <div class="empty">
-        Официальные составы пока не опубликованы. Обычно они появляются ближе к началу матча.
-      </div>
-    `}
   `;
 }
 
@@ -4425,18 +4092,16 @@ async function openGameDetail(
   `;
 
   try {
-    const [scoreResponse, railResponse, boxResponse, videoHtml] = await Promise.all([
+    const [scoreResponse, railResponse, boxResponse] = await Promise.all([
       fetch(`${API_BASE}/api/score/${encodeURIComponent(gameId)}`),
       fetch(`${API_BASE}/api/right-rail/${encodeURIComponent(gameId)}`),
-      fetch(`${API_BASE}/api/boxscore/${encodeURIComponent(gameId)}`),
-      loadGameVideoBlock(gameId)
+      fetch(`${API_BASE}/api/boxscore/${encodeURIComponent(gameId)}`)
     ]);
 
     const score = await scoreResponse.json();
     const rail = await railResponse.json();
     const box = await boxResponse.json();
 
-    html += videoHtml || "";
     html += '<div class="section-title">Голы</div>';
 
     const scoring = score?.summary?.scoring || [];
@@ -4510,7 +4175,6 @@ async function openGameDetail(
   }
 
   body.innerHTML = html;
-  initHlsPlayers(body);
   initGameStatSorting();
 }
 
