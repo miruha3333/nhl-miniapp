@@ -6,7 +6,6 @@
 <title>NHL Live</title>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -1110,6 +1109,16 @@ select.date-input option {
   display:block;
   width:100%;
   max-height:420px;
+  border-radius:10px;
+  background:#000;
+}
+
+.youtube-frame {
+  display:block;
+  width:100%;
+  aspect-ratio:16/9;
+  min-height:240px;
+  border:0;
   border-radius:10px;
   background:#000;
 }
@@ -2344,6 +2353,60 @@ function renderPreGameLineups(box, awayAbbrev, homeAbbrev) {
   `;
 }
 
+function extractYouTubeVideoId(value) {
+  if (!value) return "";
+
+  const raw = String(value).trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(raw)) {
+    return raw;
+  }
+
+  try {
+    const url = new URL(raw);
+    const host = url.hostname.replace(/^www\./, "").toLowerCase();
+
+    if (host === "youtu.be") {
+      const id = url.pathname.split("/").filter(Boolean)[0] || "";
+      return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : "";
+    }
+
+    if (host === "youtube.com" || host === "m.youtube.com" || host === "youtube-nocookie.com") {
+      const queryId = url.searchParams.get("v") || "";
+      if (/^[A-Za-z0-9_-]{11}$/.test(queryId)) return queryId;
+
+      const parts = url.pathname.split("/").filter(Boolean);
+      const embedIndex = parts.indexOf("embed");
+      if (embedIndex >= 0 && /^[A-Za-z0-9_-]{11}$/.test(parts[embedIndex + 1] || "")) {
+        return parts[embedIndex + 1];
+      }
+    }
+  } catch (_) {
+    // Не URL — просто проверяем, не является ли значение самим ID.
+  }
+
+  return "";
+}
+
+function getYouTubeIdFromVideo(video) {
+  if (!video || typeof video !== "object") return "";
+
+  const candidates = [
+    video.youtubeVideoId,
+    video.youtubeId,
+    video.videoId,
+    video.youtubeUrl,
+    video.youtube,
+    video.url
+  ];
+
+  for (const candidate of candidates) {
+    const id = extractYouTubeVideoId(candidate);
+    if (id) return id;
+  }
+
+  return "";
+}
+
 async function loadGameVideoBlock(gameId) {
   try {
     const response = await fetch(
@@ -2358,71 +2421,61 @@ async function loadGameVideoBlock(gameId) {
 
     if (!videos.length) return "";
 
-    const recap = videos.find(video => video?.kind === "recap") || videos[0];
+    const recap =
+      videos.find(video => video?.kind === "recap") ||
+      videos[0];
+
     const condensed = videos.find(video =>
-      video?.kind === "condensed" && video?.url && video.url !== recap?.url
+      video?.kind === "condensed" &&
+      video?.url &&
+      video.url !== recap?.url
     );
 
-    if (!recap?.url) return "";
+    const youtubeId =
+      getYouTubeIdFromVideo(recap) ||
+      getYouTubeIdFromVideo(data);
 
-    const url = String(recap.url);
-    const lowerUrl = url.toLowerCase();
-    let player = "";
-
-    if (lowerUrl.includes(".m3u8")) {
-      player = `
-        <video
-          class="video-frame"
-          controls
-          playsinline
-          preload="metadata"
-          data-hls-src="${escapeHtml(url)}"
-        ></video>
-      `;
-    } else if (lowerUrl.includes(".mp4")) {
-      player = `
-        <video
-          class="video-frame"
-          controls
-          playsinline
-          preload="metadata"
-          src="${escapeHtml(url)}"
-        ></video>
-      `;
-    } else {
-      player = `
-        <div class="video-note">
-          NHL не вернул прямой видеофайл для встроенного проигрывателя.
+    if (!youtubeId) {
+      return `
+        <div class="video-card">
+          <div class="video-title">Видео матча</div>
+          <div class="video-note">
+            YouTube-видео для этого матча пока не передано API. Прямой NHL-плеер отключён.
+          </div>
         </div>
       `;
     }
 
-    const actions = `
-      <div class="video-actions">
-        <a
-          class="video-link"
-          href="${escapeHtml(url)}"
-          target="_blank"
-          rel="noopener noreferrer"
-        >Открыть обзор</a>
-        ${condensed?.url ? `
-          <a
-            class="video-link"
-            href="${escapeHtml(condensed.url)}"
-            target="_blank"
-            rel="noopener noreferrer"
-          >Полный condensed game</a>
-        ` : ""}
-      </div>
-    `;
+    const embedUrl =
+      `https://www.youtube.com/embed/${encodeURIComponent(youtubeId)}?rel=0`;
 
     return `
       <div class="video-card">
         <div class="video-title">Видео матча</div>
-        ${player}
-        ${actions}
-        <div class="video-note" style="margin-top:7px;">
-          Видео загружается непосредственно из официального NHL Gamecenter.
+        <iframe
+          class="video-frame youtube-frame"
+          src="${escapeHtml(embedUrl)}"
+          title="Обзор матча NHL"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allowfullscreen
+        ></iframe>
+        <div class="video-actions">
+          <a
+            class="video-link"
+            href="https://www.youtube.com/watch?v=${encodeURIComponent(youtubeId)}"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Открыть на YouTube</a>
+          ${condensed?.url ? `
+            <a
+              class="video-link"
+              href="${escapeHtml(condensed.url)}"
+              target="_blank"
+              rel="noopener noreferrer"
+            >Полный condensed game</a>
+          ` : ""}
         </div>
       </div>
     `;
@@ -2430,28 +2483,6 @@ async function loadGameVideoBlock(gameId) {
     console.error("Ошибка загрузки видео матча:", error);
     return "";
   }
-}
-
-function initHlsPlayers(root = document) {
-  root.querySelectorAll("video[data-hls-src]").forEach(video => {
-    const src = video.dataset.hlsSrc;
-    if (!src) return;
-
-    if (window.Hls && Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: false
-      });
-      hls.loadSource(src);
-      hls.attachMedia(video);
-      video._hlsInstance = hls;
-      return;
-    }
-
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = src;
-    }
-  });
 }
 
 async function openFutureGamePreview(
@@ -4425,16 +4456,14 @@ async function openGameDetail(
   `;
 
   try {
-    const [scoreResponse, railResponse, boxResponse, videoHtml] = await Promise.all([
+    const [scoreResponse, railResponse, videoHtml] = await Promise.all([
       fetch(`${API_BASE}/api/score/${encodeURIComponent(gameId)}`),
       fetch(`${API_BASE}/api/right-rail/${encodeURIComponent(gameId)}`),
-      fetch(`${API_BASE}/api/boxscore/${encodeURIComponent(gameId)}`),
       loadGameVideoBlock(gameId)
     ]);
 
     const score = await scoreResponse.json();
     const rail = await railResponse.json();
-    const box = await boxResponse.json();
 
     html += videoHtml || "";
     html += '<div class="section-title">Голы</div>';
@@ -4510,7 +4539,6 @@ async function openGameDetail(
   }
 
   body.innerHTML = html;
-  initHlsPlayers(body);
   initGameStatSorting();
 }
 
