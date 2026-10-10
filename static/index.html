@@ -1107,6 +1107,240 @@ select.date-input option {
   text-align:center;
   text-transform:uppercase;
 }
+  /* ================================================= */
+/* ПРЕДМАТЧЕВЫЙ ЦЕНТР (PREGAME MATCH CENTER)        */
+/* ================================================= */
+
+.pregame-probables-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.pregame-goalie-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 12px 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.pregame-goalie-avatar {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 8px;
+}
+
+.pregame-goalie-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  object-fit: cover;
+  background: var(--surface-2);
+}
+
+.pregame-goalie-num {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--blue);
+  color: #fff;
+  font-family: "Roboto Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.pregame-goalie-name {
+  font-family: "Oswald", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.pregame-goalie-sub {
+  margin-top: 2px;
+  color: var(--silver-dim);
+  font-size: 11px;
+}
+
+.pregame-status-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.badge-confirmed {
+  color: #2ecc71;
+  background: rgba(46, 204, 113, .15);
+  border: 1px solid rgba(46, 204, 113, .4);
+}
+
+.badge-probable {
+  color: #f39c12;
+  background: rgba(243, 156, 18, .15);
+  border: 1px solid rgba(243, 156, 18, .4);
+}
+
+.badge-unannounced {
+  color: var(--silver-dim);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.comp-row {
+  display: grid;
+  grid-template-columns: 1fr 140px 1fr;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.comp-row:last-child {
+  border-bottom: none;
+}
+
+.comp-row .val {
+  font-family: "Roboto Mono", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--silver-dim);
+}
+
+.comp-row .val.away { text-align: left; }
+.comp-row .val.home { text-align: right; }
+
+.comp-row .val.best {
+  color: #2ecc71;
+  font-weight: 800;
+}
+
+.comp-row .metric {
+  text-align: center;
+  font-family: "Oswald", sans-serif;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--silver);
+  letter-spacing: .02em;
+}
+
+.pregame-injuries-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.injury-team-col h4 {
+  margin: 0 0 8px;
+  font-family: "Oswald", sans-serif;
+  font-size: 12px;
+  color: var(--silver-dim);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.injury-team-col h4 img {
+  width: 16px;
+  height: 16px;
+}
+
+.injury-item {
+  padding: 8px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 11px;
+}
+
+.injury-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.injury-name {
+  font-family: "Oswald", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--silver);
+}
+
+.badge-out {
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(200, 16, 46, .25);
+  color: #ff4d4d;
+  border: 1px solid rgba(200, 16, 46, .5);
+}
+
+.badge-dtd {
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(243, 156, 18, .2);
+  color: #f39c12;
+  border: 1px solid rgba(243, 156, 18, .5);
+}
+
+.injury-desc {
+  margin-top: 4px;
+  color: var(--silver-dim);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.mini-scorer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(4, 28px);
+  align-items: center;
+  gap: 4px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+
+.mini-scorer-row:last-child {
+  border-bottom: none;
+}
+
+.mini-scorer-row .pname {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "Oswald", sans-serif;
+  font-weight: 600;
+}
+
+.mini-scorer-row .num {
+  font-family: "Roboto Mono", monospace;
+  text-align: center;
+}
+
+.mini-scorer-row .pts {
+  color: var(--blue);
+  font-weight: 700;
+}
 </style>
 </head>
 
@@ -1733,7 +1967,8 @@ async function loadSchedule() {
               awayAbbrev,
               homeAbbrev,
               awayLogo,
-              homeLogo
+              homeLogo,
+              date
             );
 
             return;
@@ -2145,7 +2380,8 @@ async function openFutureGamePreview(
   awayAbbrev,
   homeAbbrev,
   awayLogo,
-  homeLogo
+  homeLogo,
+  dateStr
 ) {
   openDetail();
 
@@ -2156,26 +2392,361 @@ async function openFutureGamePreview(
       <img class="team-logo" src="${escapeHtml(awayLogo)}" alt="">
       <div>
         <div class="title">${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
-        <div class="subtitle">Предстоящий матч</div>
+        <div class="subtitle">ПРЕДМАТЧЕВОЕ ПРЕВЬЮ</div>
       </div>
       <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="">
     </div>
-    <div class="loading">Загрузка последних встреч...</div>
+    <div class="loading">Загрузка предматчевой аналитики, вратарей и травм...</div>
   `;
 
-  const matchupHtml = await loadMatchupPreview(awayAbbrev, homeAbbrev);
+  try {
+    const params = new URLSearchParams({
+      date: dateStr || "",
+      away: awayAbbrev || "",
+      home: homeAbbrev || ""
+    });
 
-  body.innerHTML = `
+    const res = await fetch(`${API_BASE}/api/pregame/${encodeURIComponent(gameId)}?${params}`);
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+
+    renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLogo);
+  } catch (err) {
+    console.error("Ошибка pregame API, включаем fallback:", err);
+
+    let fallbackMatchup = "";
+    try {
+      fallbackMatchup = await loadMatchupPreview(awayAbbrev, homeAbbrev);
+    } catch (_) {
+      fallbackMatchup = '<div class="matchup-card"><div class="empty">Личные встречи недоступны</div></div>';
+    }
+
+    body.innerHTML = `
+      <div class="detail-head-game">
+        <img class="team-logo" src="${escapeHtml(awayLogo)}" alt="">
+        <div>
+          <div class="title">${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
+          <div class="subtitle">Предстоящий матч</div>
+        </div>
+        <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="">
+      </div>
+      ${fallbackMatchup}
+    `;
+  }
+}
+
+function formatPercentDisplay(num) {
+  if (num === undefined || num === null || num === "") return "—";
+  const n = Number(num);
+  if (!Number.isFinite(n)) return String(num);
+  return `${(n <= 1 ? n * 100 : n).toFixed(1)}%`;
+}
+
+function formatStreakDisplay(code, count) {
+  if (!code || !count) return "—";
+  const s = String(code).toUpperCase();
+  if (s.startsWith("W")) return `${count} В подряд`;
+  if (s.startsWith("L")) return `${count} П подряд`;
+  if (s.startsWith("O")) return `${count} ОТ подряд`;
+  return `${code}${count}`;
+}
+
+function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
+  const body = document.getElementById("detail-body");
+  const away = data.awayTeam || {};
+  const home = data.homeTeam || {};
+  const probables = data.probableGoalies || {};
+  const injuries = data.injuries || { away: [], home: [] };
+  const topScorers = data.topScorers || { away: [], home: [] };
+  const goalies = data.clubGoalies || { away: [], home: [] };
+  const preStats = data.preGameStats || [];
+  const seasonSeries = data.seasonSeries || [];
+
+  const startTime = data.startTimeUTC
+    ? new Date(data.startTimeUTC).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) + " (МСК)"
+    : "Время уточняется";
+
+  let html = `
     <div class="detail-head-game">
-      <img class="team-logo" src="${escapeHtml(awayLogo)}" alt="">
+      <img class="team-logo" src="${escapeHtml(away.logo || awayLogo)}" alt="">
       <div>
-        <div class="title">${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
-        <div class="subtitle">Предстоящий матч</div>
+        <div class="title">${escapeHtml(away.abbrev || awayAbbrev)} — ${escapeHtml(home.abbrev || homeAbbrev)}</div>
+        <div class="subtitle" style="color:#2ecc71;font-weight:600;">НАЧАЛО: ${escapeHtml(startTime)}</div>
       </div>
-      <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="">
+      <img class="team-logo" src="${escapeHtml(home.logo || homeLogo)}" alt="">
     </div>
-    ${matchupHtml}
+
+    <!-- 1. ВЕРОЯТНЫЕ ВРАТАРИ -->
+    <div class="section-title">Вероятные стартовые вратари</div>
+    <div class="pregame-probables-grid">
+      ${renderPregameGoalieCard(probables.away, away.abbrev || awayAbbrev)}
+      ${renderPregameGoalieCard(probables.home, home.abbrev || homeAbbrev)}
+    </div>
+
+    <!-- 2. СРАВНЕНИЕ ПОКАЗАТЕЛЕЙ (RIGHT-RAIL) -->
+    <div class="section-title">Сравнение показателей команд</div>
+    <div class="card" style="padding:10px 14px;">
   `;
+
+  if (!preStats.length) {
+    html += '<div class="empty">Сравнительные данные формируются лигой перед матчем</div>';
+  } else {
+    preStats.forEach(st => {
+      const cat = st.category || "";
+      const label = st.label || formatPregameLabel(cat);
+      const isPct = cat.toLowerCase().includes("pct");
+      const higherIsBetter = st.higherIsBetter !== false && !cat.toLowerCase().includes("against");
+
+      const aVal = isPct ? formatPercentDisplay(st.awayValue) : val(st.awayValue);
+      const hVal = isPct ? formatPercentDisplay(st.homeValue) : val(st.homeValue);
+
+      const aNum = Number(st.awayValue ?? -999);
+      const hNum = Number(st.homeValue ?? -999);
+
+      let aBest = false;
+      let hBest = false;
+      if (Number.isFinite(aNum) && Number.isFinite(hNum) && aNum !== hNum && aNum !== -999) {
+        if (higherIsBetter) {
+          aBest = aNum > hNum;
+          hBest = hNum > aNum;
+        } else {
+          aBest = aNum < hNum;
+          hBest = hNum < aNum;
+        }
+      }
+
+      html += `
+        <div class="comp-row">
+          <div class="val away ${aBest ? 'best' : ''}">${escapeHtml(aVal)}</div>
+          <div class="metric">${escapeHtml(label)}</div>
+          <div class="val home ${hBest ? 'best' : ''}">${escapeHtml(hVal)}</div>
+        </div>
+      `;
+    });
+  }
+
+  html += `
+    </div>
+
+    <!-- 3. СЕРИИ И ТЕКУЩАЯ ФОРМА -->
+    <div class="section-title">Серии и форма команд</div>
+    <div class="card" style="padding:10px 14px;">
+      <div class="comp-row">
+        <div class="val away" style="color:var(--silver);">${escapeHtml(formatStreakDisplay(away.streakCode, away.streakCount))}</div>
+        <div class="metric">Текущая серия</div>
+        <div class="val home" style="color:var(--silver);">${escapeHtml(formatStreakDisplay(home.streakCode, home.streakCount))}</div>
+      </div>
+      <div class="comp-row">
+        <div class="val away">${escapeHtml(away.l10Record || '—')}</div>
+        <div class="metric">Форма (посл. 10)</div>
+        <div class="val home">${escapeHtml(home.l10Record || '—')}</div>
+      </div>
+      <div class="comp-row">
+        <div class="val away">${escapeHtml(away.roadRecord || '—')} (В гостях)</div>
+        <div class="metric">Дома / В гостях</div>
+        <div class="val home">${escapeHtml(home.homeRecord || '—')} (Дома)</div>
+      </div>
+      <div class="comp-row">
+        <div class="val away" style="color:var(--blue);">${escapeHtml(away.record?.points ?? '—')} очков (${escapeHtml(away.record?.gamesPlayed ?? '—')} игр)</div>
+        <div class="metric">Очки в сезоне</div>
+        <div class="val home" style="color:var(--blue);">${escapeHtml(home.record?.points ?? '—')} очков (${escapeHtml(home.record?.gamesPlayed ?? '—')} игр)</div>
+      </div>
+    </div>
+
+    <!-- 4. ТРАВМИРОВАННЫЕ ИГРОКИ -->
+    <div class="section-title">Список травмированных (Injuries)</div>
+    <div class="pregame-injuries-grid">
+      <div class="injury-team-col">
+        <h4><img src="${escapeHtml(away.logo || '')}" alt=""> ${escapeHtml(away.abbrev || awayAbbrev)}</h4>
+        ${renderPregameInjuryList(injuries.away)}
+      </div>
+      <div class="injury-team-col">
+        <h4><img src="${escapeHtml(home.logo || '')}" alt=""> ${escapeHtml(home.abbrev || homeAbbrev)}</h4>
+        ${renderPregameInjuryList(injuries.home)}
+      </div>
+    </div>
+
+    <!-- 5. ТОП БОМБАРДИРЫ КЛУБОВ -->
+    <div class="section-title">Топ бомбардиров клубов перед матчем</div>
+    <div class="pregame-injuries-grid">
+      <div>
+        <div style="font-size:11px;color:var(--silver-dim);margin-bottom:4px;text-transform:uppercase;font-family:'Oswald';">${escapeHtml(away.abbrev || awayAbbrev)}</div>
+        <div class="card" style="padding:6px 10px;">
+          ${renderPregameMiniScorers(topScorers.away)}
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--silver-dim);margin-bottom:4px;text-transform:uppercase;font-family:'Oswald';">${escapeHtml(home.abbrev || homeAbbrev)}</div>
+        <div class="card" style="padding:6px 10px;">
+          ${renderPregameMiniScorers(topScorers.home)}
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. ВРАТАРИ КЛУБОВ В СЕЗОНЕ -->
+    <div class="section-title">Статистика вратарей клубов</div>
+    <div class="card" style="padding:0;">
+      <div class="table-scroll">
+        <table class="stat-table">
+          <thead>
+            <tr>
+              <th>Вратарь</th>
+              <th>Клуб</th>
+              <th>И</th>
+              <th>В</th>
+              <th>П</th>
+              <th>%ОБ</th>
+              <th>ГКИ</th>
+              <th>СМ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${renderPregameGoalieRows(goalies.away, away.abbrev || awayAbbrev)}
+            ${renderPregameGoalieRows(goalies.home, home.abbrev || homeAbbrev)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 7. ОЧНЫЕ ВСТРЕЧИ ТЕКУЩЕГО СЕЗОНА -->
+    ${renderPregameSeasonSeries(seasonSeries, away.abbrev || awayAbbrev, home.abbrev || homeAbbrev)}
+  `;
+
+  body.innerHTML = html;
+}
+
+function formatPregameLabel(cat) {
+  const map = {
+    powerPlayPctg: "Большинство (%PP)",
+    penaltyKillPctg: "Меньшинство (%PK)",
+    goalsForPerGame: "Шайб за игру (GF/G)",
+    goalsAgainstPerGame: "Пропущено за игру (GA/G)",
+    shotsForPerGame: "Броски за игру (SF/G)",
+    shotsAgainstPerGame: "Броски соперника (SA/G)",
+    faceoffWinningPctg: "Вбрасывания (%FO)"
+  };
+  return map[cat] || cat;
+}
+
+function renderPregameGoalieCard(goalie, teamAbbrev) {
+  if (!goalie) {
+    return `
+      <div class="pregame-goalie-box">
+        <div class="pregame-goalie-avatar">
+          <img src="https://assets.nhle.com/mugs/nhl/default-player.png" alt="">
+        </div>
+        <div class="pregame-goalie-name">Не объявлен</div>
+        <div class="pregame-goalie-sub">${escapeHtml(teamAbbrev)}</div>
+        <span class="pregame-status-badge badge-unannounced">Ожидается</span>
+      </div>
+    `;
+  }
+
+  const badgeClass = goalie.confirmed ? "badge-confirmed" : (goalie.statusRaw ? "badge-probable" : "badge-unannounced");
+  const badgeText = goalie.confirmed ? "✓ Подтвержден" : (goalie.status || "Вероятен");
+
+  return `
+    <div class="pregame-goalie-box">
+      <div class="pregame-goalie-avatar">
+        <img src="${escapeHtml(goalie.headshot || 'https://assets.nhle.com/mugs/nhl/default-player.png')}" alt="" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
+        ${goalie.jersey ? `<span class="pregame-goalie-num">#${escapeHtml(goalie.jersey)}</span>` : ''}
+      </div>
+      <div class="pregame-goalie-name">${escapeHtml(goalie.name)}</div>
+      <div class="pregame-goalie-sub">${escapeHtml(teamAbbrev)} · Вратарь</div>
+      <span class="pregame-status-badge ${badgeClass}">${escapeHtml(badgeText)}</span>
+    </div>
+  `;
+}
+
+function renderPregameInjuryList(list) {
+  if (!Array.isArray(list) || !list.length) {
+    return '<div class="empty" style="padding:10px 0;font-size:11px;">Нет травмированных</div>';
+  }
+
+  return list.map(item => {
+    const status = String(item.status || "Injured").toUpperCase();
+    const isOut = status.includes("OUT") || status.includes("IR");
+    const badgeClass = isOut ? "badge-out" : "badge-dtd";
+
+    return `
+      <div class="injury-item">
+        <div class="injury-item-top">
+          <div class="injury-name">${escapeHtml(item.name)} <small style="color:var(--silver-dim);font-weight:normal;">(${escapeHtml(item.position || '')})</small></div>
+          <span class="${badgeClass}">${escapeHtml(item.status)}</span>
+        </div>
+        ${item.details ? `<div class="injury-desc">${escapeHtml(item.details)}</div>` : ''}
+      </div>
+    `;
+  }).join("");
+}
+
+function renderPregameMiniScorers(skaters) {
+  if (!Array.isArray(skaters) || !skaters.length) {
+    return '<div class="empty" style="font-size:11px;">Нет данных</div>';
+  }
+
+  return skaters.map(s => `
+    <div class="mini-scorer-row">
+      <div class="pname">${escapeHtml(s.name)} <small style="color:var(--silver-dim);">${escapeHtml(s.position)}</small></div>
+      <div class="num">${s.goals}Г</div>
+      <div class="num">${s.assists}П</div>
+      <div class="num pts">${s.points}О</div>
+      <div class="num" style="color:${s.plusMinus >= 0 ? '#2ecc71' : '#e74c3c'}">${s.plusMinus > 0 ? '+' : ''}${s.plusMinus}</div>
+    </div>
+  `).join("");
+}
+
+function renderPregameGoalieRows(goalies, teamAbbrev) {
+  if (!Array.isArray(goalies) || !goalies.length) return '';
+
+  return goalies.map(g => {
+    const sv = typeof g.savePctg === "number" ? g.savePctg.toFixed(3) : val(g.savePctg);
+    const gaa = typeof g.gaa === "number" ? g.gaa.toFixed(2) : val(g.gaa);
+
+    return `
+      <tr>
+        <td>${escapeHtml(g.name)}</td>
+        <td>${escapeHtml(teamAbbrev)}</td>
+        <td class="num">${val(g.gamesPlayed)}</td>
+        <td class="num">${val(g.wins)}</td>
+        <td class="num">${val(g.losses)}</td>
+        <td class="num">${escapeHtml(sv)}</td>
+        <td class="num">${escapeHtml(gaa)}</td>
+        <td class="num">${val(g.shutouts, 0)}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function renderPregameSeasonSeries(series, awayAbbrev, homeAbbrev) {
+  if (!Array.isArray(series) || !series.length) return '';
+
+  let html = `
+    <div class="section-title">Очные встречи в этом сезоне</div>
+    <div class="card" style="padding:8px 12px;">
+  `;
+
+  series.forEach(game => {
+    const away = getTeamAbbrev(game.awayTeam) || awayAbbrev;
+    const home = getTeamAbbrev(game.homeTeam) || homeAbbrev;
+    const aScore = game.awayTeam?.score ?? game.awayScore ?? null;
+    const hScore = game.homeTeam?.score ?? game.homeScore ?? null;
+    const dStr = game.gameDate ? new Date(game.gameDate).toLocaleDateString("ru-RU") : "";
+
+    html += `
+      <div class="matchup-game">
+        <div>${escapeHtml(away)} ${dStr ? `<small style="display:block;">${escapeHtml(dStr)}</small>` : ''}</div>
+        <div class="score">${aScore !== null ? `${aScore} : ${hScore}` : 'Предстоит'}</div>
+        <div style="text-align:right;">${escapeHtml(home)}</div>
+      </div>
+    `;
+  });
+
+  html += '</div>';
+  return html;
 }
 
 async function loadSpotlight() {
