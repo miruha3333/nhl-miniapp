@@ -2688,15 +2688,30 @@ function renderPregameMiniScorers(skaters) {
     return '<div class="empty" style="font-size:11px;">Нет данных</div>';
   }
 
-  return skaters.map(s => `
-    <div class="mini-scorer-row">
-      <div class="pname">${escapeHtml(s.name)} <small style="color:var(--silver-dim);">${escapeHtml(s.position)}</small></div>
-      <div class="num">${s.goals}Г</div>
-      <div class="num">${s.assists}П</div>
-      <div class="num pts">${s.points}О</div>
-      <div class="num" style="color:${s.plusMinus >= 0 ? '#2ecc71' : '#e74c3c'}">${s.plusMinus > 0 ? '+' : ''}${s.plusMinus}</div>
-    </div>
-  `).join("");
+  return skaters.map(s => {
+    // Берём фамилию игрока (если есть полное имя, отрезаем имя и оставляем фамилию)
+    let displayName = s.lastName || s.name || "Игрок";
+    if (s.name && s.name.includes(" ")) {
+      const parts = s.name.trim().split(" ");
+      displayName = parts.slice(1).join(" "); // Оставляет только фамилию
+    }
+
+    const pos = s.position ? `(${s.position})` : '';
+    const diffSign = s.plusMinus > 0 ? `+${s.plusMinus}` : `${s.plusMinus}`;
+    const diffColor = s.plusMinus >= 0 ? '#2ecc71' : '#e74c3c';
+
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;">
+        <div style="font-family:'Oswald',sans-serif;font-weight:600;color:var(--silver);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${escapeHtml(displayName)} <small style="color:var(--silver-dim);font-weight:normal;">${escapeHtml(pos)}</small>
+        </div>
+        <div style="font-family:'Roboto Mono',monospace;font-size:12px;white-space:nowrap;display:flex;gap:6px;align-items:center;">
+          <span style="color:var(--silver);">${s.goals}+${s.assists}=<strong style="color:var(--blue);">${s.points}</strong></span>
+          <span style="color:${diffColor};font-size:11px;">(${diffSign})</span>
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderPregameGoalieRows(goalies, teamAbbrev) {
