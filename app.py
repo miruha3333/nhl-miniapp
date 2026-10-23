@@ -49,7 +49,6 @@ app.add_middleware(
 DEFAULT_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/124.0.0.0 Safari/537.36"
     )
 }
@@ -69,7 +68,7 @@ TEAM_NAME_TO_ABBREV = {
     "florida panthers": "FLA", "panthers": "FLA", "fla": "FLA",
     "los angeles kings": "LAK", "kings": "LAK", "lak": "LAK", "la": "LAK",
     "minnesota wild": "MIN", "wild": "MIN", "min": "MIN",
-    "montreal canadiens": "MTL", "canadiens": "MTL", "mtl": "MTL", "mon": "MTL",
+    "montreal canadiens": "MTL", "canadiens": "MTL", "mtl": "MTL", "mon": "MTL", "montréal canadiens": "MTL",
     "nashville predators": "NSH", "predators": "NSH", "nsh": "NSH", "nas": "NSH",
     "new jersey devils": "NJD", "devils": "NJD", "njd": "NJD", "nj": "NJD",
     "new york islanders": "NYI", "islanders": "NYI", "nyi": "NYI",
@@ -96,6 +95,7 @@ TEAM_ABBREV_ALIASES = {
     "LA": "LAK",
     "WAS": "WSH",
     "MON": "MTL",
+    "MTL": "MTL",
     "CLB": "CBJ",
     "NAS": "NSH",
     "WIN": "WPG",
@@ -107,14 +107,15 @@ def normalize_team_abbr(raw: Any) -> str:
     if not raw:
         return ""
     if isinstance(raw, dict):
-        raw = raw.get("default") or raw.get("abbrev") or raw.get("triCode") or ""
+        raw = raw.get("default") or raw.get("abbrev") or raw.get("triCode") or raw.get("rawTricode") or ""
     val_str = str(raw).strip()
     upper = val_str.upper()
     if upper in TEAM_ABBREV_ALIASES:
         return TEAM_ABBREV_ALIASES[upper]
     if upper in TEAM_NAME_TO_ABBREV.values():
         return upper
-    return TEAM_NAME_TO_ABBREV.get(val_str.lower(), upper)
+    clean_key = val_str.lower().replace("é", "e")
+    return TEAM_NAME_TO_ABBREV.get(clean_key, TEAM_NAME_TO_ABBREV.get(val_str.lower(), upper))
 
 
 async def fetch_with_cache(
@@ -247,6 +248,51 @@ async def standings_by_date(date: str):
     )
 
 
+@app.get("/api/team-special-teams")
+async def team_special_teams(season: str | None = None):
+    now = time.localtime()
+    current_start_year = now.tm_year if now.tm_mon >= 9 else now.tm_year - 1
+    current_season = f"{current_start_year}{current_start_year + 1}"
+    target_season = season or current_season
+
+    params = {
+        "isAggregate": "false",
+        "isGame": "false",
+        "cayenneExp": f"gameTypeId=2 and seasonId={target_season}",
+        "start": 0,
+        "limit": 50,
+        "sort": '[{"property":"powerPlayPct","direction":"DESC"}]',
+    }
+
+    url = f"{NHL_STATS_BASE}/team/summary?{httpx.QueryParams(params)}"
+    data = await fetch_with_cache(f"team-special-teams:{target_season}", url, CACHE_TTL["standings"])
+
+    rows = data.get("data", []) if isinstance(data, dict) else []
+
+    teams = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        raw_abbr = row.get("teamAbbrev") or row.get("teamAbbrevs") or row.get("rawTricode") or row.get("triCode")
+        full_name = row.get("teamFullName") or row.get("fullName") or ""
+        team_abbr = normalize_team_abbr(raw_abbr) or normalize_team_abbr(full_name)
+
+        if not team_abbr:
+            continue
+
+        teams.append({
+            "teamAbbrev": team_abbr,
+            "teamName": full_name,
+            "powerPlayPctg": row.get("powerPlayPct"),
+            "penaltyKillPctg": row.get("penaltyKillPct"),
+        })
+
+    return {
+        "season": target_season,
+        "teams": teams,
+    }
+
+
 @app.get("/api/seasons-list")
 async def seasons_list():
     return await fetch_with_cache(
@@ -263,6 +309,97 @@ async def playoff_bracket(year: str):
         f"{NHL_BASE}/playoff-bracket/{year}",
         CACHE_TTL["standings"],
     )
+
+
+@app.get("/api/skater-leaders-ext")
+async def skater_leaders_ext(season: str | None = None):
+    now = time.localtime()
+    current_start_year = now.tm_year if now.tm_mon >= 9 else now.tm_year - 1
+    current_season = f"{current_start_year}{current_start_year + 1}"
+    target_season = season or current_season
+
+    summary_params = {
+        "isAggregate": "false",
+        "isGame": "false",
+        "cayenneExp": f"gameTypeId=2 and seasonId={target_season}",
+        "start": 0,
+        "limit": 100,
+        "sort": '[{"property":"points","direction":"DESC"}]',
+    }
+
+    realtime_params = {
+        "isAggregate": "false",
+        "isGame": "false",
+        "cayenneExp": f"gameTypeId=2 and seasonId={target_season}",
+        "start": 0,
+        "limit": 100,
+        "sort": '[{"property":"hits","direction":"DESC"}]',
+    }
+
+    url_summary = f"{NHL_STATS_BASE}/skater/summary?{httpx.QueryParams(summary_params)}"
+    url_realtime = f"{NHL_STATS_BASE}/skater/realtime?{httpx.QueryParams(realtime_params)}"
+
+    summary_data, realtime_data = await asyncio.gather(
+        fetch_with_cache(f"skater-summary:{target_season}", url_summary, CACHE_TTL["leaders"]),
+        fetch_with_cache(f"skater-realtime:{target_season}", url_realtime, CACHE_TTL["leaders"]),
+    )
+
+    rows_summary = summary_data.get("data", []) if isinstance(summary_data, dict) else []
+    rows_realtime = realtime_data.get("data", []) if isinstance(realtime_data, dict) else []
+
+    realtime_map = {r.get("playerId"): r for r in rows_realtime if isinstance(r, dict) and r.get("playerId")}
+
+    skaters = []
+    for row in rows_summary:
+        if not isinstance(row, dict):
+            continue
+
+        player_id = row.get("playerId")
+        first_name = row.get("firstName", "")
+        last_name = row.get("lastName", "")
+        if isinstance(first_name, dict):
+            first_name = first_name.get("default", "")
+        if isinstance(last_name, dict):
+            last_name = last_name.get("default", "")
+
+        full_name = row.get("skaterFullName") or row.get("playerName") or f"{first_name} {last_name}".strip()
+        team_abbr = normalize_team_abbr(row.get("teamAbbrevs") or row.get("teamAbbrev") or "")
+
+        rt = realtime_map.get(player_id, {})
+
+        time_on_ice = row.get("timeOnIcePerGame", row.get("timeOnIce", 0))
+        toi_str = "0:00"
+        if isinstance(time_on_ice, (int, float)):
+            mins = int(time_on_ice // 60)
+            secs = int(time_on_ice % 60)
+            toi_str = f"{mins}:{secs:02d}"
+        elif isinstance(time_on_ice, str):
+            toi_str = time_on_ice
+
+        skaters.append({
+            "id": player_id,
+            "playerId": player_id,
+            "name": full_name,
+            "firstName": first_name,
+            "lastName": last_name,
+            "teamAbbrev": team_abbr,
+            "headshot": f"https://assets.nhle.com/mugs/nhl/latest/{player_id}.png",
+            "gamesPlayed": row.get("gamesPlayed", 0),
+            "goals": row.get("goals", 0),
+            "assists": row.get("assists", 0),
+            "points": row.get("points", 0),
+            "plusMinus": row.get("plusMinus", 0),
+            "penaltyMinutes": row.get("penaltyMinutes", row.get("pim", 0)),
+            "shots": row.get("shots", row.get("sog", 0)),
+            "hits": rt.get("hits", row.get("hits", 0)),
+            "blockedShots": rt.get("blockedShots", row.get("blockedShots", row.get("blocks", 0))),
+            "toiPerGame": toi_str,
+        })
+
+    return {
+        "season": target_season,
+        "skaters": skaters,
+    }
 
 
 ALLOWED_CATEGORIES = {
@@ -395,6 +532,10 @@ async def goalie_leaders(
         team_abbrev = row.get("teamAbbrevs") or row.get("teamAbbrev") or ""
         if isinstance(team_abbrev, list):
             team_abbrev = ", ".join(str(value) for value in team_abbrev)
+        team_abbrev = normalize_team_abbr(team_abbrev)
+
+        time_on_ice = row.get("timeOnIce", 0)
+        time_in_min = round(time_on_ice / 60) if isinstance(time_on_ice, (int, float)) else 0
 
         goalies.append({
             "id": player_id,
@@ -403,16 +544,18 @@ async def goalie_leaders(
             "firstName": first_name,
             "lastName": last_name,
             "teamAbbrev": team_abbrev,
-            "gamesPlayed": row.get("gamesPlayed"),
-            "gamesStarted": row.get("gamesStarted"),
-            "wins": row.get("wins"),
-            "losses": row.get("losses"),
-            "otLosses": row.get("otLosses"),
-            "savePctg": row.get("savePctg", row.get("savePct")),
-            "gaa": row.get("goalsAgainstAverage", row.get("gaa")),
-            "shutouts": row.get("shutouts"),
-            "saves": row.get("saves"),
-            "shotsAgainst": row.get("shotsAgainst"),
+            "headshot": f"https://assets.nhle.com/mugs/nhl/latest/{player_id}.png",
+            "gamesPlayed": row.get("gamesPlayed", 0),
+            "gamesStarted": row.get("gamesStarted", 0),
+            "wins": row.get("wins", 0),
+            "losses": row.get("losses", 0),
+            "otLosses": row.get("otLosses", 0),
+            "savePctg": row.get("savePctg", row.get("savePct", 0)),
+            "gaa": row.get("goalsAgainstAverage", row.get("gaa", 0)),
+            "shutouts": row.get("shutouts", 0),
+            "saves": row.get("saves", 0),
+            "shotsAgainst": row.get("shotsAgainst", row.get("shots", 0)),
+            "timeOnIce": time_in_min,
         })
 
     return {
@@ -574,12 +717,7 @@ async def score(game_id: str):
     )
 
 
-# ==========================================
-# ПРЕДМАТЧЕВЫЕ ДАННЫЕ (PREGAME & ESPN APIS)
-# ==========================================
-
 async def fetch_espn_injuries() -> dict[str, list[dict]]:
-    """Парсит травмы из ESPN API и группирует по аббревиатуре клуба NHL."""
     url = f"{ESPN_BASE}/injuries"
     data = await fetch_with_cache("espn:injuries", url, CACHE_TTL["espn"])
 
@@ -815,13 +953,11 @@ def extract_club_goalies(goalies: list[dict]) -> list[dict]:
 
 @app.get("/api/injuries")
 async def get_injuries():
-    """Эндпоинт травмированных игроков из ESPN."""
     return await fetch_espn_injuries()
 
 
 @app.get("/api/scoreboard-espn")
 async def get_scoreboard_espn(date: str | None = None):
-    """Эндпоинт расписания ESPN с вероятными вратарями."""
     return await fetch_espn_scoreboard(date)
 
 
@@ -832,16 +968,6 @@ async def pregame(
     away: str | None = None,
     home: str | None = None,
 ):
-    """
-    Полное превью предстоящего матча (Pregame Match Center):
-    - Сравнительные показатели спецбригад и результативности (%PP, %PK, GF/G, GA/G, SF/G, SA/G)
-    - Текущие серии и форма (streaks, L10, Home/Away)
-    - Вероятные стартовые вратари (ESPN probables)
-    - Список травмированных игроков (ESPN injuries)
-    - Топ-3 бомбардира каждого клуба (club-stats)
-    - Статистика всех голкиперов команд
-    - Очные встречи сезона (seasonSeries)
-    """
     rail_task = fetch_with_cache(
         f"rightrail:{game_id}",
         f"{NHL_BASE}/gamecenter/{game_id}/right-rail",
@@ -905,7 +1031,6 @@ async def pregame(
     away_roster = away_roster if isinstance(away_roster, dict) else {}
     home_roster = home_roster if isinstance(home_roster, dict) else {}
 
-    # Standings Map
     standings_rows = standings_data.get("standings", []) if isinstance(standings_data, dict) else []
     standings_map = {}
     for row in standings_rows:
@@ -917,14 +1042,12 @@ async def pregame(
     away_st = standings_map.get(away_abbr, {})
     home_st = standings_map.get(home_abbr, {})
 
-    # Формируем сравнительные показатели (PP, PK, GF/G, GA/G, SF/G, SA/G)
     pregame_stats = []
     rail_pre = rail_data.get("preGameStats") or rail_data.get("teamGameStats") or []
 
     if isinstance(rail_pre, list) and rail_pre:
         pregame_stats = rail_pre
     else:
-        # Fallback: вычисляем показатели из официальной таблицы
         def make_comp(cat, label, away_val, home_val, higher_is_better=True):
             return {
                 "category": cat,
@@ -950,7 +1073,6 @@ async def pregame(
             make_comp("goalsAgainstPerGame", "Пропущено за игру (GA/G)", away_ga_pg, home_ga_pg, False),
         ]
 
-    # Streaks (Серии)
     away_streak_code = away_st.get("streakCode") or ""
     away_streak_count = away_st.get("streakCount") or 0
     home_streak_code = home_st.get("streakCode") or ""
@@ -1031,10 +1153,6 @@ async def pregame(
         "seasonSeries": season_series,
     }
 
-
-# ==========================================
-# ТЕЛЕГРАМ БОТ & СТАТИЧЕСКИЕ ФАЙЛЫ
-# ==========================================
 
 @app.post("/webhook")
 async def telegram_webhook(update: dict):
