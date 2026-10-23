@@ -356,6 +356,7 @@ select.date-input option {
 
 .cat-row {
   display:flex;
+  flex-wrap: wrap;
   gap:6px;
   margin-bottom:12px;
 }
@@ -437,12 +438,30 @@ select.date-input option {
   height:16px;
 }
 
+.player-row .pvalue-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.player-row .pgames {
+  color: var(--silver-dim);
+  font-family: "Roboto Mono", monospace;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+  min-width: 28px;
+}
+
 .player-row .pvalue {
   flex-shrink:0;
   color:var(--blue);
   font-family:"Roboto Mono",monospace;
   font-size:20px;
   font-weight:700;
+  text-align: right;
+  min-width: 36px;
 }
 
 .show-more {
@@ -1419,18 +1438,26 @@ select.date-input option {
     </div>
 
     <div id="skater-categories" class="cat-row">
-      <button data-cat="points" class="active">Очки</button>
-      <button data-cat="goals">Голы</button>
-      <button data-cat="assists">Передачи</button>
+      <button data-cat="points" class="active">Points</button>
+      <button data-cat="goals">Goals</button>
+      <button data-cat="assists">Assists</button>
       <button data-cat="plusMinus">+/-</button>
+      <button data-cat="hits">Hits</button>
+      <button data-cat="penaltyMinutes">PIM</button>
+      <button data-cat="timeOnIcePerGame">TOI/GP</button>
+      <button data-cat="shots">Shots</button>
+      <button data-cat="blockedShots">Blocks</button>
     </div>
 
     <div id="goalie-categories" class="cat-row" style="display:none;">
-      <button data-goalie-sort="wins" class="active">В</button>
-      <button data-goalie-sort="losses">П</button>
-      <button data-goalie-sort="savePctg">%ОБ</button>
-      <button data-goalie-sort="gaa">ГКИ</button>
-      <button data-goalie-sort="shutouts" title="Сухие матчи">С</button>
+      <button data-goalie-sort="wins" class="active">W</button>
+      <button data-goalie-sort="losses">L</button>
+      <button data-goalie-sort="savePctg">SV%</button>
+      <button data-goalie-sort="gaa">GAA</button>
+      <button data-goalie-sort="shutouts" title="Shutouts">SO</button>
+      <button data-goalie-sort="gamesPlayed">Games</button>
+      <button data-goalie-sort="timeOnIce">Minutes</button>
+      <button data-goalie-sort="shotsAgainst">SA</button>
     </div>
 
     <div class="card">
@@ -2689,11 +2716,10 @@ function renderPregameMiniScorers(skaters) {
   }
 
   return skaters.map(s => {
-    // Берём фамилию игрока (если есть полное имя, отрезаем имя и оставляем фамилию)
     let displayName = s.lastName || s.name || "Игрок";
     if (s.name && s.name.includes(" ")) {
       const parts = s.name.trim().split(" ");
-      displayName = parts.slice(1).join(" "); // Оставляет только фамилию
+      displayName = parts.slice(1).join(" ");
     }
 
     const pos = s.position ? `(${s.position})` : '';
@@ -3367,7 +3393,9 @@ async function loadPlayers() {
     }
 
     body.innerHTML = list
-      .map((player, index) => `
+      .map((player, index) => {
+        const gamesPlayed = player.gamesPlayed ?? player.games ?? "—";
+        return `
         <div
           class="player-row"
           data-player-id="${escapeHtml(getPlayerId(player))}"
@@ -3395,17 +3423,21 @@ async function loadPlayers() {
                 src="${escapeHtml(player.teamLogo || "")}"
                 alt=""
                 onerror="this.style.display='none'"
-              >
+              />
 
               ${escapeHtml(player.teamAbbrev || "")}
             </div>
           </div>
 
-          <div class="pvalue">
-            ${escapeHtml(player.value ?? "")}
+          <div class="pvalue-group">
+            <div class="pgames" title="Игры">${escapeHtml(gamesPlayed)}</div>
+            <div class="pvalue">
+              ${escapeHtml(player.value ?? "")}
+            </div>
           </div>
         </div>
-      `)
+      `;
+      })
       .join("");
 
     if (list.length >= currentLimit && currentLimit < 50) {
@@ -3459,6 +3491,10 @@ function goalieSortValue(player) {
       player.goalsAgainstAverage ??
       Infinity
     );
+  }
+
+  if (currentGoalieSortKey === "timeOnIce") {
+    return Number(player.timeOnIce ?? player.toi ?? -Infinity);
   }
 
   return Number(
@@ -3532,6 +3568,8 @@ async function loadGoalieCards() {
           player.gaa ??
           player.goalsAgainstAverage;
 
+        const gamesPlayed = player.gamesPlayed ?? player.games ?? "—";
+
         let mainValue =
           player[currentGoalieSortKey] ??
           "—";
@@ -3548,6 +3586,13 @@ async function loadGoalieCards() {
             typeof gaa === "number"
               ? gaa.toFixed(2)
               : "—";
+        }
+
+        if (currentGoalieSortKey === "timeOnIce") {
+          const toiSec = Number(player.timeOnIce ?? player.toi ?? 0);
+          const mins = Math.floor(toiSec / 60);
+          const secs = toiSec % 60;
+          mainValue = `${mins}:${String(secs).padStart(2, '0')}`;
         }
 
         return `
@@ -3584,8 +3629,11 @@ async function loadGoalieCards() {
               </div>
             </div>
 
-            <div class="pvalue">
-              ${escapeHtml(mainValue)}
+            <div class="pvalue-group">
+              <div class="pgames" title="Игры">${escapeHtml(gamesPlayed)}</div>
+              <div class="pvalue">
+                ${escapeHtml(mainValue)}
+              </div>
             </div>
           </div>
         `;
@@ -4647,12 +4695,10 @@ function renderGameGoalieStats(team, teamAbbrev) {
 function buildVideoRecapBlock(landingData, gameId) {
   if (!landingData) return "";
 
-  // Проверяем наличие видеопотока (.m3u8/.mp4) или ссылки на видео
   const streamUrl = landingData.threeMinRecapStream || landingData.condensedGameStream;
   const videoPath = landingData.threeMinRecap || landingData.condensedGame;
 
   if (streamUrl) {
-    // Способ 1: Прямой видеоплеер HTML5 / HLS
     return `
       <div class="section-title">Видеообзор матча</div>
       <div class="video-container">
@@ -4662,7 +4708,6 @@ function buildVideoRecapBlock(landingData, gameId) {
       </div>
     `;
   } else if (videoPath) {
-    // Способ 2: Запасной вариант (Ссылка / Ифрейм)
     const fullUrl = videoPath.startsWith('http') ? videoPath : `https://www.nhl.com${videoPath}`;
     return `
       <div class="section-title">Видеообзор матча</div>
@@ -4676,7 +4721,6 @@ function buildVideoRecapBlock(landingData, gameId) {
   return "";
 }
 
-// Инициализация видеоплеера HLS
 function initRecapPlayer(landingData, gameId) {
   const streamUrl = landingData?.threeMinRecapStream || landingData?.condensedGameStream;
   if (!streamUrl) return;
@@ -4732,7 +4776,6 @@ async function openGameDetail(
       try { landing = await landingResponse.json(); } catch (_) {}
     }
 
-    // Встраиваем видеообзор сразу под счётом матча
     html += buildVideoRecapBlock(landing || score, gameId);
 
     html += '<div class="section-title">Голы</div>';
