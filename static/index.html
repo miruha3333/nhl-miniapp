@@ -1390,43 +1390,34 @@ select.date-input option {
   </div>
 
   <div id="view-players" style="display:none">
-    <div class="cat-row">
-      <button id="leaders-skaters-btn" class="active">Полевые</button>
-      <button id="leaders-goalies-btn">Вратари</button>
-    </div>
+    <<!-- Кнопки переключения режимов (Полевые / Вратари) -->
+<div class="cat-row">
+  <button id="leaders-skaters-btn" class="active">Полевые</button>
+  <button id="leaders-goalies-btn">Вратари</button>
+</div>
 
-    <!-- Полевые игроки: разбито на 2 строки (5 кнопок в первой, остальные во второй) -->
-    <div id="skater-categories">
-      <div class="cat-row">
-        <button data-cat="points" class="active">points</button>
-        <button data-cat="goals">goals</button>
-        <button data-cat="assists">assists</button>
-        <button data-cat="plusMinus">plusMinus</button>
-        <button data-cat="hits">hits</button>
-      </div>
-      <div class="cat-row">
-        <button data-cat="penaltyMinutes">penaltyMinutes</button>
-        <button data-cat="timeOnIcePerGame">timeOnIcePerGame</button>
-        <button data-cat="shots">shots</button>
-        <button data-cat="blockedShots">blockedShots</button>
-      </div>
-    </div>
+<!-- Категории Полевых (Короткие аббревиатуры) -->
+<div id="skater-categories" class="cat-row">
+  <button data-cat="points" class="active" title="Очки">О</button>
+  <button data-cat="goals" title="Голы">Г</button>
+  <button data-cat="assists" title="Передачи">П</button>
+  <button data-cat="plusMinus" title="Плюс / Минус">+/-</button>
+  <button data-cat="shots" title="Броски в створ">Б</button>
+  <button data-cat="hits" title="Силовые приёмы (Хиты)">Х</button>
+  <button data-cat="blockedShots" title="Заблокированные броски">БЛ</button>
+  <button data-cat="timeOnIce" title="Общее время на льду">В</button>
+  <button data-cat="toiPerGame" title="Среднее время за игру">В/И</button>
+</div>
 
-    <!-- Вратари: разбито на 2 строки (5 в первой, остальные во второй) -->
-    <div id="goalie-categories" style="display:none;">
-      <div class="cat-row">
-        <button data-goalie-sort="wins" class="active">wins</button>
-        <button data-goalie-sort="losses">losses</button>
-        <button data-goalie-sort="savePctg">savePctg</button>
-        <button data-goalie-sort="gaa">gaa</button>
-        <button data-goalie-sort="shutouts">shutouts</button>
-      </div>
-      <div class="cat-row">
-        <button data-goalie-sort="gamesPlayed">gamesPlayed</button>
-        <button data-goalie-sort="timeOnIce">timeOnIce</button>
-        <button data-goalie-sort="shotsAgainst">shotsAgainst</button>
-      </div>
-    </div>
+<!-- Категории Вратарей (Короткие аббревиатуры) -->
+<div id="goalie-categories" class="cat-row" style="display:none;">
+  <button data-goalie-sort="wins" class="active" title="Победы">В</button>
+  <button data-goalie-sort="losses" title="Поражения">П</button>
+  <button data-goalie-sort="savePctg" title="Процент отражённых бросков">%ОБ</button>
+  <button data-goalie-sort="gaa" title="Коэффициент надежности">ГКИ</button>
+  <button data-goalie-sort="shutouts" title="Сухие матчи">С</button>
+  <button data-goalie-sort="timeOnIce" title="Время на льду (Мин:Сек)">В</button>
+</div>
 
     <div class="card">
       <div id="players-body">
@@ -2473,6 +2464,16 @@ document.querySelectorAll("#goalie-categories button").forEach(button => {
   };
 });
 
+// Функция форматирования времени из секунд в Мин:Сек
+function formatSecondsToTOI(seconds) {
+  if (seconds === undefined || seconds === null || isNaN(seconds)) return "—";
+  const secNum = parseInt(seconds, 10);
+  const minutes = Math.floor(secNum / 60);
+  const remainingSeconds = secNum % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+}
+
+// Загрузка полевых игроков
 async function loadPlayers() {
   const body = document.getElementById("players-body");
   body.innerHTML = '<div class="loading">Загрузка...</div>';
@@ -2484,29 +2485,42 @@ async function loadPlayers() {
 
     const response = await fetch(`${API_BASE}/api/leaders/${encodeURIComponent(currentCat)}?${params}`);
     const data = await response.json();
-    const list = data[currentCat] || [];
+    const list = data[currentCat] || data.leaders || [];
 
     if (!list.length) {
       body.innerHTML = '<div class="empty">Нет данных игроков</div>';
       return;
     }
 
-    body.innerHTML = list.map((player, index) => `
-      <div class="player-row" data-player-id="${escapeHtml(getPlayerId(player))}">
-        <div class="rank">${index + 1}</div>
-        <img class="headshot" src="${escapeHtml(getHeadshot(player))}" alt="" onerror="this.style.visibility='hidden'">
-        <div class="info">
-          <div class="pname">${escapeHtml(`${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Игрок")}</div>
-          <div class="pteam">
-            <img class="team-logo" src="${escapeHtml(player.teamLogo || "")}" alt="" onerror="this.style.display='none'">
-            ${escapeHtml(player.teamAbbrev || "")}
+    body.innerHTML = list.map((player, index) => {
+      let displayValue = player.value ?? player[currentCat] ?? "—";
+
+      // Форматирование времени для категорий времени (timeOnIce / toiPerGame)
+      if (currentCat === "timeOnIce") {
+        displayValue = typeof displayValue === "number" ? formatSecondsToTOI(displayValue) : displayValue;
+      } else if (currentCat === "toiPerGame") {
+        if (typeof displayValue === "number") {
+          displayValue = formatSecondsToTOI(displayValue);
+        }
+      }
+
+      return `
+        <div class="player-row" data-player-id="${escapeHtml(getPlayerId(player))}">
+          <div class="rank">${index + 1}</div>
+          <img class="headshot" src="${escapeHtml(getHeadshot(player))}" alt="" onerror="this.style.visibility='hidden'">
+          <div class="info">
+            <div class="pname">${escapeHtml(`${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Игрок")}</div>
+            <div class="pteam">
+              <img class="team-logo" src="${escapeHtml(player.teamLogo || "")}" alt="" onerror="this.style.display='none'">
+              ${escapeHtml(player.teamAbbrev || "")}
+            </div>
+          </div>
+          <div class="pvalue-group">
+            <div class="pvalue">${escapeHtml(displayValue)}</div>
           </div>
         </div>
-        <div class="pvalue-group">
-          <div class="pvalue">${escapeHtml(player.value ?? "")}</div>
-        </div>
-      </div>
-    `).join("");
+      `;
+    }).join("");
 
     if (list.length >= currentLimit && currentLimit < 50) {
       body.insertAdjacentHTML("beforeend", `<button class="show-more" id="show-more-players">Показать больше</button>`);
@@ -2525,13 +2539,7 @@ async function loadPlayers() {
   }
 }
 
-function goalieSortValue(player) {
-  if (currentGoalieSortKey === "savePctg") return Number(player.savePctg ?? player.savePercentage ?? -Infinity);
-  if (currentGoalieSortKey === "gaa") return Number(player.gaa ?? player.goalsAgainstAverage ?? Infinity);
-  if (currentGoalieSortKey === "timeOnIce") return Number(player.timeOnIce ?? player.toi ?? -Infinity);
-  return Number(player[currentGoalieSortKey] ?? -Infinity);
-}
-
+// Загрузка вратарей
 async function loadGoalieCards() {
   const body = document.getElementById("players-body");
   body.innerHTML = '<div class="loading">Загрузка статистики вратарей...</div>';
@@ -2572,9 +2580,7 @@ async function loadGoalieCards() {
       }
       if (currentGoalieSortKey === "timeOnIce") {
         const toiSec = Number(player.timeOnIce ?? player.toi ?? 0);
-        const mins = Math.floor(toiSec / 60);
-        const secs = toiSec % 60;
-        mainValue = `${mins}:${String(secs).padStart(2, '0')}`;
+        mainValue = formatSecondsToTOI(toiSec); // Перевод секунд в Минуты:Секунды
       }
 
       return `
