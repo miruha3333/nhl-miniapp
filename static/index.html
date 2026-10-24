@@ -1318,6 +1318,33 @@ select.date-input option {
   font-size: 10px;
   line-height: 1.2;
 }
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.cat-grid button {
+  padding: 8px 4px;
+  font-family: "Oswald", sans-serif;
+  font-size: 13px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--silver-dim);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: center;
+}
+
+.cat-grid button.active {
+  border-color: var(--red);
+  color: #fff;
+  background: var(--red);
+  font-weight: 700;
+}
 </style>
 </head>
 
@@ -1389,42 +1416,41 @@ select.date-input option {
     <div id="bracket-container"></div>
   </div>
 
-  <div id="view-players" style="display:none">
-    <<!-- Кнопки переключения режимов (Полевые / Вратари) -->
-<div class="cat-row">
-  <button id="leaders-skaters-btn" class="active">Полевые</button>
-  <button id="leaders-goalies-btn">Вратари</button>
-</div>
+  <<div id="view-players" style="display:none">
+  <div class="cat-row">
+    <button id="leaders-skaters-btn" class="active">Полевые</button>
+    <button id="leaders-goalies-btn">Вратари</button>
+  </div>
 
-<!-- Категории Полевых (Короткие аббревиатуры) -->
-<div id="skater-categories" class="cat-row">
-  <button data-cat="points" class="active" title="Очки">О</button>
-  <button data-cat="goals" title="Голы">Г</button>
-  <button data-cat="assists" title="Передачи">П</button>
-  <button data-cat="plusMinus" title="Плюс / Минус">+/-</button>
-  <button data-cat="shots" title="Броски в створ">Б</button>
-  <button data-cat="hits" title="Силовые приёмы (Хиты)">Х</button>
-  <button data-cat="blockedShots" title="Заблокированные броски">БЛ</button>
-  <button data-cat="timeOnIce" title="Общее время на льду">В</button>
-  <button data-cat="toiPerGame" title="Среднее время за игру">В/И</button>
-</div>
+  <!-- Категории Полевых: 2 ряда, ровное распределение, английские аббревиатуры -->
+  <div id="skater-categories" class="cat-grid">
+    <button data-cat="points" class="active" title="Points">PTS</button>
+    <button data-cat="goals" title="Goals">G</button>
+    <button data-cat="assists" title="Assists">A</button>
+    <button data-cat="plusMinus" title="Plus/Minus">+/-</button>
+    <button data-cat="shots" title="Shots on Goal">SOG</button>
+    <button data-cat="hits" title="Hits">HIT</button>
+    <button data-cat="blockedShots" title="Blocked Shots">BLK</button>
+    <button data-cat="timeOnIce" title="Time on Ice (Total)">TOI</button>
+    <button data-cat="toiPerGame" title="Time on Ice per Game">ATOI</button>
+  </div>
 
-<!-- Категории Вратарей (Короткие аббревиатуры) -->
-<div id="goalie-categories" class="cat-row" style="display:none;">
-  <button data-goalie-sort="wins" class="active" title="Победы">В</button>
-  <button data-goalie-sort="losses" title="Поражения">П</button>
-  <button data-goalie-sort="savePctg" title="Процент отражённых бросков">%ОБ</button>
-  <button data-goalie-sort="gaa" title="Коэффициент надежности">ГКИ</button>
-  <button data-goalie-sort="shutouts" title="Сухие матчи">С</button>
-  <button data-goalie-sort="timeOnIce" title="Время на льду (Мин:Сек)">В</button>
-</div>
+  <!-- Категории Вратарей: 2 ряда, ровное распределение, английские аббревиатуры -->
+  <div id="goalie-categories" class="cat-grid" style="display:none;">
+    <button data-goalie-sort="wins" class="active" title="Wins">W</button>
+    <button data-goalie-sort="losses" title="Losses">L</button>
+    <button data-goalie-sort="savePctg" title="Save Percentage">SV%</button>
+    <button data-goalie-sort="gaa" title="Goals Against Average">GAA</button>
+    <button data-goalie-sort="shutouts" title="Shutouts">SO</button>
+    <button data-goalie-sort="timeOnIce" title="Time on Ice">TOI</button>
+  </div>
 
-    <div class="card">
-      <div id="players-body">
-        <div class="loading">Загрузка...</div>
-      </div>
+  <div class="card">
+    <div id="players-body">
+      <div class="loading">Загрузка...</div>
     </div>
   </div>
+</div>
 
   <div id="view-detail" style="display:none">
     <button class="back-btn" id="back-btn">‹ Назад</button>
@@ -2464,10 +2490,11 @@ document.querySelectorAll("#goalie-categories button").forEach(button => {
   };
 });
 
-// Функция форматирования времени из секунд в Мин:Сек
+// Перевод секунд в формат МИНУТЫ:СЕКУНДЫ
 function formatSecondsToTOI(seconds) {
-  if (seconds === undefined || seconds === null || isNaN(seconds)) return "—";
+  if (seconds === undefined || seconds === null || seconds === "" || isNaN(seconds)) return "—";
   const secNum = parseInt(seconds, 10);
+  if (!isFinite(secNum)) return String(seconds);
   const minutes = Math.floor(secNum / 60);
   const remainingSeconds = secNum % 60;
   return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
@@ -2485,23 +2512,36 @@ async function loadPlayers() {
 
     const response = await fetch(`${API_BASE}/api/leaders/${encodeURIComponent(currentCat)}?${params}`);
     const data = await response.json();
-    const list = data[currentCat] || data.leaders || [];
+    
+    // Получение массива данных из возможных вариантов ответа API
+    const list = data[currentCat] || data.leaders || data.data || [];
 
-    if (!list.length) {
+    if (!Array.isArray(list) || !list.length) {
       body.innerHTML = '<div class="empty">Нет данных игроков</div>';
       return;
     }
 
     body.innerHTML = list.map((player, index) => {
-      let displayValue = player.value ?? player[currentCat] ?? "—";
+      // Универсальное извлечение показателя
+      let rawVal = player.value ?? player[currentCat] ?? player.statValue;
+      
+      if (rawVal === undefined || rawVal === null) {
+        if (currentCat === "shots") rawVal = player.shots ?? player.shotsOnGoal;
+        else if (currentCat === "hits") rawVal = player.hits;
+        else if (currentCat === "blockedShots") rawVal = player.blockedShots ?? player.blocks;
+        else if (currentCat === "timeOnIce") rawVal = player.timeOnIce ?? player.toi;
+        else if (currentCat === "toiPerGame") rawVal = player.toiPerGame ?? player.avgTimeOnIce;
+      }
 
-      // Форматирование времени для категорий времени (timeOnIce / toiPerGame)
-      if (currentCat === "timeOnIce") {
-        displayValue = typeof displayValue === "number" ? formatSecondsToTOI(displayValue) : displayValue;
-      } else if (currentCat === "toiPerGame") {
+      let displayValue = rawVal ?? "—";
+
+      // Форматирование времени
+      if (currentCat === "timeOnIce" || currentCat === "toiPerGame") {
         if (typeof displayValue === "number") {
           displayValue = formatSecondsToTOI(displayValue);
         }
+      } else if (currentCat === "plusMinus" && typeof displayValue === "number" && displayValue > 0) {
+        displayValue = `+${displayValue}`;
       }
 
       return `
@@ -2534,7 +2574,7 @@ async function loadPlayers() {
       row.addEventListener("click", () => openPlayerDetail(row.dataset.playerId));
     });
   } catch (error) {
-    console.error(error);
+    console.error("Ошибка загрузки лидеров:", error);
     body.innerHTML = '<div class="empty">Не удалось загрузить лидеров</div>';
   }
 }
@@ -2553,7 +2593,7 @@ async function loadGoalieCards() {
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || `HTTP ${response.status}`);
 
-    let rows = Array.isArray(data.goalies) ? [...data.goalies] : [];
+    let rows = Array.isArray(data.goalies) ? [...data.goalies] : (Array.isArray(data.data) ? [...data.data] : []);
     if (!rows.length) {
       body.innerHTML = '<div class="empty">Нет данных вратарей за выбранный сезон</div>';
       return;
@@ -2570,17 +2610,15 @@ async function loadGoalieCards() {
     body.innerHTML = rows.map((player, index) => {
       const savePct = player.savePctg ?? player.savePercentage;
       const gaa = player.gaa ?? player.goalsAgainstAverage;
-      let mainValue = player[currentGoalieSortKey] ?? "—";
+      let mainValue = player[currentGoalieSortKey] ?? player.value ?? "—";
 
       if (currentGoalieSortKey === "savePctg") {
-        mainValue = typeof savePct === "number" ? savePct.toFixed(3) : "—";
-      }
-      if (currentGoalieSortKey === "gaa") {
-        mainValue = typeof gaa === "number" ? gaa.toFixed(2) : "—";
-      }
-      if (currentGoalieSortKey === "timeOnIce") {
-        const toiSec = Number(player.timeOnIce ?? player.toi ?? 0);
-        mainValue = formatSecondsToTOI(toiSec); // Перевод секунд в Минуты:Секунды
+        mainValue = typeof savePct === "number" ? savePct.toFixed(3) : (mainValue !== "—" ? Number(mainValue).toFixed(3) : "—");
+      } else if (currentGoalieSortKey === "gaa") {
+        mainValue = typeof gaa === "number" ? gaa.toFixed(2) : (mainValue !== "—" ? Number(mainValue).toFixed(2) : "—");
+      } else if (currentGoalieSortKey === "timeOnIce") {
+        const toiSec = Number(player.timeOnIce ?? player.toi ?? player.value ?? 0);
+        mainValue = formatSecondsToTOI(toiSec);
       }
 
       return `
@@ -2605,7 +2643,7 @@ async function loadGoalieCards() {
       row.addEventListener("click", () => openPlayerDetail(row.dataset.playerId));
     });
   } catch (error) {
-    console.error(error);
+    console.error("Ошибка вратарей:", error);
     body.innerHTML = `<div class="empty">Не удалось загрузить статистику вратарей<br><small>${escapeHtml(error.message || "Ошибка загрузки")}</small></div>`;
   }
 }
