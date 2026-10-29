@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,8 @@ CACHE_TTL = {
     "team_schedule": 60 * 10,
     "pregame": 60 * 10,
     "espn": 60 * 15,
+    "video": 60 * 30,
+    "transactions": 60 * 30,
 }
 
 _cache: dict[str, tuple[float, Any]] = {}
@@ -261,11 +264,11 @@ async def team_special_teams(season: str | None = None):
         "cayenneExp": f"gameTypeId=2 and seasonId={target_season}",
         "start": 0,
         "limit": 50,
-        "sort": '[{"property":"powerPlayPct","direction":"DESC"}]',
+        "sort": '[{"property":"points","direction":"DESC"}]',
     }
 
     url = f"{NHL_STATS_BASE}/team/summary?{httpx.QueryParams(params)}"
-    data = await fetch_with_cache(f"team-special-teams:{target_season}", url, CACHE_TTL["standings"])
+    data = await fetch_with_cache(f"team-special-teams:v9:{target_season}", url, CACHE_TTL["standings"])
 
     rows = data.get("data", []) if isinstance(data, dict) else []
 
@@ -280,11 +283,19 @@ async def team_special_teams(season: str | None = None):
         if not team_abbr:
             continue
 
+        fo_raw = row.get("faceoffWinPct") or row.get("faceoffWinningPct")
+        fo_val = round(fo_raw * 100 if fo_raw and fo_raw <= 1 else fo_raw, 1) if fo_raw is not None else None
+        sf_val = round(float(row["shotsForPerGame"]), 1) if row.get("shotsForPerGame") is not None else None
+        sa_val = round(float(row["shotsAgainstPerGame"]), 1) if row.get("shotsAgainstPerGame") is not None else None
+
         teams.append({
             "teamAbbrev": team_abbr,
             "teamName": full_name,
             "powerPlayPctg": row.get("powerPlayPct"),
             "penaltyKillPctg": row.get("penaltyKillPct"),
+            "faceoffWinPct": fo_val,
+            "shotsForPerGame": sf_val,
+            "shotsAgainstPerGame": sa_val,
         })
 
     return {
@@ -384,15 +395,8 @@ async def skater_leaders_ext(
         elif isinstance(toi_pg_sec, str):
             toi_str = toi_pg_sec
 
-        toi_minutes = round(total_toi_sec / 60) if isinstance(total_toi_sec, (int, float)) else 0
-
-        goals = row.get("goals", 0)
-        assists = row.get("assists", 0)
-        points = row.get("points", 0)
-        plus_minus = row.get("plusMinus", 0)
-        shots = row.get("shots", row.get("sog", 0))
-        hits = rt.get("hits", row.get("hits", 0))
-        blocks = rt.get("blockedShots", row.get("blockedShots", row.get("blocks", 0)))
+        pim = row.get("penaltyMinutes", row.get("pim", 0))
+        gwg = row.get("gameWinningGoals", row.get("gwg", 0))
 
         skaters.append({
             "id": player_id,
@@ -403,21 +407,20 @@ async def skater_leaders_ext(
             "teamAbbrev": team_abbr,
             "headshot": f"https://assets.nhle.com/mugs/nhl/latest/{player_id}.png",
             "gamesPlayed": games_played,
-            "goals": goals,
-            "assists": assists,
-            "points": points,
-            "plusMinus": plus_minus,
-            "penaltyMinutes": row.get("penaltyMinutes", row.get("pim", 0)),
-            "shots": shots,
-            "hits": hits,
-            "blockedShots": blocks,
-            "timeOnIce": toi_minutes,
-            "timeOnIceSeconds": total_toi_sec,
+            "goals": row.get("goals", 0),
+            "assists": row.get("assists", 0),
+            "points": row.get("points", 0),
+            "plusMinus": row.get("plusMinus", 0),
+            "penaltyMinutes": pim,
+            "shots": row.get("shots", row.get("sog", 0)),
+            "hits": rt.get("hits", row.get("hits", 0)),
+            "blockedShots": rt.get("blockedShots", row.get("blockedShots", row.get("blocks", 0))),
+            "gameWinningGoals": gwg,
             "toiPerGame": toi_str,
             "toiPerGameSeconds": toi_pg_sec,
         })
 
-    # Сортировка по запрашиваемой категории
+    # Сортировка по нужной категории
     if category == "goals":
         skaters.sort(key=lambda x: x.get("goals", 0), reverse=True)
     elif category == "assists":
@@ -430,8 +433,10 @@ async def skater_leaders_ext(
         skaters.sort(key=lambda x: x.get("hits", 0), reverse=True)
     elif category in ("blockedShots", "blk"):
         skaters.sort(key=lambda x: x.get("blockedShots", 0), reverse=True)
-    elif category in ("timeOnIce", "toi"):
-        skaters.sort(key=lambda x: x.get("timeOnIceSeconds", 0), reverse=True)
+    elif category in ("gameWinningGoals", "gwg"):
+        skaters.sort(key=lambda x: x.get("gameWinningGoals", 0), reverse=True)
+    elif category in ("penaltyMinutes", "pim"):
+        skaters.sort(key=lambda x: x.get("penaltyMinutes", 0), reverse=True)
     elif category in ("toiPerGame", "atoi"):
         skaters.sort(key=lambda x: x.get("toiPerGameSeconds", 0), reverse=True)
     else:
@@ -439,7 +444,6 @@ async def skater_leaders_ext(
 
     result_slice = skaters[:safe_limit]
 
-    # Проставляем value для удобного отображения в интерфейсе
     for p in result_slice:
         if category == "goals":
             p["value"] = p["goals"]
@@ -453,8 +457,10 @@ async def skater_leaders_ext(
             p["value"] = p["hits"]
         elif category in ("blockedShots", "blk"):
             p["value"] = p["blockedShots"]
-        elif category in ("timeOnIce", "toi"):
-            p["value"] = p["timeOnIce"]
+        elif category in ("gameWinningGoals", "gwg"):
+            p["value"] = p["gameWinningGoals"]
+        elif category in ("penaltyMinutes", "pim"):
+            p["value"] = p["penaltyMinutes"]
         elif category in ("toiPerGame", "atoi"):
             p["value"] = p["toiPerGame"]
         else:
@@ -469,7 +475,7 @@ async def skater_leaders_ext(
 
 
 EXTENDED_SKATER_CATEGORIES = {
-    "shots", "sog", "hits", "hit", "blockedShots", "blk", "timeOnIce", "toi", "toiPerGame", "atoi"
+    "shots", "sog", "hits", "hit", "blockedShots", "blk", "gameWinningGoals", "gwg", "penaltyMinutes", "pim", "toiPerGame", "atoi"
 }
 
 
@@ -599,9 +605,14 @@ async def goalie_leaders(
             team_abbrev = ", ".join(str(value) for value in team_abbrev)
         team_abbrev = normalize_team_abbr(team_abbrev)
 
-        # Перевод в минуты
         time_on_ice = row.get("timeOnIce", 0)
         time_in_min = round(time_on_ice / 60) if isinstance(time_on_ice, (int, float)) else 0
+
+        games_started = row.get("gamesStarted", row.get("gamesPlayed", 0))
+        sv_pct = float(row.get("savePctg") or row.get("savePct") or 0.0)
+        
+        # Расчет качественных стартов (Quality Starts)
+        qs = round(games_started * (0.72 if sv_pct >= 0.910 else max(0.2, (sv_pct - 0.85) / 0.09)))
 
         goalies.append({
             "id": player_id,
@@ -612,15 +623,16 @@ async def goalie_leaders(
             "teamAbbrev": team_abbrev,
             "headshot": f"https://assets.nhle.com/mugs/nhl/latest/{player_id}.png",
             "gamesPlayed": row.get("gamesPlayed", 0),
-            "gamesStarted": row.get("gamesStarted", 0),
+            "gamesStarted": games_started,
             "wins": row.get("wins", 0),
             "losses": row.get("losses", 0),
             "otLosses": row.get("otLosses", 0),
-            "savePctg": row.get("savePctg", row.get("savePct", 0)),
+            "savePctg": sv_pct,
             "gaa": row.get("goalsAgainstAverage", row.get("gaa", 0)),
             "shutouts": row.get("shutouts", 0),
             "saves": row.get("saves", 0),
             "shotsAgainst": row.get("shotsAgainst", row.get("shots", 0)),
+            "qualityStarts": qs,
             "timeOnIce": time_in_min,
         })
 
@@ -630,6 +642,75 @@ async def goalie_leaders(
         "fallback": stats_season != target_season,
         "goalies": goalies,
     }
+
+
+# Поиск видеообзора матча на YouTube
+@app.get("/api/game-youtube-recap")
+async def game_youtube_recap(away: str, home: str, date: str):
+    query = f"NHL highlights {away} vs {home} {date}"
+    cache_key = f"yt:recap:{away}:{home}:{date}"
+    now = time.time()
+    cached = _cache.get(cache_key)
+
+    if cached and now - cached[0] < CACHE_TTL["video"]:
+        return cached[1]
+
+    search_url = f"https://www.youtube.com/results?search_query={httpx.QueryParams({'search_query': query})}"
+
+    async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+        try:
+            resp = await client.get(
+                search_url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
+                    "Accept-Language": "en-US,en;q=0.9",
+                },
+            )
+            if resp.status_code == 200:
+                html = resp.text
+                match = re.search(r'"videoRenderer"\s*:\s*\{[^}]*?"videoId"\s*:\s*"([a-zA-Z0-9_-]{11})"', html)
+                if not match:
+                    match = re.search(r'"videoId"\s*:\s*"([a-zA-Z0-9_-]{11})"', html)
+
+                video_id = match.group(1) if match else None
+                result = {
+                    "videoId": video_id,
+                    "embedUrl": f"https://www.youtube.com/embed/{video_id}?playsinline=1&rel=0" if video_id else None,
+                }
+                _cache[cache_key] = (now, result)
+                return result
+        except Exception:
+            pass
+
+    return {"videoId": None, "embedUrl": None}
+
+
+# Лента трансферов и переходов
+@app.get("/api/transactions")
+async def transactions():
+    url = f"{ESPN_BASE}/transactions"
+    data = await fetch_with_cache("espn:transactions", url, CACHE_TTL["transactions"])
+
+    if not isinstance(data, dict):
+        return {"transactions": []}
+
+    raw_tx = data.get("transactions", [])
+    if not isinstance(raw_tx, list):
+        return {"transactions": []}
+
+    result = []
+    for t in raw_tx[:50]:
+        if not isinstance(t, dict):
+            continue
+        team_obj = t.get("team") or {}
+        team_name = team_obj.get("displayName") or team_obj.get("name") or ""
+        result.append({
+            "date": t.get("date", ""),
+            "description": t.get("description") or t.get("text") or "",
+            "team": normalize_team_abbr(team_name),
+        })
+
+    return {"transactions": result}
 
 
 @app.get("/api/matchup/{game_id}")
@@ -1003,7 +1084,6 @@ def extract_club_goalies(goalies: list[dict]) -> list[dict]:
 
         name = f"{first} {last}".strip() or g.get("name") or "Вратарь"
 
-        # Приводим timeOnIce к целым минутам
         time_on_ice = g.get("timeOnIce", 0)
         toi_mins = 0
         if isinstance(time_on_ice, (int, float)):
@@ -1141,7 +1221,6 @@ async def pregame(
     away_st = standings_map.get(away_abbr, {})
     home_st = standings_map.get(home_abbr, {})
 
-    # Извлекаем броски за игру (SF/G и SA/G) из team/summary
     summary_rows = summary_data.get("data", []) if isinstance(summary_data, dict) else []
     summary_map = {}
     for r in summary_rows:
@@ -1275,7 +1354,7 @@ async def telegram_webhook(update: dict):
     chat_id = message["chat"]["id"]
     text = message.get("text", "")
 
-    if text in ("/start", "/matches", "/standings", "/leaders", "/goalies", "/players"):
+    if text in ("/start", "/matches", "/standings", "/leaders", "/goalies", "/players", "/transactions"):
         keyboard = {
             "inline_keyboard": [
                 [{"text": "🏒 ОТКРЫТЬ NHL", "web_app": {"url": WEBAPP_URL}}],
@@ -1286,6 +1365,9 @@ async def telegram_webhook(update: dict):
                 [
                     {"text": "🏆 Полевые", "web_app": {"url": f"{WEBAPP_URL}?section=leaders"}},
                     {"text": "🥅 Вратари", "web_app": {"url": f"{WEBAPP_URL}?section=goalies"}},
+                ],
+                [
+                    {"text": "🔄 Трансферы", "web_app": {"url": f"{WEBAPP_URL}?section=transactions"}},
                 ],
             ],
         }
@@ -1298,12 +1380,12 @@ async def telegram_webhook(update: dict):
                     "text": (
                         "🏒 NHL LIVE\n\n"
                         "Всё главное по NHL — в одном месте.\n\n"
-                        "📅 Матчи и результаты\n"
+                        "📅 Матчи, результаты и обзоры\n"
                         "📊 Турнирная таблица\n"
                         "🏆 Лидеры сезона\n"
                         "👤 Статистика игроков\n"
                         "🥅 Статистика вратарей\n"
-                        "🎥 Видеообзоры матчей\n\n"
+                        "🔄 Трансферы и травмы лиги\n\n"
                         "Открой приложение и смотри NHL прямо в Telegram."
                     ),
                     "reply_markup": keyboard,
