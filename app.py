@@ -323,9 +323,10 @@ async def playoff_bracket(year: str):
 
 
 @app.get("/api/skater-leaders-ext")
+@app.get("/api/leaders/{category}")
 async def skater_leaders_ext(
-    season: str | None = None,
     category: str = "points",
+    season: str | None = None,
     limit: int = 50,
 ):
     now = time.localtime()
@@ -363,12 +364,12 @@ async def skater_leaders_ext(
         "isGame": "false",
         "cayenneExp": f"gameTypeId=2 and seasonId={target_season}",
         "start": 0,
-        "limit": 100,
+        "limit": safe_limit,
         "sort": f'[{{"property":"{sort_prop}","direction":"DESC"}}]',
     }
 
     url = f"{NHL_STATS_BASE}/skater/{endpoint}?{httpx.QueryParams(params)}"
-    data = await fetch_with_cache(f"skaters-direct:{target_season}:{category}:{safe_limit}", url, CACHE_TTL["leaders"])
+    data = await fetch_with_cache(f"skaters-exact-v25:{target_season}:{category}:{safe_limit}", url, CACHE_TTL["leaders"])
 
     rows = data.get("data", []) if isinstance(data, dict) else []
 
@@ -452,55 +453,12 @@ async def skater_leaders_ext(
             "value": val_to_show,
         })
 
-    result_slice = skaters[:safe_limit]
-
     return {
         "season": target_season,
         "category": category,
-        category: result_slice,
-        "skaters": result_slice,
+        category: skaters,
+        "skaters": skaters,
     }
-
-
-EXTENDED_SKATER_CATEGORIES = {
-    "shots", "sog", "hits", "hit", "blockedShots", "blk", "gameWinningGoals", "gwg", "penaltyMinutes", "pim", "toiPerGame", "atoi"
-}
-
-
-@app.get("/api/leaders/{category}")
-async def leaders(
-    category: str,
-    limit: int = 25,
-    season: str | None = None,
-):
-    if category in EXTENDED_SKATER_CATEGORIES:
-        return await skater_leaders_ext(season=season, category=category, limit=limit)
-
-    allowed = {"points", "goals", "assists", "plusMinus"}
-    cat = category if category in allowed else "points"
-    limit = max(1, min(limit, 50))
-
-    if season:
-        url = (
-            f"{NHL_BASE}/skater-stats-leaders/"
-            f"{season}/2"
-            f"?categories={cat}"
-            f"&limit={limit}"
-        )
-        cache_key = f"leaders:{cat}:{limit}:{season}"
-    else:
-        url = (
-            f"{NHL_BASE}/skater-stats-leaders/"
-            f"current?categories={cat}"
-            f"&limit={limit}"
-        )
-        cache_key = f"leaders:{cat}:{limit}"
-
-    return await fetch_with_cache(
-        cache_key,
-        url,
-        CACHE_TTL["leaders"],
-    )
 
 
 @app.get("/api/goalie-leaders")
