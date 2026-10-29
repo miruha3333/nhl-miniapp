@@ -1079,4 +1079,253 @@ async def pregame(
     )
     injuries_task = fetch_espn_injuries()
 
-    team_summa
+    team_summary_url = f"{NHL_STATS_BASE}/team/summary?isAggregate=false&isGame=false&cayenneExp=gameTypeId=2%20and%20seasonId={current_season_id}"
+    team_summary_task = fetch_with_cache(f"team-summary:{current_season_id}", team_summary_url, CACHE_TTL["standings"])
+
+    rail_data, landing_data, standings_data, injuries_data, summary_data = await asyncio.gather(
+        rail_task,
+        landing_task,
+        standings_task,
+        injuries_task,
+        team_summary_task,
+        return_exceptions=True,
+    )
+
+    rail_data = rail_data if isinstance(rail_data, dict) else {}
+    landing_data = landing_data if isinstance(landing_data, dict) else {}
+    standings_data = standings_data if isinstance(standings_data, dict) else {}
+    injuries_data = injuries_data if isinstance(injuries_data, dict) else {}
+    summary_data = summary_data if isinstance(summary_data, dict) else {}
+
+    away_team_obj = landing_data.get("awayTeam") or {}
+    home_team_obj = landing_data.get("homeTeam") or {}
+
+    away_abbr = normalize_team_abbr(
+        away
+        or away_team_obj.get("abbrev")
+        or away_team_obj.get("teamAbbrev")
+    )
+    home_abbr = normalize_team_abbr(
+        home
+        or home_team_obj.get("abbrev")
+        or home_team_obj.get("teamAbbrev")
+    )
+
+    game_date = date or landing_data.get("gameDate") or ""
+    espn_events = await fetch_espn_scoreboard(game_date)
+    probable_goalies = extract_probable_goalies(espn_events, away_abbr, home_abbr)
+
+    roster_tasks = []
+    if away_abbr:
+        roster_tasks.append(roster_stats(away_abbr))
+    else:
+        roster_tasks.append(asyncio.sleep(0, result={}))
+
+    if home_abbr:
+        roster_tasks.append(roster_stats(home_abbr))
+    else:
+        roster_tasks.append(asyncio.sleep(0, result={}))
+
+    away_roster, home_roster = await asyncio.gather(*roster_tasks)
+    away_roster = away_roster if isinstance(away_roster, dict) else {}
+    home_roster = home_roster if isinstance(home_roster, dict) else {}
+
+    standings_rows = standings_data.get("standings", []) if isinstance(standings_data, dict) else []
+    standings_map = {}
+    for row in standings_rows:
+        if isinstance(row, dict):
+            abbr = normalize_team_abbr(row.get("teamAbbrev"))
+            if abbr:
+                standings_map[abbr] = row
+
+    away_st = standings_map.get(away_abbr, {})
+    home_st = standings_map.get(home_abbr, {})
+
+    # Извлекаем броски за игру (SF/G и SA/G) из team/summary
+    summary_rows = summary_data.get("data", []) if isinstance(summary_data, dict) else []
+    summary_map = {}
+    for r in summary_rows:
+        if isinstance(r, dict):
+            ab = normalize_team_abbr(r.get("teamFullName") or r.get("teamAbbrev") or "")
+            if ab:
+                summary_map[ab] = {
+                    "pp": r.get("powerPlayPct"),
+                    "pk": r.get("penaltyKillPct"),
+                    "sfPg": round(float(r["shotsForPerGame"]), 1) if r.get("shotsForPerGame") is not None else None,
+                    "saPg": round(float(r["shotsAgainstPerGame"]), 1) if r.get("shotsAgainstPerGame") is not None else None,
+                }
+
+    away_spec = summary_map.get(away_abbr, {})
+    home_spec = summary_map.get(home_abbr, {})
+
+    away_gp = away_st.get("gamesPlayed") or 1
+    home_gp = home_st.get("gamesPlayed") or 1
+
+    away_gf_pg = round((away_st.get("goalFor", 0) / away_gp), 2) if away_gp else 0
+    home_gf_pg = round((home_st.get("goalFor", 0) / home_gp), 2) if home_gp else 0
+
+    away_ga_pg = round((away_st.get("goalAgainst", 0) / away_gp), 2) if away_gp else 0
+    home_ga_pg = round((home_st.get("goalAgainst", 0) / home_gp), 2) if home_gp else 0
+
+    def make_comp(cat, label, away_val, home_val, higher_is_better=True):
+        return {
+            "category": cat,
+            "label": label,
+            "awayValue": away_val,
+            "homeValue": home_val,
+            "higherIsBetter": higher_is_better,
+        }
+
+    pregame_stats = [
+        make_comp("powerPlayPctg", "Большинство (%PP)", away_spec.get("pp") or away_st.get("powerPlayPctg"), home_spec.get("pp") or home_st.get("powerPlayPctg"), True),
+        make_comp("penaltyKillPctg", "Меньшинство (%PK)", away_spec.get("pk") or away_st.get("penaltyKillPctg"), home_spec.get("pk") or home_st.get("penaltyKillPctg"), True),
+        make_comp("goalsForPerGame", "Заброшено за игру (GF/G)", away_gf_pg, home_gf_pg, True),
+        make_comp("goalsAgainstPerGame", "Пропущено за игру (GA/G)", away_ga_pg, home_ga_pg, False),
+        make_comp("shotsForPerGame", "Броски по воротам соперника (SF/G)", away_spec.get("sfPg"), home_spec.get("sfPg"), True),
+        make_comp("shotsAgainstPerGame", "Броски соперника по своим воротам (SA/G)", away_spec.get("saPg"), home_spec.get("saPg"), False),
+    ]
+
+    away_streak_code = away_st.get("streakCode") or ""
+    away_streak_count = away_st.get("streakCount") or 0
+    home_streak_code = home_st.get("streakCode") or ""
+    home_streak_count = home_st.get("streakCount") or 0
+
+    rail_streaks = rail_data.get("streaks") or {}
+    if isinstance(rail_streaks, dict):
+        if "awayTeam" in rail_streaks:
+            away_streak_code = rail_streaks["awayTeam"].get("type") or away_streak_code
+            away_streak_count = rail_streaks["awayTeam"].get("count") or away_streak_count
+        if "homeTeam" in rail_streaks:
+            home_streak_code = rail_streaks["homeTeam"].get("type") or home_streak_code
+            home_streak_count = rail_streaks["homeTeam"].get("count") or home_streak_count
+
+    season_series = rail_data.get("seasonSeries") or landing_data.get("seasonSeries") or []
+    if isinstance(season_series, dict):
+        season_series = season_series.get("games") or [season_series]
+
+    away_skaters = away_roster.get("regular", {}).get("skaters", [])
+    home_skaters = home_roster.get("regular", {}).get("skaters", [])
+    away_goalies = away_roster.get("regular", {}).get("goalies", [])
+    home_goalies = home_roster.get("regular", {}).get("goalies", [])
+
+    return {
+        "gameId": game_id,
+        "gameDate": game_date,
+        "startTimeUTC": landing_data.get("startTimeUTC"),
+        "awayTeam": {
+            "abbrev": away_abbr,
+            "name": away_team_obj.get("name") or away_team_obj.get("placeName", {}).get("default") or away_abbr,
+            "logo": away_team_obj.get("logo") or f"https://assets.nhle.com/mugs/nhl/default-team/{away_abbr}.png",
+            "record": {
+                "wins": away_st.get("wins", 0),
+                "losses": away_st.get("losses", 0),
+                "otLosses": away_st.get("otLosses", 0),
+                "points": away_st.get("points", 0),
+                "gamesPlayed": away_st.get("gamesPlayed", 0),
+            },
+            "homeRecord": f"{away_st.get('homeWins', 0)}-{away_st.get('homeLosses', 0)}-{away_st.get('homeOtLosses', 0)}",
+            "roadRecord": f"{away_st.get('roadWins', 0)}-{away_st.get('roadLosses', 0)}-{away_st.get('roadOtLosses', 0)}",
+            "l10Record": f"{away_st.get('l10Wins', 0)}-{away_st.get('l10Losses', 0)}-{away_st.get('l10OtLosses', 0)}",
+            "streak": f"{away_streak_code}{away_streak_count}" if away_streak_code else "—",
+            "streakCode": away_streak_code,
+            "streakCount": away_streak_count,
+        },
+        "homeTeam": {
+            "abbrev": home_abbr,
+            "name": home_team_obj.get("name") or home_team_obj.get("placeName", {}).get("default") or home_abbr,
+            "logo": home_team_obj.get("logo") or f"https://assets.nhle.com/mugs/nhl/default-team/{home_abbr}.png",
+            "record": {
+                "wins": home_st.get("wins", 0),
+                "losses": home_st.get("losses", 0),
+                "otLosses": home_st.get("otLosses", 0),
+                "points": home_st.get("points", 0),
+                "gamesPlayed": home_st.get("gamesPlayed", 0),
+            },
+            "homeRecord": f"{home_st.get('homeWins', 0)}-{home_st.get('homeLosses', 0)}-{home_st.get('homeOtLosses', 0)}",
+            "roadRecord": f"{home_st.get('roadWins', 0)}-{home_st.get('roadLosses', 0)}-{home_st.get('roadOtLosses', 0)}",
+            "l10Record": f"{home_st.get('l10Wins', 0)}-{home_st.get('l10Losses', 0)}-{home_st.get('l10OtLosses', 0)}",
+            "streak": f"{home_streak_code}{home_streak_count}" if home_streak_code else "—",
+            "streakCode": home_streak_code,
+            "streakCount": home_streak_count,
+        },
+        "preGameStats": pregame_stats,
+        "probableGoalies": probable_goalies,
+        "injuries": {
+            "away": injuries_data.get(away_abbr, []),
+            "home": injuries_data.get(home_abbr, []),
+        },
+        "topScorers": {
+            "away": extract_top_scorers(away_skaters, limit=3),
+            "home": extract_top_scorers(home_skaters, limit=3),
+        },
+        "clubGoalies": {
+            "away": extract_club_goalies(away_goalies),
+            "home": extract_club_goalies(home_goalies),
+        },
+        "seasonSeries": season_series,
+    }
+
+
+@app.post("/webhook")
+async def telegram_webhook(update: dict):
+    message = update.get("message")
+    if not message:
+        return {"ok": True}
+
+    chat_id = message["chat"]["id"]
+    text = message.get("text", "")
+
+    if text in ("/start", "/matches", "/standings", "/leaders", "/goalies", "/players"):
+        keyboard = {
+            "inline_keyboard": [
+                [{"text": "🏒 ОТКРЫТЬ NHL", "web_app": {"url": WEBAPP_URL}}],
+                [
+                    {"text": "📅 Матчи", "web_app": {"url": f"{WEBAPP_URL}?section=matches"}},
+                    {"text": "📊 Таблица", "web_app": {"url": f"{WEBAPP_URL}?section=standings"}},
+                ],
+                [
+                    {"text": "🏆 Полевые", "web_app": {"url": f"{WEBAPP_URL}?section=leaders"}},
+                    {"text": "🥅 Вратари", "web_app": {"url": f"{WEBAPP_URL}?section=goalies"}},
+                ],
+            ],
+        }
+
+        async with httpx.AsyncClient(timeout=12) as client:
+            await client.post(
+                f"{TELEGRAM_API}/sendMessage",
+                json={
+                    "chat_id": chat_id,
+                    "text": (
+                        "🏒 NHL LIVE\n\n"
+                        "Всё главное по NHL — в одном месте.\n\n"
+                        "📅 Матчи и результаты\n"
+                        "📊 Турнирная таблица\n"
+                        "🏆 Лидеры сезона\n"
+                        "👤 Статистика игроков\n"
+                        "🥅 Статистика вратарей\n"
+                        "🎥 Видеообзоры матчей\n\n"
+                        "Открой приложение и смотри NHL прямо в Telegram."
+                    ),
+                    "reply_markup": keyboard,
+                },
+            )
+
+    return {"ok": True}
+
+
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+ROOT_INDEX = BASE_DIR / "index.html"
+STATIC_INDEX = STATIC_DIR / "index.html"
+
+if STATIC_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+@app.get("/")
+async def index():
+    if STATIC_INDEX.is_file():
+        return FileResponse(str(STATIC_INDEX), media_type="text/html")
+    if ROOT_INDEX.is_file():
+        return FileResponse(str(ROOT_INDEX), media_type="text/html")
+    return {"detail": "index.html not found"}
