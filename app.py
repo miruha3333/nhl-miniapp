@@ -334,39 +334,46 @@ async def skater_leaders_ext(
     target_season = season or current_season
     safe_limit = max(1, min(limit, 100))
 
-    summary_params = {
+    sort_prop = "points"
+    endpoint = "summary"
+
+    if category == "goals":
+        sort_prop = "goals"
+    elif category == "assists":
+        sort_prop = "assists"
+    elif category == "plusMinus":
+        sort_prop = "plusMinus"
+    elif category in ("shots", "sog"):
+        sort_prop = "shots"
+    elif category in ("gameWinningGoals", "gwg"):
+        sort_prop = "gameWinningGoals"
+    elif category in ("penaltyMinutes", "pim"):
+        sort_prop = "penaltyMinutes"
+    elif category in ("toiPerGame", "atoi"):
+        sort_prop = "timeOnIcePerGame"
+    elif category in ("hits", "hit"):
+        sort_prop = "hits"
+        endpoint = "realtime"
+    elif category in ("blockedShots", "blk"):
+        sort_prop = "blockedShots"
+        endpoint = "realtime"
+
+    params = {
         "isAggregate": "false",
         "isGame": "false",
         "cayenneExp": f"gameTypeId=2 and seasonId={target_season}",
         "start": 0,
-        "limit": 150,
-        "sort": '[{"property":"points","direction":"DESC"}]',
+        "limit": 100,
+        "sort": f'[{{"property":"{sort_prop}","direction":"DESC"}}]',
     }
 
-    realtime_params = {
-        "isAggregate": "false",
-        "isGame": "false",
-        "cayenneExp": f"gameTypeId=2 and seasonId={target_season}",
-        "start": 0,
-        "limit": 150,
-        "sort": '[{"property":"hits","direction":"DESC"}]',
-    }
+    url = f"{NHL_STATS_BASE}/skater/{endpoint}?{httpx.QueryParams(params)}"
+    data = await fetch_with_cache(f"skaters-direct:{target_season}:{category}:{safe_limit}", url, CACHE_TTL["leaders"])
 
-    url_summary = f"{NHL_STATS_BASE}/skater/summary?{httpx.QueryParams(summary_params)}"
-    url_realtime = f"{NHL_STATS_BASE}/skater/realtime?{httpx.QueryParams(realtime_params)}"
-
-    summary_data, realtime_data = await asyncio.gather(
-        fetch_with_cache(f"skater-summary:{target_season}", url_summary, CACHE_TTL["leaders"]),
-        fetch_with_cache(f"skater-realtime:{target_season}", url_realtime, CACHE_TTL["leaders"]),
-    )
-
-    rows_summary = summary_data.get("data", []) if isinstance(summary_data, dict) else []
-    rows_realtime = realtime_data.get("data", []) if isinstance(realtime_data, dict) else []
-
-    realtime_map = {r.get("playerId"): r for r in rows_realtime if isinstance(r, dict) and r.get("playerId")}
+    rows = data.get("data", []) if isinstance(data, dict) else []
 
     skaters = []
-    for row in rows_summary:
+    for row in rows:
         if not isinstance(row, dict):
             continue
 
@@ -381,8 +388,6 @@ async def skater_leaders_ext(
         full_name = row.get("skaterFullName") or row.get("playerName") or f"{first_name} {last_name}".strip()
         team_abbr = normalize_team_abbr(row.get("teamAbbrevs") or row.get("teamAbbrev") or "")
 
-        rt = realtime_map.get(player_id, {})
-
         games_played = row.get("gamesPlayed", 0)
         total_toi_sec = row.get("timeOnIce", 0)
         toi_pg_sec = row.get("timeOnIcePerGame", (total_toi_sec / games_played if games_played else 0))
@@ -395,8 +400,35 @@ async def skater_leaders_ext(
         elif isinstance(toi_pg_sec, str):
             toi_str = toi_pg_sec
 
-        pim = row.get("penaltyMinutes", row.get("pim", 0))
+        goals = row.get("goals", 0)
+        assists = row.get("assists", 0)
+        points = row.get("points", goals + assists)
+        plus_minus = row.get("plusMinus", 0)
+        shots = row.get("shots", row.get("sog", 0))
+        hits = row.get("hits", 0)
+        blocks = row.get("blockedShots", row.get("blocks", 0))
         gwg = row.get("gameWinningGoals", row.get("gwg", 0))
+        pim = row.get("penaltyMinutes", row.get("pim", 0))
+
+        val_to_show = points
+        if category == "goals":
+            val_to_show = goals
+        elif category == "assists":
+            val_to_show = assists
+        elif category == "plusMinus":
+            val_to_show = plus_minus
+        elif category in ("shots", "sog"):
+            val_to_show = shots
+        elif category in ("hits", "hit"):
+            val_to_show = hits
+        elif category in ("blockedShots", "blk"):
+            val_to_show = blocks
+        elif category in ("gameWinningGoals", "gwg"):
+            val_to_show = gwg
+        elif category in ("penaltyMinutes", "pim"):
+            val_to_show = pim
+        elif category in ("toiPerGame", "atoi"):
+            val_to_show = toi_str
 
         skaters.append({
             "id": player_id,
@@ -407,64 +439,20 @@ async def skater_leaders_ext(
             "teamAbbrev": team_abbr,
             "headshot": f"https://assets.nhle.com/mugs/nhl/latest/{player_id}.png",
             "gamesPlayed": games_played,
-            "goals": row.get("goals", 0),
-            "assists": row.get("assists", 0),
-            "points": row.get("points", 0),
-            "plusMinus": row.get("plusMinus", 0),
+            "goals": goals,
+            "assists": assists,
+            "points": points,
+            "plusMinus": plus_minus,
             "penaltyMinutes": pim,
-            "shots": row.get("shots", row.get("sog", 0)),
-            "hits": rt.get("hits", row.get("hits", 0)),
-            "blockedShots": rt.get("blockedShots", row.get("blockedShots", row.get("blocks", 0))),
+            "shots": shots,
+            "hits": hits,
+            "blockedShots": blocks,
             "gameWinningGoals": gwg,
             "toiPerGame": toi_str,
-            "toiPerGameSeconds": toi_pg_sec,
+            "value": val_to_show,
         })
 
-    # Сортировка по нужной категории
-    if category == "goals":
-        skaters.sort(key=lambda x: x.get("goals", 0), reverse=True)
-    elif category == "assists":
-        skaters.sort(key=lambda x: x.get("assists", 0), reverse=True)
-    elif category == "plusMinus":
-        skaters.sort(key=lambda x: x.get("plusMinus", 0), reverse=True)
-    elif category in ("shots", "sog"):
-        skaters.sort(key=lambda x: x.get("shots", 0), reverse=True)
-    elif category in ("hits", "hit"):
-        skaters.sort(key=lambda x: x.get("hits", 0), reverse=True)
-    elif category in ("blockedShots", "blk"):
-        skaters.sort(key=lambda x: x.get("blockedShots", 0), reverse=True)
-    elif category in ("gameWinningGoals", "gwg"):
-        skaters.sort(key=lambda x: x.get("gameWinningGoals", 0), reverse=True)
-    elif category in ("penaltyMinutes", "pim"):
-        skaters.sort(key=lambda x: x.get("penaltyMinutes", 0), reverse=True)
-    elif category in ("toiPerGame", "atoi"):
-        skaters.sort(key=lambda x: x.get("toiPerGameSeconds", 0), reverse=True)
-    else:
-        skaters.sort(key=lambda x: x.get("points", 0), reverse=True)
-
     result_slice = skaters[:safe_limit]
-
-    for p in result_slice:
-        if category == "goals":
-            p["value"] = p["goals"]
-        elif category == "assists":
-            p["value"] = p["assists"]
-        elif category == "plusMinus":
-            p["value"] = p["plusMinus"]
-        elif category in ("shots", "sog"):
-            p["value"] = p["shots"]
-        elif category in ("hits", "hit"):
-            p["value"] = p["hits"]
-        elif category in ("blockedShots", "blk"):
-            p["value"] = p["blockedShots"]
-        elif category in ("gameWinningGoals", "gwg"):
-            p["value"] = p["gameWinningGoals"]
-        elif category in ("penaltyMinutes", "pim"):
-            p["value"] = p["penaltyMinutes"]
-        elif category in ("toiPerGame", "atoi"):
-            p["value"] = p["toiPerGame"]
-        else:
-            p["value"] = p["points"]
 
     return {
         "season": target_season,
