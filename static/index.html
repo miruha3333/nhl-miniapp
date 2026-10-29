@@ -2225,7 +2225,7 @@ async function loadPlayers() {
 
     const response = await fetch(`${API_BASE}/api/leaders/${encodeURIComponent(currentCat)}?${params}`);
     const data = await response.json();
-    const list = data[currentCat] || data.leaders || data.skaters || data.data || [];
+    const list = data[currentCat] || data.skaters || data.leaders || data.data || [];
 
     if (!Array.isArray(list) || !list.length) {
       body.innerHTML = '<div class="empty">Нет данных игроков</div>';
@@ -2235,16 +2235,7 @@ async function loadPlayers() {
     body.innerHTML = list.map((player, index) => {
       let displayValue = player.value;
       if (displayValue === undefined || displayValue === null) {
-        if (currentCat === "shots") displayValue = player.shots ?? player.sog;
-        else if (currentCat === "hits") displayValue = player.hits;
-        else if (currentCat === "blockedShots") displayValue = player.blockedShots ?? player.blocks;
-        else if (currentCat === "gameWinningGoals") displayValue = player.gameWinningGoals ?? player.gwg;
-        else if (currentCat === "penaltyMinutes") displayValue = player.penaltyMinutes ?? player.pim;
-        else if (currentCat === "toiPerGame") displayValue = player.toiPerGame;
-        else if (currentCat === "plusMinus") displayValue = player.plusMinus;
-        else if (currentCat === "goals") displayValue = player.goals;
-        else if (currentCat === "assists") displayValue = player.assists;
-        else displayValue = player.points;
+        displayValue = player[currentCat] ?? "—";
       }
 
       if (currentCat === "plusMinus" && typeof displayValue === "number" && displayValue > 0) {
