@@ -6,7 +6,6 @@
 <title>NHL Live</title>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<!-- Подключение HLS.js для проигрывания m3u8 видеопотоков -->
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -118,7 +117,6 @@ main {
   padding:14px 16px 0;
 }
 
-/* Сетка для категорий полевых игроков (в 2 ряда, без сжатия) */
 .cat-grid-2rows {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -143,7 +141,6 @@ main {
   font-weight: 700;
 }
 
-/* Сетка для категорий вратарей (в 2 ряда, без сжатия) */
 .goalie-cat-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -664,7 +661,6 @@ select.date-input option {
   font-size:9px;
 }
 
-/* Видеоплеер обзора */
 .video-container {
   position:relative;
   width:100%;
@@ -754,7 +750,7 @@ select.date-input option {
 }
 
 .section-title {
-  margin:12px 0 6px;
+  margin:14px 0 8px;
   color:var(--silver-dim);
   font-family:"Oswald",sans-serif;
   font-size:13px;
@@ -789,7 +785,7 @@ select.date-input option {
 
 .stat-table th,
 .stat-table td {
-  padding:5px 4px;
+  padding:6px 6px;
   border-bottom:1px solid var(--border);
   text-align:center;
   white-space:nowrap;
@@ -1252,7 +1248,7 @@ select.date-input option {
 
 .comp-row {
   display: grid;
-  grid-template-columns: 1fr 140px 1fr;
+  grid-template-columns: 1fr 150px 1fr;
   align-items: center;
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
@@ -1285,6 +1281,7 @@ select.date-input option {
   text-transform: uppercase;
   color: var(--silver);
   letter-spacing: .02em;
+  line-height: 1.2;
 }
 
 .pregame-injuries-grid {
@@ -1360,36 +1357,30 @@ select.date-input option {
   line-height: 1.2;
 }
 
-.mini-scorer-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(4, 28px);
-  align-items: center;
-  gap: 4px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 11px;
-}
-
-.mini-scorer-row:last-child {
-  border-bottom: none;
-}
-
-.mini-scorer-row .pname {
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* Фиксация колонок для таблицы вратарей */
+.goalie-sticky-col1 {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  background: var(--surface);
   white-space: nowrap;
-  font-family: "Oswald", sans-serif;
-  font-weight: 600;
+  min-width: 110px;
+  text-align: left !important;
 }
 
-.mini-scorer-row .num {
-  font-family: "Roboto Mono", monospace;
-  text-align: center;
+.goalie-sticky-col2 {
+  position: sticky;
+  left: 110px;
+  z-index: 4;
+  background: var(--surface);
+  white-space: nowrap;
+  min-width: 45px;
+  box-shadow: 4px 0 6px -4px rgba(0,0,0,0.65);
 }
 
-.mini-scorer-row .pts {
-  color: var(--blue);
-  font-weight: 700;
+.table-scroll thead .goalie-sticky-col1,
+.table-scroll thead .goalie-sticky-col2 {
+  z-index: 5;
 }
 </style>
 </head>
@@ -1468,7 +1459,6 @@ select.date-input option {
       <button id="leaders-goalies-btn">Вратари</button>
     </div>
 
-    <!-- Категории полевых: 2 ряда, английские аббревиатуры, без сжатия -->
     <div id="skater-categories" class="cat-grid-2rows">
       <button data-cat="points" class="active" title="Points">PTS</button>
       <button data-cat="goals" title="Goals">G</button>
@@ -1477,18 +1467,17 @@ select.date-input option {
       <button data-cat="shots" title="Shots on Goal">SOG</button>
       <button data-cat="hits" title="Hits">HIT</button>
       <button data-cat="blockedShots" title="Blocked Shots">BLK</button>
-      <button data-cat="timeOnIce" title="Time on Ice">TOI</button>
+      <button data-cat="timeOnIce" title="Time on Ice (Min)">TOI</button>
       <button data-cat="toiPerGame" title="Time on Ice per Game">ATOI</button>
     </div>
 
-    <!-- Категории вратарей: 2 ряда, английские аббревиатуры, без сжатия -->
     <div id="goalie-categories" class="goalie-cat-grid" style="display:none;">
       <button data-goalie-sort="wins" class="active" title="Wins">W</button>
       <button data-goalie-sort="losses" title="Losses">L</button>
       <button data-goalie-sort="savePctg" title="Save Percentage">SV%</button>
       <button data-goalie-sort="gaa" title="Goals Against Average">GAA</button>
       <button data-goalie-sort="shutouts" title="Shutouts">SO</button>
-      <button data-goalie-sort="timeOnIce" title="Time on Ice">TOI</button>
+      <button data-goalie-sort="timeOnIce" title="Time on Ice (Min)">TOI</button>
     </div>
 
     <div class="card">
@@ -1500,7 +1489,6 @@ select.date-input option {
 
   <div id="view-detail" style="display:none">
     <button class="back-btn" id="back-btn">‹ Назад</button>
-
     <div id="detail-body">
       <div class="loading">Загрузка...</div>
     </div>
@@ -1537,7 +1525,6 @@ let currentLimit = 25;
 let leadersMode = "skaters";
 let currentGoalieSortKey = "wins";
 let currentGoalieSortAsc = false;
-const DEFAULT_GOALIE_MIN_GAMES = 0;
 
 const goalieHeadshotCache = new Map();
 const datePicker = document.getElementById("date-picker");
@@ -1564,13 +1551,23 @@ function escapeHtml(value) {
   }[char]));
 }
 
+// Форматирование: Инициал имени + Фамилия ("A. Ovechkin", "C. McDavid")
+function formatShortName(fullName, first, last) {
+  const f = nameStr(first);
+  const l = nameStr(last);
+  if (f && l) {
+    return `${f.charAt(0).toUpperCase()}. ${l}`;
+  }
+  const str = String(fullName || "").trim();
+  if (!str) return "Игрок";
+  const parts = str.split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  return `${parts[0].charAt(0).toUpperCase()}. ${parts.slice(1).join(" ")}`;
+}
+
 function getTeamAbbrev(team) {
   if (!team) return "";
-
-  if (typeof team === "string") {
-    return team.trim().toUpperCase();
-  }
-
+  if (typeof team === "string") return team.trim().toUpperCase();
   if (typeof team === "object") {
     return String(
       team.default ||
@@ -1580,15 +1577,12 @@ function getTeamAbbrev(team) {
       ""
     ).trim().toUpperCase();
   }
-
   return "";
 }
 
 function getTeamName(team) {
   if (!team) return "";
-
   if (typeof team === "string") return team;
-
   if (typeof team === "object") {
     return String(
       team.default ||
@@ -1597,15 +1591,12 @@ function getTeamName(team) {
       ""
     );
   }
-
   return "";
 }
 
 function getTeamLogo(team) {
   if (!team) return "";
-
   if (typeof team === "string") return team;
-
   if (typeof team === "object") {
     return String(
       team.logo ||
@@ -1614,7 +1605,6 @@ function getTeamLogo(team) {
       ""
     );
   }
-
   return "";
 }
 
@@ -1623,16 +1613,11 @@ function getPlayerId(player) {
 }
 
 function getHeadshot(player) {
-  if (player?.headshot) {
-    return player.headshot;
-  }
-
+  if (player?.headshot) return player.headshot;
   const playerId = getPlayerId(player);
-
   if (playerId && goalieHeadshotCache.has(playerId)) {
     return goalieHeadshotCache.get(playerId);
   }
-
   return "";
 }
 
@@ -1645,35 +1630,20 @@ function fmtDate(date) {
 
 function seasonIdFromEndDate(endDate) {
   if (!endDate || typeof endDate !== "string") return null;
-
   const match = endDate.match(/^(\d{4})-\d{2}-\d{2}$/);
-
   if (!match) return null;
-
   const endYear = Number(match[1]);
   return `${endYear - 1}${endYear}`;
 }
 
 function formatPeriodLabel(descriptor) {
   if (!descriptor) return "Период";
-
-  if (descriptor.periodType === "SO") {
-    return "Буллиты";
-  }
-
+  if (descriptor.periodType === "SO") return "Буллиты";
   if (descriptor.periodType === "OT") {
-    const number = descriptor.number && descriptor.number > 3
-      ? descriptor.number - 3
-      : 1;
-
-    return number > 1
-      ? `${number}-й овертайм`
-      : "Овертайм";
+    const number = descriptor.number && descriptor.number > 3 ? descriptor.number - 3 : 1;
+    return number > 1 ? `${number}-й овертайм` : "Овертайм";
   }
-
-  return descriptor.number
-    ? `${descriptor.number}-й период`
-    : "Период";
+  return descriptor.number ? `${descriptor.number}-й период` : "Период";
 }
 
 function openDetail() {
@@ -1682,11 +1652,9 @@ function openDetail() {
   document.getElementById("view-players").style.display = "none";
   document.getElementById("view-detail").style.display = "";
   document.getElementById("main-nav").style.display = "none";
-  document.getElementById("detail-body").innerHTML =
-    '<div class="loading">Загрузка...</div>';
+  document.getElementById("detail-body").innerHTML = '<div class="loading">Загрузка...</div>';
   window.scrollTo(0, 0);
 }
-
 function resetLeadersToSkaters() {
   leadersMode = "skaters";
   currentCat = "points";
@@ -1698,14 +1666,9 @@ function resetLeadersToSkaters() {
   document.getElementById("skater-categories").style.display = "grid";
   document.getElementById("goalie-categories").style.display = "none";
 
-  document
-    .querySelectorAll("#skater-categories button")
-    .forEach(button => {
-      button.classList.toggle(
-        "active",
-        button.dataset.cat === "points"
-      );
-    });
+  document.querySelectorAll("#skater-categories button").forEach(button => {
+    button.classList.toggle("active", button.dataset.cat === "points");
+  });
 }
 
 function normalizeInitialSection(section) {
@@ -1713,48 +1676,26 @@ function normalizeInitialSection(section) {
     case "schedule":
     case "matches":
       return "schedule";
-
     case "standings":
     case "table":
       return "standings";
-
     case "leaders":
     case "players":
     case "goalies":
       return "players";
-
-    case "videos":
-      return "schedule";
-
     default:
       return "schedule";
   }
 }
 
 function switchTab(tab) {
-  document.getElementById("tab-schedule").classList.toggle(
-    "active",
-    tab === "schedule"
-  );
+  document.getElementById("tab-schedule").classList.toggle("active", tab === "schedule");
+  document.getElementById("tab-standings").classList.toggle("active", tab === "standings");
+  document.getElementById("tab-players").classList.toggle("active", tab === "players");
 
-  document.getElementById("tab-standings").classList.toggle(
-    "active",
-    tab === "standings"
-  );
-
-  document.getElementById("tab-players").classList.toggle(
-    "active",
-    tab === "players"
-  );
-
-  document.getElementById("view-schedule").style.display =
-    tab === "schedule" ? "" : "none";
-
-  document.getElementById("view-standings").style.display =
-    tab === "standings" ? "" : "none";
-
-  document.getElementById("view-players").style.display =
-    tab === "players" ? "" : "none";
+  document.getElementById("view-schedule").style.display = tab === "schedule" ? "" : "none";
+  document.getElementById("view-standings").style.display = tab === "standings" ? "" : "none";
+  document.getElementById("view-players").style.display = tab === "players" ? "" : "none";
 
   document.getElementById("view-detail").style.display = "none";
   document.getElementById("main-nav").style.display = "flex";
@@ -1764,17 +1705,11 @@ function switchTab(tab) {
   if (tab === "schedule") {
     loadSchedule();
   }
-
   if (tab === "standings") {
     loadStandings();
-
     if (!bracketLoadedOnce) {
       const now = new Date();
-
-      const startYear = now.getMonth() >= 8
-        ? now.getFullYear()
-        : now.getFullYear() - 1;
-
+      const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
       const playoffYear = startYear + 1;
       const playoffStart = new Date(playoffYear, 3, 14);
 
@@ -1784,38 +1719,23 @@ function switchTab(tab) {
         document.getElementById("bracket-container").innerHTML = `
           <div class="bracket-wrap">
             <div class="section-title">Сетка плей-офф</div>
-            <div class="empty">
-              Регулярный сезон ещё не завершён — плей-офф начнётся позже
-            </div>
+            <div class="empty">Регулярный сезон ещё не завершён — плей-офф начнётся позже</div>
           </div>
         `;
       }
-
       bracketLoadedOnce = true;
     }
   }
-
   if (tab === "players") {
     resetLeadersToSkaters();
     loadPlayers();
   }
 }
 
-document.getElementById("tab-schedule").onclick = () => {
-  switchTab("schedule");
-};
-
-document.getElementById("tab-standings").onclick = () => {
-  switchTab("standings");
-};
-
-document.getElementById("tab-players").onclick = () => {
-  switchTab("players");
-};
-
-document.getElementById("back-btn").onclick = () => {
-  switchTab(lastMainTab);
-};
+document.getElementById("tab-schedule").onclick = () => switchTab("schedule");
+document.getElementById("tab-standings").onclick = () => switchTab("standings");
+document.getElementById("tab-players").onclick = () => switchTab("players");
+document.getElementById("back-btn").onclick = () => switchTab(lastMainTab);
 
 document.getElementById("prev-day").onclick = () => {
   currentDate.setDate(currentDate.getDate() - 1);
@@ -1836,9 +1756,7 @@ datePicker.addEventListener("change", event => {
 
 async function buildSeasonOptions() {
   const select = document.getElementById("season-select");
-
-  select.innerHTML =
-    "<option value=''>Загрузка сезонов...</option>";
+  select.innerHTML = "<option value=''>Загрузка сезонов...</option>";
 
   try {
     const response = await fetch(`${API_BASE}/api/seasons-list`);
@@ -1846,235 +1764,136 @@ async function buildSeasonOptions() {
     const seasons = data?.seasons || [];
 
     if (!seasons.length) {
-      select.innerHTML =
-        "<option value=''>Текущий сезон</option>";
+      select.innerHTML = "<option value=''>Текущий сезон</option>";
       return;
     }
 
     let html = "<option value=''>Текущий сезон</option>";
-
-    [...seasons]
-      .sort((a, b) => b.id - a.id)
-      .forEach(season => {
-        const id = String(season.id);
-        const startYear = id.slice(0, 4);
-        const endYear = id.slice(6, 8);
-
-        html += `
-          <option
-            value="${escapeHtml(season.standingsEnd || "")}"
-            data-start-year="${escapeHtml(startYear)}"
-          >
-            ${escapeHtml(`${startYear}-${endYear}`)}
-          </option>
-        `;
-      });
+    [...seasons].sort((a, b) => b.id - a.id).forEach(season => {
+      const id = String(season.id);
+      const startYear = id.slice(0, 4);
+      const endYear = id.slice(6, 8);
+      html += `
+        <option value="${escapeHtml(season.standingsEnd || "")}" data-start-year="${escapeHtml(startYear)}">
+          ${escapeHtml(`${startYear}-${endYear}`)}
+        </option>
+      `;
+    });
 
     select.innerHTML = html;
   } catch (error) {
     console.error(error);
-    select.innerHTML =
-      "<option value=''>Текущий сезон</option>";
+    select.innerHTML = "<option value=''>Текущий сезон</option>";
   }
 }
 
-document.getElementById("season-select").addEventListener(
-  "change",
-  event => {
-    const option =
-      event.target.options[event.target.selectedIndex];
+document.getElementById("season-select").addEventListener("change", event => {
+  const option = event.target.options[event.target.selectedIndex];
+  selectedSeasonEndDate = option.value;
+  currentStandingsData = [];
+  loadStandings();
 
-    selectedSeasonEndDate = option.value;
-    currentStandingsData = [];
-    loadStandings();
-
-    let startYear = option.dataset.startYear;
-
-    if (!startYear) {
-      const now = new Date();
-
-      startYear = String(
-        now.getMonth() >= 8
-          ? now.getFullYear()
-          : now.getFullYear() - 1
-      );
-    }
-
-    const playoffYear = String(Number(startYear) + 1);
-
-    if (
-      option.dataset.startYear ||
-      new Date() >= new Date(Number(playoffYear), 3, 14)
-    ) {
-      loadPlayoffBracket(playoffYear);
-    } else {
-      document.getElementById("bracket-container").innerHTML = `
-        <div class="bracket-wrap">
-          <div class="section-title">Сетка плей-офф</div>
-          <div class="empty">
-            Регулярный сезон ещё не завершён — плей-офф начнётся позже
-          </div>
-        </div>
-      `;
-    }
+  let startYear = option.dataset.startYear;
+  if (!startYear) {
+    const now = new Date();
+    startYear = String(now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1);
   }
-);
 
-document
-  .querySelectorAll(".standings-head .sortable")
-  .forEach(header => {
-    header.onclick = () => {
-      const key = header.dataset.sort;
+  const playoffYear = String(Number(startYear) + 1);
+  if (option.dataset.startYear || new Date() >= new Date(Number(playoffYear), 3, 14)) {
+    loadPlayoffBracket(playoffYear);
+  } else {
+    document.getElementById("bracket-container").innerHTML = `
+      <div class="bracket-wrap">
+        <div class="section-title">Сетка плей-офф</div>
+        <div class="empty">Регулярный сезон ещё не завершён — плей-офф начнётся позже</div>
+      </div>
+    `;
+  }
+});
 
-      if (standingsSortKey === key) {
-        standingsSortAsc = !standingsSortAsc;
-      } else {
-        standingsSortKey = key;
-        standingsSortAsc = false;
-      }
+document.querySelectorAll(".standings-head .sortable").forEach(header => {
+  header.onclick = () => {
+    const key = header.dataset.sort;
+    if (standingsSortKey === key) {
+      standingsSortAsc = !standingsSortAsc;
+    } else {
+      standingsSortKey = key;
+      standingsSortAsc = false;
+    }
+    renderStandings();
+  };
+});
 
-      renderStandings();
-    };
-  });
-
-document.getElementById("std-mode-all").onclick = () => {
-  setStandingsMode("all");
-};
-
-document.getElementById("std-mode-conf").onclick = () => {
-  setStandingsMode("conf");
-};
-
-document.getElementById("std-mode-div").onclick = () => {
-  setStandingsMode("div");
-};
+document.getElementById("std-mode-all").onclick = () => setStandingsMode("all");
+document.getElementById("std-mode-conf").onclick = () => setStandingsMode("conf");
+document.getElementById("std-mode-div").onclick = () => setStandingsMode("div");
 
 function setStandingsMode(mode) {
   standingsViewMode = mode;
-
-  document.getElementById("std-mode-all").classList.toggle(
-    "active",
-    mode === "all"
-  );
-
-  document.getElementById("std-mode-conf").classList.toggle(
-    "active",
-    mode === "conf"
-  );
-
-  document.getElementById("std-mode-div").classList.toggle(
-    "active",
-    mode === "div"
-  );
-
-  currentStandingsData.length
-    ? renderStandings()
-    : loadStandings();
+  document.getElementById("std-mode-all").classList.toggle("active", mode === "all");
+  document.getElementById("std-mode-conf").classList.toggle("active", mode === "conf");
+  document.getElementById("std-mode-div").classList.toggle("active", mode === "div");
+  currentStandingsData.length ? renderStandings() : loadStandings();
 }
 
 async function loadSchedule() {
   const games = document.getElementById("games");
   const date = fmtDate(currentDate);
 
-  games.innerHTML =
-    '<div class="loading">Загрузка...</div>';
-
+  games.innerHTML = '<div class="loading">Загрузка...</div>';
   datePicker.value = date;
 
   try {
-    const response = await fetch(
-      `${API_BASE}/api/schedule?date=${encodeURIComponent(date)}`
-    );
-
+    const response = await fetch(`${API_BASE}/api/schedule?date=${encodeURIComponent(date)}`);
     const data = await response.json();
-    const day = (data.gameWeek || []).find(
-      item => item.date === date
-    );
-
+    const day = (data.gameWeek || []).find(item => item.date === date);
     const list = day?.games || [];
 
     if (!list.length) {
-      games.innerHTML =
-        '<div class="empty">В этот день матчей нет</div>';
-
+      games.innerHTML = '<div class="empty">В этот день матчей нет</div>';
       loadSpotlight();
       return;
     }
 
-    games.innerHTML = list
-      .map(renderGame)
-      .join("");
+    games.innerHTML = list.map(renderGame).join("");
 
-    games
-      .querySelectorAll(".score-box.game-center")
-      .forEach(element => {
-        element.addEventListener("click", () => {
-          const gameId = element.dataset.gameId;
-          const awayAbbrev = element.dataset.away;
-          const homeAbbrev = element.dataset.home;
-          const awayLogo = element.dataset.awayLogo;
-          const homeLogo = element.dataset.homeLogo;
+    games.querySelectorAll(".score-box.game-center").forEach(element => {
+      element.addEventListener("click", () => {
+        const gameId = element.dataset.gameId;
+        const awayAbbrev = element.dataset.away;
+        const homeAbbrev = element.dataset.home;
+        const awayLogo = element.dataset.awayLogo;
+        const homeLogo = element.dataset.homeLogo;
 
-          const game = list.find(
-            item => String(item.id) === String(gameId)
-          );
+        const game = list.find(item => String(item.id) === String(gameId));
+        if (game && isFutureGame(game)) {
+          openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo, date);
+          return;
+        }
 
-          if (game && isFutureGame(game)) {
-            openFutureGamePreview(
-              gameId,
-              awayAbbrev,
-              homeAbbrev,
-              awayLogo,
-              homeLogo,
-              date
-            );
-
-            return;
-          }
-
-          openGameDetail(
-            gameId,
-            awayAbbrev,
-            homeAbbrev,
-            awayLogo,
-            homeLogo
-          );
-        });
+        openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo);
       });
+    });
 
-    games
-      .querySelectorAll(".team[data-team]")
-      .forEach(team => {
-        team.addEventListener("click", event => {
-          event.stopPropagation();
-
-          openTeamDetail(
-            team.dataset.team,
-            team.dataset.name,
-            team.dataset.logo
-          );
-        });
+    games.querySelectorAll(".team[data-team]").forEach(team => {
+      team.addEventListener("click", event => {
+        event.stopPropagation();
+        openTeamDetail(team.dataset.team, team.dataset.name, team.dataset.logo);
       });
+    });
   } catch (error) {
     console.error(error);
-
-    games.innerHTML =
-      '<div class="empty">Не удалось загрузить матчи</div>';
+    games.innerHTML = '<div class="empty">Не удалось загрузить матчи</div>';
   }
 }
 
 function renderTeamRecord(team) {
   const record = team?.currentRecord;
-
-  if (!record) {
-    return "";
-  }
-
+  if (!record) return "";
   return `
     <div class="team-record">
-      <strong>
-        ${record.wins ?? 0}-${record.losses ?? 0}-${record.otLosses ?? 0}-${record.points ?? 0}
-      </strong>
+      <strong>${record.wins ?? 0}-${record.losses ?? 0}-${record.otLosses ?? 0}-${record.points ?? 0}</strong>
     </div>
   `;
 }
@@ -2083,89 +1902,33 @@ function renderGame(game) {
   const away = game.awayTeam || {};
   const home = game.homeTeam || {};
 
-  const started =
-    game.gameState !== "FUT" &&
-    game.gameState !== "PRE";
-
+  const started = game.gameState !== "FUT" && game.gameState !== "PRE";
   const status = started
-    ? (
-      game.gameState === "LIVE" ||
-      game.gameState === "CRIT"
-        ? "LIVE"
-        : "Финал"
-    )
-    : new Date(game.startTimeUTC).toLocaleTimeString(
-        "ru-RU",
-        {
-          hour:"2-digit",
-          minute:"2-digit"
-        }
-      );
+    ? (game.gameState === "LIVE" || game.gameState === "CRIT" ? "LIVE" : "Финал")
+    : new Date(game.startTimeUTC).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 
   return `
     <div class="card">
       <div class="game-row">
-        <div
-          class="team"
-          data-team="${escapeHtml(away.abbrev || "")}"
-          data-name="${escapeHtml(away.name || away.abbrev || "")}"
-          data-logo="${escapeHtml(away.logo || "")}"
-        >
-          <img
-            class="team-logo"
-            src="${escapeHtml(away.logo || "")}"
-            alt=""
-            onerror="this.style.display='none'"
-          >
-
+        <div class="team" data-team="${escapeHtml(away.abbrev || "")}" data-name="${escapeHtml(away.name || away.abbrev || "")}" data-logo="${escapeHtml(away.logo || "")}">
+          <img class="team-logo" src="${escapeHtml(away.logo || "")}" alt="" onerror="this.style.display='none'">
           <div>
-            <div class="abbr">
-              ${escapeHtml(away.abbrev || "")}
-            </div>
-
+            <div class="abbr">${escapeHtml(away.abbrev || "")}</div>
             ${renderTeamRecord(away)}
           </div>
         </div>
 
-        <div
-          class="score-box game-center${started ? " clickable" : ""}"
-          data-game-id="${escapeHtml(game.id)}"
-          data-away="${escapeHtml(away.abbrev || "")}"
-          data-home="${escapeHtml(home.abbrev || "")}"
-          data-away-logo="${escapeHtml(away.logo || "")}"
-          data-home-logo="${escapeHtml(home.logo || "")}"
-        >
-          <div class="score">
-            ${
-              started
-                ? `${away.score ?? 0} : ${home.score ?? 0}`
-                : "vs"
-            }
-          </div>
-
+        <div class="score-box game-center${started ? " clickable" : ""}" data-game-id="${escapeHtml(game.id)}" data-away="${escapeHtml(away.abbrev || "")}" data-home="${escapeHtml(home.abbrev || "")}" data-away-logo="${escapeHtml(away.logo || "")}" data-home-logo="${escapeHtml(home.logo || "")}">
+          <div class="score">${started ? `${away.score ?? 0} : ${home.score ?? 0}` : "vs"}</div>
           <div class="status">${escapeHtml(status)}</div>
         </div>
 
-        <div
-          class="team right"
-          data-team="${escapeHtml(home.abbrev || "")}"
-          data-name="${escapeHtml(home.name || home.abbrev || "")}"
-          data-logo="${escapeHtml(home.logo || "")}"
-        >
+        <div class="team right" data-team="${escapeHtml(home.abbrev || "")}" data-name="${escapeHtml(home.name || home.abbrev || "")}" data-logo="${escapeHtml(home.logo || "")}">
           <div>
-            <div class="abbr">
-              ${escapeHtml(home.abbrev || "")}
-            </div>
-
+            <div class="abbr">${escapeHtml(home.abbrev || "")}</div>
             ${renderTeamRecord(home)}
           </div>
-
-          <img
-            class="team-logo"
-            src="${escapeHtml(home.logo || "")}"
-            alt=""
-            onerror="this.style.display='none'"
-          >
+          <img class="team-logo" src="${escapeHtml(home.logo || "")}" alt="" onerror="this.style.display='none'">
         </div>
       </div>
     </div>
@@ -2173,22 +1936,18 @@ function renderGame(game) {
 }
 
 function isFutureGame(game) {
-  return game.gameState === "FUT" ||
-    game.gameState === "PRE";
+  return game.gameState === "FUT" || game.gameState === "PRE";
 }
 
 function getScheduleGames(data) {
   if (!data || typeof data !== "object") return [];
-
   if (Array.isArray(data.games)) return data.games;
-
   const result = [];
   if (Array.isArray(data.gameWeek)) {
     data.gameWeek.forEach(day => {
       if (Array.isArray(day?.games)) result.push(...day.games);
     });
   }
-
   return result;
 }
 
@@ -2199,140 +1958,86 @@ function getGameDateValue(game) {
 function getGameTeamAbbrev(team) {
   if (!team) return "";
   if (typeof team === "string") return team.toUpperCase();
-  return String(
-    team.abbrev ||
-    team.teamAbbrev?.default ||
-    team.teamAbbrev ||
-    team.abbreviation ||
-    ""
-  ).toUpperCase();
+  return String(team.abbrev || team.teamAbbrev?.default || team.teamAbbrev || team.abbreviation || "").toUpperCase();
 }
 
 function getGameTeamName(team, fallback = "") {
   if (!team) return fallback;
   if (typeof team === "string") return team;
-  return (
-    team.abbrev ||
-    team.teamAbbrev?.default ||
-    team.teamAbbrev ||
-    team.placeName?.default ||
-    team.teamName?.default ||
-    team.name?.default ||
-    fallback
-  );
+  return team.abbrev || team.teamAbbrev?.default || team.teamAbbrev || team.placeName?.default || team.teamName?.default || team.name?.default || fallback;
 }
 
 function getGameScore(game, side) {
-  const value =
-    game?.[`${side}Team`]?.score ??
-    game?.[`${side}Score`] ??
-    game?.[`${side}TeamScore`] ??
-    game?.[side]?.score;
-
+  const value = game?.[`${side}Team`]?.score ?? game?.[`${side}Score`] ?? game?.[`${side}TeamScore`] ?? game?.[side]?.score;
   return value === undefined || value === null ? null : Number(value);
 }
 
 function getGoalStrengthLabel(goal) {
-  const raw = String(
-    goal?.strengthCode ??
-    goal?.strength ??
-    goal?.situationCode ??
-    goal?.typeCode ??
-    goal?.goalType ??
-    ""
-  ).toUpperCase();
-
-  if (goal?.isShortHanded === true || goal?.isShorthanded === true || /SH/.test(raw)) {
-    return "М";
-  }
-
-  if (goal?.isPowerPlay === true || goal?.isPowerplay === true || /PP/.test(raw)) {
-    return "Б";
-  }
-
+  const raw = String(goal?.strengthCode ?? goal?.strength ?? goal?.situationCode ?? goal?.typeCode ?? goal?.goalType ?? "").toUpperCase();
+  if (goal?.isShortHanded === true || goal?.isShorthanded === true || /SH/.test(raw)) return "М";
+  if (goal?.isPowerPlay === true || goal?.isPowerplay === true || /PP/.test(raw)) return "Б";
   return "";
 }
 
 function isCompletedGame(game) {
   const state = String(game?.gameState || "").toUpperCase();
   return state === "OFF" || state === "FINAL" || state === "F" ||
-    (game?.awayTeam?.score !== undefined &&
-     game?.homeTeam?.score !== undefined &&
-     !["FUT", "PRE", "LIVE", "CRIT"].includes(state));
+    (game?.awayTeam?.score !== undefined && game?.homeTeam?.score !== undefined && !["FUT", "PRE", "LIVE", "CRIT"].includes(state));
 }
 
+// Загрузка последних 10 матчей между клубами (ТОЛЬКО регулярка и плей-офф, без предсезонки)
 async function loadMatchupHistory(awayAbbrev, homeAbbrev) {
   const away = String(awayAbbrev || "").toUpperCase();
   const home = String(homeAbbrev || "").toUpperCase();
-
   if (!away || !home) return [];
 
   let seasonIds = [];
-
   try {
     const response = await fetch(`${API_BASE}/api/seasons-list`, { cache: "no-store" });
     const data = await response.json();
     const seasons = Array.isArray(data?.seasons) ? data.seasons : [];
-
     seasonIds = seasons
       .map(item => String(item?.id || item?.season || ""))
       .filter(id => /^\d{8}$/.test(id))
       .sort((a, b) => Number(b) - Number(a));
   } catch (error) {
-    console.error("Ошибка загрузки списка сезонов для личных встреч:", error);
+    console.error("Ошибка сезонов h2h:", error);
   }
 
   const now = new Date();
-  const startYear = now.getMonth() >= 8
-    ? now.getFullYear()
-    : now.getFullYear() - 1;
+  const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
   const currentSeasonId = `${startYear}${startYear + 1}`;
-
-  seasonIds = [currentSeasonId, ...seasonIds]
-    .filter((id, index, array) => array.indexOf(id) === index)
-    .slice(0, 7);
+  seasonIds = [currentSeasonId, ...seasonIds].filter((id, i, arr) => arr.indexOf(id) === i).slice(0, 6);
 
   const allGames = [];
-
   await Promise.all(seasonIds.map(async seasonId => {
     try {
-      const response = await fetch(
-        `${API_BASE}/api/team-schedule/${encodeURIComponent(away)}?season=${encodeURIComponent(seasonId)}`,
-        { cache: "no-store" }
-      );
-
+      const response = await fetch(`${API_BASE}/api/team-schedule/${encodeURIComponent(away)}?season=${encodeURIComponent(seasonId)}`, { cache: "no-store" });
       if (!response.ok) return;
-
       const data = await response.json();
       const games = getScheduleGames(data);
 
       games.forEach(game => {
         if (!isCompletedGame(game)) return;
 
+        // ИСКЛЮЧАЕМ ПРЕДСЕЗОННЫЕ МАТЧИ (gameType === 1)
+        const gType = Number(game.gameType ?? game.gameTypeId ?? 2);
+        if (gType === 1) return;
+
         const gameAway = getGameTeamAbbrev(game.awayTeam);
         const gameHome = getGameTeamAbbrev(game.homeTeam);
 
-        if (
-          (gameAway === away && gameHome === home) ||
-          (gameAway === home && gameHome === away)
-        ) {
+        if ((gameAway === away && gameHome === home) || (gameAway === home && gameHome === away)) {
           allGames.push({ ...game, __season: seasonId });
         }
       });
-    } catch (error) {
-      console.error(`Ошибка расписания ${away} за сезон ${seasonId}:`, error);
-    }
+    } catch (_) {}
   }));
 
   const unique = [];
   const seen = new Set();
-
   allGames
-    .sort((a, b) => {
-      const da = new Date(getGameDateValue(a)).getTime() || 0;
-      const db = new Date(getGameDateValue(b)).getTime() || 0;
-      return db - da;
-    })
+    .sort((a, b) => (new Date(getGameDateValue(b)).getTime() || 0) - (new Date(getGameDateValue(a)).getTime() || 0))
     .forEach(game => {
       const key = String(game.id || `${getGameDateValue(game)}:${getGameTeamAbbrev(game.awayTeam)}:${getGameTeamAbbrev(game.homeTeam)}`);
       if (!seen.has(key)) {
@@ -2345,13 +2050,8 @@ async function loadMatchupHistory(awayAbbrev, homeAbbrev) {
 }
 
 function renderMatchupHistory(games, awayAbbrev, homeAbbrev) {
-  let html = `
-    <div class="matchup-card">
-      <div class="matchup-title">Последние 10 результатов между командами</div>
-  `;
-
   if (!games.length) {
-    return html + '<div class="empty">История личных встреч недоступна</div></div>';
+    return '<div class="empty">История личных встреч отсутствует</div>';
   }
 
   const wins = {
@@ -2371,7 +2071,7 @@ function renderMatchupHistory(games, awayAbbrev, homeAbbrev) {
     }
   });
 
-  html += `
+  let html = `
     <div class="matchup-summary">
       <div>
         <div class="matchup-team">${escapeHtml(awayAbbrev)}</div>
@@ -2383,7 +2083,6 @@ function renderMatchupHistory(games, awayAbbrev, homeAbbrev) {
         <div class="matchup-record">Побед: ${wins[String(homeAbbrev).toUpperCase()] || 0}</div>
       </div>
     </div>
-
     <div class="matchup-games">
   `;
 
@@ -2393,9 +2092,7 @@ function renderMatchupHistory(games, awayAbbrev, homeAbbrev) {
     const awayScore = getGameScore(game, "away");
     const homeScore = getGameScore(game, "home");
     const date = getGameDateValue(game);
-    const dateText = date
-      ? new Date(date).toLocaleDateString("ru-RU")
-      : "";
+    const dateText = date ? new Date(date).toLocaleDateString("ru-RU") : "";
 
     const awayWinner = awayScore !== null && homeScore !== null && awayScore > homeScore;
     const homeWinner = awayScore !== null && homeScore !== null && homeScore > awayScore;
@@ -2406,43 +2103,72 @@ function renderMatchupHistory(games, awayAbbrev, homeAbbrev) {
           ${escapeHtml(gameAway)}
           ${dateText ? `<small>${escapeHtml(dateText)} · ${escapeHtml(String(game.__season || "").replace(/^(\d{4})(\d{4})$/, "$1-$2"))}</small>` : ""}
         </div>
-
         <div class="score">
-          ${awayScore === null ? "—" : escapeHtml(awayScore)} :
-          ${homeScore === null ? "—" : escapeHtml(homeScore)}
+          ${awayScore === null ? "—" : escapeHtml(awayScore)} : ${homeScore === null ? "—" : escapeHtml(homeScore)}
         </div>
-
-        <div class="${homeWinner ? "winner" : ""}">
+        <div class="${homeWinner ? "winner" : ""}" style="text-align:right;">
           ${escapeHtml(gameHome)}
         </div>
       </div>
     `;
   });
 
-  html += '</div></div>';
+  html += '</div>';
   return html;
 }
 
-async function loadMatchupPreview(awayAbbrev, homeAbbrev) {
-  try {
-    const games = await loadMatchupHistory(awayAbbrev, homeAbbrev);
-    return renderMatchupHistory(games, awayAbbrev, homeAbbrev);
-  } catch (error) {
-    console.error("Ошибка загрузки личных встреч:", error);
-    return '<div class="matchup-card"><div class="empty">Личные встречи недоступны</div></div>';
+// Форматирование текущей серии (1 выигрыш, 2 выигрыша, 5 выигрышей, 1 поражение в ОТ)
+function formatStreakDisplay(code, count) {
+  if (!code || !count) return "—";
+  const num = Number(count) || 0;
+  const s = String(code).toUpperCase();
+
+  function pluralize(n, one, few, many) {
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod100 >= 11 && mod100 <= 19) return many;
+    if (mod10 === 1) return one;
+    if (mod10 >= 2 && mod10 <= 4) return few;
+    return many;
   }
+
+  const winWord = pluralize(num, "выигрыш", "выигрыша", "выигрышей");
+  const lossWord = pluralize(num, "поражение", "поражения", "поражений");
+
+  if (s.startsWith("W")) {
+    return s.includes("OT") || s.includes("SO") ? `${num} ${winWord} в ОТ` : `${num} ${winWord}`;
+  }
+  if (s.startsWith("L")) {
+    return `${num} ${lossWord}`;
+  }
+  if (s.startsWith("O")) {
+    return `${num} ${lossWord} в ОТ`;
+  }
+  return `${code}${count}`;
 }
 
-async function openFutureGamePreview(
-  gameId,
-  awayAbbrev,
-  homeAbbrev,
-  awayLogo,
-  homeLogo,
-  dateStr
-) {
-  openDetail();
+function formatPercentDisplay(num) {
+  if (num === undefined || num === null || num === "") return "—";
+  const n = Number(num);
+  if (!Number.isFinite(n)) return String(num);
+  return `${(n <= 1 ? n * 100 : n).toFixed(1)}%`;
+}
 
+function formatPregameLabel(cat) {
+  const map = {
+    powerPlayPctg: "Большинство (%PP)",
+    penaltyKillPctg: "Меньшинство (%PK)",
+    goalsForPerGame: "Шайб за игру (GF/G)",
+    goalsAgainstPerGame: "Пропущено за игру (GA/G)",
+    shotsForPerGame: "Броски по воротам соперника (SF/G)",
+    shotsAgainstPerGame: "Броски соперника по своим воротам (SA/G)",
+    faceoffWinningPctg: "Вбрасывания (%FO)"
+  };
+  return map[cat] || cat;
+}
+
+async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo, dateStr) {
+  openDetail();
   const body = document.getElementById("detail-body");
 
   body.innerHTML = `
@@ -2466,22 +2192,11 @@ async function openFutureGamePreview(
 
     const res = await fetch(`${API_BASE}/api/pregame/${encodeURIComponent(gameId)}?${params}`);
     const data = await res.json();
-
-    if (!res.ok || data.error) {
-      throw new Error(data.error || `HTTP ${res.status}`);
-    }
+    if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
 
     renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLogo);
   } catch (err) {
-    console.error("Ошибка pregame API, включаем fallback:", err);
-
-    let fallbackMatchup = "";
-    try {
-      fallbackMatchup = await loadMatchupPreview(awayAbbrev, homeAbbrev);
-    } catch (_) {
-      fallbackMatchup = '<div class="matchup-card"><div class="empty">Личные встречи недоступны</div></div>';
-    }
-
+    console.error("Ошибка pregame API:", err);
     body.innerHTML = `
       <div class="detail-head-game">
         <img class="team-logo" src="${escapeHtml(awayLogo)}" alt="">
@@ -2491,27 +2206,16 @@ async function openFutureGamePreview(
         </div>
         <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="">
       </div>
-      ${fallbackMatchup}
+      <div class="section-title">Последние 10 матчей между клубами</div>
+      <div class="card" id="pregame-h2h-box"><div class="loading">Загрузка очных встреч...</div></div>
     `;
+
+    loadMatchupHistory(awayAbbrev, homeAbbrev).then(hGames => {
+      const box = document.getElementById("pregame-h2h-box");
+      if (box) box.innerHTML = renderMatchupHistory(hGames, awayAbbrev, homeAbbrev);
+    });
   }
 }
-
-function formatPercentDisplay(num) {
-  if (num === undefined || num === null || num === "") return "—";
-  const n = Number(num);
-  if (!Number.isFinite(n)) return String(num);
-  return `${(n <= 1 ? n * 100 : n).toFixed(1)}%`;
-}
-
-function formatStreakDisplay(code, count) {
-  if (!code || !count) return "—";
-  const s = String(code).toUpperCase();
-  if (s.startsWith("W")) return `${count} В подряд`;
-  if (s.startsWith("L")) return `${count} П подряд`;
-  if (s.startsWith("O")) return `${count} ОТ подряд`;
-  return `${code}${count}`;
-}
-
 function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
   const body = document.getElementById("detail-body");
   const away = data.awayTeam || {};
@@ -2544,7 +2248,7 @@ function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLog
       ${renderPregameGoalieCard(probables.home, home.abbrev || homeAbbrev)}
     </div>
 
-    <!-- 2. СРАВНЕНИЕ ПОКАЗАТЕЛЕЙ (RIGHT-RAIL) -->
+    <!-- 2. СРАВНЕНИЕ ПОКАЗАТЕЛЕЙ (ВКЛЮЧАЯ БРОСКИ SF/G И SA/G) -->
     <div class="section-title">Сравнение показателей команд</div>
     <div class="card" style="padding:10px 14px;">
   `;
@@ -2614,7 +2318,7 @@ function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLog
       </div>
     </div>
 
-    <!-- 4. ТРАВМИРОВАННЫЕ ИГРОКИ -->
+    <!-- 4. ТРАВМИРОВАННЫЕ ИГРОКИ (ИНИЦИАЛ + ФАМИЛИЯ) -->
     <div class="section-title">Список травмированных (Injuries)</div>
     <div class="pregame-injuries-grid">
       <div class="injury-team-col">
@@ -2627,7 +2331,7 @@ function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLog
       </div>
     </div>
 
-    <!-- 5. ТОП БОМБАРДИРЫ КЛУБОВ -->
+    <!-- 5. ТОП БОМБАРДИРЫ КЛУБОВ (ИНИЦИАЛ + ФАМИЛИЯ) -->
     <div class="section-title">Топ бомбардиров клубов перед матчем</div>
     <div class="pregame-injuries-grid">
       <div>
@@ -2644,21 +2348,23 @@ function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLog
       </div>
     </div>
 
-    <!-- 6. ВРАТАРИ КЛУБОВ В СЕЗОНЕ -->
+    <!-- 6. ВРАТАРИ КЛУБОВ (АНГЛИЙСКИЕ КОЛОНКИ, SV, TOI, ЗАКРЕПЛЕНИЕ GOALIE И TEAM) -->
     <div class="section-title">Статистика вратарей клубов</div>
     <div class="card" style="padding:0;">
       <div class="table-scroll">
         <table class="stat-table">
           <thead>
             <tr>
-              <th>Вратарь</th>
-              <th>Клуб</th>
-              <th>И</th>
-              <th>В</th>
-              <th>П</th>
-              <th>%ОБ</th>
-              <th>ГКИ</th>
-              <th>СМ</th>
+              <th class="goalie-sticky-col1">Goalie</th>
+              <th class="goalie-sticky-col2">Team</th>
+              <th>GP</th>
+              <th>W</th>
+              <th>L</th>
+              <th>SV</th>
+              <th>SV%</th>
+              <th>GAA</th>
+              <th>SO</th>
+              <th>TOI (Min)</th>
             </tr>
           </thead>
           <tbody>
@@ -2669,24 +2375,24 @@ function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLog
       </div>
     </div>
 
-    <!-- 7. ОЧНЫЕ ВСТРЕЧИ ТЕКУЩЕГО СЕЗОНА -->
+    <!-- 7. ПОСЛЕДНИЕ 10 МАТЧЕЙ МЕЖДУ КЛУБАМИ (БЕЗ ПРЕДСЕЗОНКИ) -->
+    <div class="section-title">Последние 10 матчей между клубами</div>
+    <div class="card" id="pregame-h2h-container">
+      <div class="loading">Загрузка очных встреч...</div>
+    </div>
+
+    <!-- 8. ОЧНЫЕ ВСТРЕЧИ ТЕКУЩЕГО СЕЗОНА -->
     ${renderPregameSeasonSeries(seasonSeries, away.abbrev || awayAbbrev, home.abbrev || homeAbbrev)}
   `;
 
   body.innerHTML = html;
-}
 
-function formatPregameLabel(cat) {
-  const map = {
-    powerPlayPctg: "Большинство (%PP)",
-    penaltyKillPctg: "Меньшинство (%PK)",
-    goalsForPerGame: "Шайб за игру (GF/G)",
-    goalsAgainstPerGame: "Пропущено за игру (GA/G)",
-    shotsForPerGame: "Броски за игру (SF/G)",
-    shotsAgainstPerGame: "Броски соперника (SA/G)",
-    faceoffWinningPctg: "Вбрасывания (%FO)"
-  };
-  return map[cat] || cat;
+  loadMatchupHistory(away.abbrev || awayAbbrev, home.abbrev || homeAbbrev).then(h2hGames => {
+    const container = document.getElementById("pregame-h2h-container");
+    if (container) {
+      container.innerHTML = renderMatchupHistory(h2hGames, away.abbrev || awayAbbrev, home.abbrev || homeAbbrev);
+    }
+  });
 }
 
 function renderPregameGoalieCard(goalie, teamAbbrev) {
@@ -2712,7 +2418,7 @@ function renderPregameGoalieCard(goalie, teamAbbrev) {
         <img src="${escapeHtml(goalie.headshot || 'https://assets.nhle.com/mugs/nhl/default-player.png')}" alt="" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
         ${goalie.jersey ? `<span class="pregame-goalie-num">#${escapeHtml(goalie.jersey)}</span>` : ''}
       </div>
-      <div class="pregame-goalie-name">${escapeHtml(goalie.name)}</div>
+      <div class="pregame-goalie-name">${escapeHtml(formatShortName(goalie.name))}</div>
       <div class="pregame-goalie-sub">${escapeHtml(teamAbbrev)} · Вратарь</div>
       <span class="pregame-status-badge ${badgeClass}">${escapeHtml(badgeText)}</span>
     </div>
@@ -2728,11 +2434,12 @@ function renderPregameInjuryList(list) {
     const status = String(item.status || "Injured").toUpperCase();
     const isOut = status.includes("OUT") || status.includes("IR");
     const badgeClass = isOut ? "badge-out" : "badge-dtd";
+    const shortName = formatShortName(item.name);
 
     return `
       <div class="injury-item">
         <div class="injury-item-top">
-          <div class="injury-name">${escapeHtml(item.name)} <small style="color:var(--silver-dim);font-weight:normal;">(${escapeHtml(item.position || '')})</small></div>
+          <div class="injury-name">${escapeHtml(shortName)} <small style="color:var(--silver-dim);font-weight:normal;">(${escapeHtml(item.position || '')})</small></div>
           <span class="${badgeClass}">${escapeHtml(item.status)}</span>
         </div>
         ${item.details ? `<div class="injury-desc">${escapeHtml(item.details)}</div>` : ''}
@@ -2747,12 +2454,7 @@ function renderPregameMiniScorers(skaters) {
   }
 
   return skaters.map(s => {
-    let displayName = s.lastName || s.name || "Игрок";
-    if (s.name && s.name.includes(" ")) {
-      const parts = s.name.trim().split(" ");
-      displayName = parts.slice(1).join(" ");
-    }
-
+    const shortName = formatShortName(s.name, s.firstName, s.lastName);
     const pos = s.position ? `(${s.position})` : '';
     const diffSign = s.plusMinus > 0 ? `+${s.plusMinus}` : `${s.plusMinus}`;
     const diffColor = s.plusMinus >= 0 ? '#2ecc71' : '#e74c3c';
@@ -2760,7 +2462,7 @@ function renderPregameMiniScorers(skaters) {
     return `
       <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;">
         <div style="font-family:'Oswald',sans-serif;font-weight:600;color:var(--silver);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          ${escapeHtml(displayName)} <small style="color:var(--silver-dim);font-weight:normal;">${escapeHtml(pos)}</small>
+          ${escapeHtml(shortName)} <small style="color:var(--silver-dim);font-weight:normal;">${escapeHtml(pos)}</small>
         </div>
         <div style="font-family:'Roboto Mono',monospace;font-size:12px;white-space:nowrap;display:flex;gap:6px;align-items:center;">
           <span style="color:var(--silver);">${s.goals}+${s.assists}=<strong style="color:var(--blue);">${s.points}</strong></span>
@@ -2777,17 +2479,20 @@ function renderPregameGoalieRows(goalies, teamAbbrev) {
   return goalies.map(g => {
     const sv = typeof g.savePctg === "number" ? g.savePctg.toFixed(3) : val(g.savePctg);
     const gaa = typeof g.gaa === "number" ? g.gaa.toFixed(2) : val(g.gaa);
+    const toiMinutes = Math.round(Number(g.timeOnIce) || 0);
 
     return `
       <tr>
-        <td>${escapeHtml(g.name)}</td>
-        <td>${escapeHtml(teamAbbrev)}</td>
+        <td class="goalie-sticky-col1">${escapeHtml(formatShortName(g.name, g.firstName, g.lastName))}</td>
+        <td class="goalie-sticky-col2">${escapeHtml(teamAbbrev)}</td>
         <td class="num">${val(g.gamesPlayed)}</td>
         <td class="num">${val(g.wins)}</td>
         <td class="num">${val(g.losses)}</td>
+        <td class="num">${val(g.saves, 0)}</td>
         <td class="num">${escapeHtml(sv)}</td>
         <td class="num">${escapeHtml(gaa)}</td>
         <td class="num">${val(g.shutouts, 0)}</td>
+        <td class="num">${toiMinutes}</td>
       </tr>
     `;
   }).join("");
@@ -2823,73 +2528,36 @@ function renderPregameSeasonSeries(series, awayAbbrev, homeAbbrev) {
 
 async function loadSpotlight() {
   const games = document.getElementById("games");
-
   try {
-    const response = await fetch(
-      `${API_BASE}/api/leaders/points?limit=6`
-    );
-
+    const response = await fetch(`${API_BASE}/api/leaders/points?limit=6`);
     const data = await response.json();
     const players = data.points || [];
+    if (!players.length) return;
 
-    if (!players.length) {
-      return;
-    }
-
-    let html =
-      '<div class="spotlight-title">Лидеры лиги по очкам</div>';
-
+    let html = '<div class="spotlight-title">Лидеры лиги по очкам</div>';
     html += players.map((player, index) => `
-      <div
-        class="spotlight-card"
-        data-player-id="${escapeHtml(getPlayerId(player))}"
-      >
+      <div class="spotlight-card" data-player-id="${escapeHtml(getPlayerId(player))}">
         <div class="spotlight-rank">${index + 1}</div>
-
-        <img
-          class="spotlight-headshot"
-          src="${escapeHtml(player.headshot || "")}"
-          alt=""
-          onerror="this.style.visibility='hidden'"
-        >
-
+        <img class="spotlight-headshot" src="${escapeHtml(player.headshot || "")}" alt="" onerror="this.style.visibility='hidden'">
         <div class="spotlight-info">
           <div class="spotlight-name">
-            ${escapeHtml(
-              `${nameStr(player.firstName)} ${nameStr(player.lastName)}`
-                .trim() || "Игрок"
-            )}
+            ${escapeHtml(`${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Игрок")}
           </div>
-
           <div class="spotlight-team">
-            <img
-              class="team-logo"
-              src="${escapeHtml(player.teamLogo || "")}"
-              alt=""
-              onerror="this.style.display='none'"
-            >
-
+            <img class="team-logo" src="${escapeHtml(player.teamLogo || "")}" alt="" onerror="this.style.display='none'">
             ${escapeHtml(player.teamAbbrev || "")}
           </div>
         </div>
-
-        <div class="spotlight-value">
-          ${escapeHtml(player.value ?? "")}
-        </div>
+        <div class="spotlight-value">${escapeHtml(player.value ?? "")}</div>
       </div>
     `).join("");
 
     games.insertAdjacentHTML("beforeend", html);
-
-    games
-      .querySelectorAll(".spotlight-card")
-      .forEach(card => {
-        card.addEventListener("click", () => {
-          if (card.dataset.playerId) {
-            openPlayerDetail(card.dataset.playerId);
-          }
-        });
+    games.querySelectorAll(".spotlight-card").forEach(card => {
+      card.addEventListener("click", () => {
+        if (card.dataset.playerId) openPlayerDetail(card.dataset.playerId);
       });
+    });
   } catch (error) {
     console.error(error);
   }
@@ -2897,18 +2565,14 @@ async function loadSpotlight() {
 
 async function loadStandings() {
   const body = document.getElementById("standings-body");
-
-  body.innerHTML =
-    '<div class="loading">Загрузка...</div>';
+  body.innerHTML = '<div class="loading">Загрузка...</div>';
 
   try {
     const standingsUrl = selectedSeasonEndDate
       ? `${API_BASE}/api/standings-by-date/${encodeURIComponent(selectedSeasonEndDate)}`
       : `${API_BASE}/api/standings`;
 
-    const specialTeamsSeason =
-      seasonIdFromEndDate(selectedSeasonEndDate);
-
+    const specialTeamsSeason = seasonIdFromEndDate(selectedSeasonEndDate);
     const specialTeamsUrl = specialTeamsSeason
       ? `${API_BASE}/api/team-special-teams?season=${encodeURIComponent(specialTeamsSeason)}`
       : `${API_BASE}/api/team-special-teams`;
@@ -2920,48 +2584,24 @@ async function loadStandings() {
 
     const data = await response.json();
     let specialData = {};
-
-    try {
-      specialData = await specialResponse.json();
-    } catch (_) {}
+    try { specialData = await specialResponse.json(); } catch (_) {}
 
     const specialMap = new Map();
-    const specialTeams = Array.isArray(specialData?.teams)
-      ? specialData.teams
-      : [];
-
+    const specialTeams = Array.isArray(specialData?.teams) ? specialData.teams : [];
     specialTeams.forEach(row => {
-      let abbrev =
-        row?.teamAbbrev ??
-        row?.teamAbbrevs ??
-        row?.rawTricode ??
-        row?.triCode ??
-        row?.team;
-
+      let abbrev = row?.teamAbbrev ?? row?.teamAbbrevs ?? row?.rawTricode ?? row?.triCode ?? row?.team;
       if (Array.isArray(abbrev)) abbrev = abbrev[0];
-      if (abbrev && typeof abbrev === "object") {
-        abbrev = abbrev.default ?? abbrev.abbrev ?? abbrev.triCode ?? "";
-      }
+      if (abbrev && typeof abbrev === "object") abbrev = abbrev.default ?? abbrev.abbrev ?? abbrev.triCode ?? "";
       if (!abbrev) return;
-
       specialMap.set(String(abbrev).toUpperCase(), row);
     });
 
     currentStandingsData = (data.standings || []).map(team => {
-      let abbrev =
-        team.teamAbbrev ||
-        team.abbrev ||
-        team.rawTricode ||
-        team.triCode ||
-        team.team;
-
+      let abbrev = team.teamAbbrev || team.abbrev || team.rawTricode || team.triCode || team.team;
       if (Array.isArray(abbrev)) abbrev = abbrev[0];
-      if (abbrev && typeof abbrev === "object") {
-        abbrev = abbrev.default ?? abbrev.abbrev ?? abbrev.triCode ?? "";
-      }
+      if (abbrev && typeof abbrev === "object") abbrev = abbrev.default ?? abbrev.abbrev ?? abbrev.triCode ?? "";
 
       const special = specialMap.get(String(abbrev || "").toUpperCase());
-
       return {
         ...team,
         powerPlayPctg: special?.powerPlayPctg ?? special?.powerPlayPct ?? special?.powerPlayPercentage,
@@ -2972,9 +2612,7 @@ async function loadStandings() {
     renderStandings();
   } catch (error) {
     console.error(error);
-
-    body.innerHTML =
-      '<div class="empty">Не удалось загрузить таблицу</div>';
+    body.innerHTML = '<div class="empty">Не удалось загрузить таблицу</div>';
   }
 }
 
@@ -2990,77 +2628,34 @@ function getTeamSpecialPct(team, keys) {
 }
 
 function renderTeamRow(team, rank) {
-  const abbreviation = getTeamAbbrev(
-    team.teamAbbrev ||
-    team.abbrev ||
-    team.team
-  );
-
-  const teamName = getTeamName(
-    team.teamName ||
-    team.name
-  ) || abbreviation;
-
-  const logo = getTeamLogo(
-    team.teamLogo ||
-    team.logo
-  );
+  const abbreviation = getTeamAbbrev(team.teamAbbrev || team.abbrev || team.team);
+  const teamName = getTeamName(team.teamName || team.name) || abbreviation;
+  const logo = getTeamLogo(team.teamLogo || team.logo);
 
   const goalFor = Number(team.goalFor ?? 0);
   const goalAgainst = Number(team.goalAgainst ?? 0);
+  const difference = Number(team.goalDifferential ?? goalFor - goalAgainst);
 
-  const difference = Number(
-    team.goalDifferential ??
-    goalFor - goalAgainst
-  );
-
-  const powerPlayPctg = getTeamSpecialPct(team, [
-    "powerPlayPctg", "powerPlayPct", "powerPlayPercentage", "powerPlaySuccessPctg"
-  ]);
-  const penaltyKillPctg = getTeamSpecialPct(team, [
-    "penaltyKillPctg", "penaltyKillPct", "penaltyKillPercentage", "penaltyKillSuccessPctg"
-  ]);
+  const powerPlayPctg = getTeamSpecialPct(team, ["powerPlayPctg", "powerPlayPct", "powerPlayPercentage", "powerPlaySuccessPctg"]);
+  const penaltyKillPctg = getTeamSpecialPct(team, ["penaltyKillPctg", "penaltyKillPct", "penaltyKillPercentage", "penaltyKillSuccessPctg"]);
 
   return `
-    <div
-      class="standings-row"
-      data-team="${escapeHtml(abbreviation)}"
-      data-name="${escapeHtml(teamName)}"
-      data-logo="${escapeHtml(logo)}"
-    >
-      <div class="num sticky-col sticky-col-1">
-        ${rank}
-      </div>
-
+    <div class="standings-row" data-team="${escapeHtml(abbreviation)}" data-name="${escapeHtml(teamName)}" data-logo="${escapeHtml(logo)}">
+      <div class="num sticky-col sticky-col-1">${rank}</div>
       <div class="sticky-col sticky-col-2">
-        <img
-          class="team-logo"
-          src="${escapeHtml(logo)}"
-          alt=""
-          onerror="this.style.visibility='hidden'"
-        >
+        <img class="team-logo" src="${escapeHtml(logo)}" alt="" onerror="this.style.visibility='hidden'">
       </div>
-
-      <div class="name sticky-col sticky-col-3">
-        ${escapeHtml(abbreviation)}
-      </div>
-
+      <div class="name sticky-col sticky-col-3">${escapeHtml(abbreviation)}</div>
       <div class="num">${team.gamesPlayed ?? 0}</div>
       <div class="num">${team.wins ?? 0}</div>
       <div class="num">${team.otLosses ?? 0}</div>
       <div class="num">${team.losses ?? 0}</div>
       <div class="num">${goalFor}</div>
       <div class="num">${goalAgainst}</div>
-
-      <div
-        class="diff"
-        style="color:${difference >= 0 ? "#2ecc71" : "#e74c3c"}"
-      >
+      <div class="diff" style="color:${difference >= 0 ? "#2ecc71" : "#e74c3c"}">
         ${difference > 0 ? "+" : ""}${difference}
       </div>
-
       <div class="pts">${team.points ?? 0}</div>
-
       <div class="num special-team-pct">${powerPlayPctg === null ? "—" : `${powerPlayPctg.toFixed(1)}%`}</div>
       <div class="num special-team-pct">${penaltyKillPctg === null ? "—" : `${penaltyKillPctg.toFixed(1)}%`}</div>
     </div>
@@ -3073,11 +2668,8 @@ function sortTeams(teams) {
     let valueB = b[standingsSortKey] ?? 0;
 
     if (standingsSortKey === "goalDifferential") {
-      valueA = a.goalDifferential ??
-        ((a.goalFor ?? 0) - (a.goalAgainst ?? 0));
-
-      valueB = b.goalDifferential ??
-        ((b.goalFor ?? 0) - (b.goalAgainst ?? 0));
+      valueA = a.goalDifferential ?? ((a.goalFor ?? 0) - (a.goalAgainst ?? 0));
+      valueB = b.goalDifferential ?? ((b.goalFor ?? 0) - (b.goalAgainst ?? 0));
     } else if (standingsSortKey === "powerPlayPctg") {
       valueA = getTeamSpecialPct(a, ["powerPlayPctg", "powerPlayPct", "powerPlayPercentage", "powerPlaySuccessPctg"]) ?? -1;
       valueB = getTeamSpecialPct(b, ["powerPlayPctg", "powerPlayPct", "powerPlayPercentage", "powerPlaySuccessPctg"]) ?? -1;
@@ -3086,91 +2678,49 @@ function sortTeams(teams) {
       valueB = getTeamSpecialPct(b, ["penaltyKillPctg", "penaltyKillPct", "penaltyKillPercentage", "penaltyKillSuccessPctg"]) ?? -1;
     }
 
-    return standingsSortAsc
-      ? Number(valueA) - Number(valueB)
-      : Number(valueB) - Number(valueA);
+    return standingsSortAsc ? Number(valueA) - Number(valueB) : Number(valueB) - Number(valueA);
   });
 }
 
 function renderStandings() {
   const body = document.getElementById("standings-body");
-
   if (!currentStandingsData.length) {
-    body.innerHTML =
-      '<div class="empty">Нет данных</div>';
-
+    body.innerHTML = '<div class="empty">Нет данных</div>';
     return;
   }
 
   let html = "";
-
   if (standingsViewMode === "all") {
-    html = sortTeams(currentStandingsData)
-      .map((team, index) => renderTeamRow(team, index + 1))
-      .join("");
+    html = sortTeams(currentStandingsData).map((team, index) => renderTeamRow(team, index + 1)).join("");
   } else {
-    const field = standingsViewMode === "conf"
-      ? "conferenceName"
-      : "divisionName";
-
+    const field = standingsViewMode === "conf" ? "conferenceName" : "divisionName";
     const groups = {};
-
     currentStandingsData.forEach(team => {
       const group = nameStr(team[field]) || "Без группы";
-
-      if (!groups[group]) {
-        groups[group] = [];
-      }
-
+      if (!groups[group]) groups[group] = [];
       groups[group].push(team);
     });
 
-    Object.keys(groups)
-      .sort()
-      .forEach(group => {
-        html += `
-          <div class="group-header-row">
-            <div>${escapeHtml(group)}</div>
-          </div>
-        `;
-
-        html += sortTeams(groups[group])
-          .map((team, index) => renderTeamRow(team, index + 1))
-          .join("");
-      });
+    Object.keys(groups).sort().forEach(group => {
+      html += `<div class="group-header-row"><div>${escapeHtml(group)}</div></div>`;
+      html += sortTeams(groups[group]).map((team, index) => renderTeamRow(team, index + 1)).join("");
+    });
   }
 
   body.innerHTML = html;
-
-  body
-    .querySelectorAll(".standings-row")
-    .forEach(row => {
-      row.addEventListener("click", () => {
-        openTeamDetail(
-          row.dataset.team,
-          row.dataset.name,
-          row.dataset.logo
-        );
-      });
+  body.querySelectorAll(".standings-row").forEach(row => {
+    row.addEventListener("click", () => {
+      openTeamDetail(row.dataset.team, row.dataset.name, row.dataset.logo);
     });
+  });
 }
 
 async function loadPlayoffBracket(playoffYear) {
   const container = document.getElementById("bracket-container");
-
-  container.innerHTML = `
-    <div class="bracket-wrap">
-      <div class="loading">
-        Загрузка сетки плей-офф...
-      </div>
-    </div>
-  `;
+  container.innerHTML = `<div class="bracket-wrap"><div class="loading">Загрузка сетки плей-офф...</div></div>`;
 
   try {
-    const response = await fetch(
-      `${API_BASE}/api/playoff-bracket/${encodeURIComponent(playoffYear)}`
-    );
-
+    const response = await fetch(`${API_BASE}/api/playoff-bracket/${encodeURIComponent(playoffYear)}`);
     const data = await response.json();
     const series = data?.series || [];
 
@@ -3181,633 +2731,297 @@ async function loadPlayoffBracket(playoffYear) {
           <div class="empty">Плей-офф недоступен</div>
         </div>
       `;
-
       return;
     }
 
     const rounds = {};
-
     series.forEach(item => {
-      const round =
-        item.round ??
-        item.roundNumber ??
-        item.playoffRound ??
-        1;
-
-      if (!rounds[round]) {
-        rounds[round] = [];
-      }
-
+      const round = item.round ?? item.roundNumber ?? item.playoffRound ?? 1;
+      if (!rounds[round]) rounds[round] = [];
       rounds[round].push(item);
     });
 
     const roundNames = {
-      1:"1-й раунд",
-      2:"2-й раунд (полуфинал конференции)",
-      3:"Финал конференции",
-      4:"Финал Кубка Стэнли"
+      1: "1-й раунд",
+      2: "2-й раунд (полуфинал конференции)",
+      3: "Финал конференции",
+      4: "Финал Кубка Стэнли"
     };
 
-    let html = `
-      <div class="bracket-wrap">
-        <div class="section-title">Сетка плей-офф</div>
-    `;
+    let html = `<div class="bracket-wrap"><div class="section-title">Сетка плей-офф</div>`;
+    Object.keys(rounds).sort((a, b) => Number(a) - Number(b)).forEach(round => {
+      html += `<div class="bracket-round-title">${escapeHtml(roundNames[round] || `Раунд ${round}`)}</div>`;
+      rounds[round].forEach(item => {
+        const top = item.topSeedTeam || item.matchupTeams?.[0] || item.team1 || {};
+        const bottom = item.bottomSeedTeam || item.matchupTeams?.[1] || item.team2 || {};
+        const topWins = item.topSeedWins ?? item.matchupTeams?.[0]?.seriesWins ?? item.team1Wins ?? 0;
+        const bottomWins = item.bottomSeedWins ?? item.matchupTeams?.[1]?.seriesWins ?? item.team2Wins ?? 0;
 
-    Object.keys(rounds)
-      .sort((a, b) => Number(a) - Number(b))
-      .forEach(round => {
+        const topName = top.abbrev || top.teamAbbrev?.default || top.placeName?.default || "TBD";
+        const bottomName = bottom.abbrev || bottom.teamAbbrev?.default || bottom.placeName?.default || "TBD";
+
         html += `
-          <div class="bracket-round-title">
-            ${escapeHtml(roundNames[round] || `Раунд ${round}`)}
+          <div class="bracket-series">
+            <div class="bracket-team-row ${topWins > bottomWins && topWins === 4 ? "winner" : ""}">
+              <div class="bt-name">
+                <img src="${escapeHtml(top.logo || top.teamLogo || "")}" alt="">
+                <span>${escapeHtml(topName)}</span>
+              </div>
+              <div class="bt-wins">${topWins}</div>
+            </div>
+            <div class="bracket-team-row ${bottomWins > topWins && bottomWins === 4 ? "winner" : ""}">
+              <div class="bt-name">
+                <img src="${escapeHtml(bottom.logo || bottom.teamLogo || "")}" alt="">
+                <span>${escapeHtml(bottomName)}</span>
+              </div>
+              <div class="bt-wins">${bottomWins}</div>
+            </div>
           </div>
         `;
-
-        rounds[round].forEach(item => {
-          const top =
-            item.topSeedTeam ||
-            item.matchupTeams?.[0] ||
-            item.team1 ||
-            {};
-
-          const bottom =
-            item.bottomSeedTeam ||
-            item.matchupTeams?.[1] ||
-            item.team2 ||
-            {};
-
-          const topWins =
-            item.topSeedWins ??
-            item.matchupTeams?.[0]?.seriesWins ??
-            item.team1Wins ??
-            0;
-
-          const bottomWins =
-            item.bottomSeedWins ??
-            item.matchupTeams?.[1]?.seriesWins ??
-            item.team2Wins ??
-            0;
-
-          const topName =
-            top.abbrev ||
-            top.teamAbbrev?.default ||
-            top.placeName?.default ||
-            "TBD";
-
-          const bottomName =
-            bottom.abbrev ||
-            bottom.teamAbbrev?.default ||
-            bottom.placeName?.default ||
-            "TBD";
-
-          html += `
-            <div class="bracket-series">
-              <div class="bracket-team-row ${
-                topWins > bottomWins && topWins === 4
-                  ? "winner"
-                  : ""
-              }">
-                <div class="bt-name">
-                  <img
-                    src="${escapeHtml(top.logo || top.teamLogo || "")}"
-                    alt=""
-                  >
-
-                  <span>${escapeHtml(topName)}</span>
-                </div>
-
-                <div class="bt-wins">${topWins}</div>
-              </div>
-
-              <div class="bracket-team-row ${
-                bottomWins > topWins && bottomWins === 4
-                  ? "winner"
-                  : ""
-              }">
-                <div class="bt-name">
-                  <img
-                    src="${escapeHtml(bottom.logo || bottom.teamLogo || "")}"
-                    alt=""
-                  >
-
-                  <span>${escapeHtml(bottomName)}</span>
-                </div>
-
-                <div class="bt-wins">${bottomWins}</div>
-              </div>
-            </div>
-          `;
-        });
       });
+    });
 
     html += "</div>";
     container.innerHTML = html;
   } catch (error) {
     console.error(error);
-
-    container.innerHTML = `
-      <div class="bracket-wrap">
-        <div class="empty">
-          Не удалось загрузить сетку плей-офф
-        </div>
-      </div>
-    `;
+    container.innerHTML = `<div class="bracket-wrap"><div class="empty">Не удалось загрузить сетку плей-офф</div></div>`;
   }
 }
 
 document.getElementById("leaders-skaters-btn").onclick = () => {
   leadersMode = "skaters";
-
-  document
-    .getElementById("leaders-skaters-btn")
-    .classList.add("active");
-
-  document
-    .getElementById("leaders-goalies-btn")
-    .classList.remove("active");
-
+  document.getElementById("leaders-skaters-btn").classList.add("active");
+  document.getElementById("leaders-goalies-btn").classList.remove("active");
   document.getElementById("skater-categories").style.display = "grid";
   document.getElementById("goalie-categories").style.display = "none";
-
   loadPlayers();
 };
 
 document.getElementById("leaders-goalies-btn").onclick = () => {
   leadersMode = "goalies";
-
-  document
-    .getElementById("leaders-goalies-btn")
-    .classList.add("active");
-
-  document
-    .getElementById("leaders-skaters-btn")
-    .classList.remove("active");
-
+  document.getElementById("leaders-goalies-btn").classList.add("active");
+  document.getElementById("leaders-skaters-btn").classList.remove("active");
   document.getElementById("skater-categories").style.display = "none";
   document.getElementById("goalie-categories").style.display = "grid";
-
   loadGoalieCards();
 };
 
-document
-  .querySelectorAll("#skater-categories button")
-  .forEach(button => {
-    button.onclick = () => {
-      document
-        .querySelectorAll("#skater-categories button")
-        .forEach(item => {
-          item.classList.remove("active");
-        });
+document.querySelectorAll("#skater-categories button").forEach(button => {
+  button.onclick = () => {
+    document.querySelectorAll("#skater-categories button").forEach(item => item.classList.remove("active"));
+    button.classList.add("active");
+    currentCat = button.dataset.cat;
+    currentLimit = 25;
+    loadPlayers();
+  };
+});
 
-      button.classList.add("active");
-      currentCat = button.dataset.cat;
-      currentLimit = 25;
+document.querySelectorAll("#goalie-categories button").forEach(button => {
+  button.onclick = () => {
+    document.querySelectorAll("#goalie-categories button").forEach(item => item.classList.remove("active"));
+    button.classList.add("active");
 
-      loadPlayers();
-    };
-  });
+    const key = button.dataset.goalieSort;
+    if (currentGoalieSortKey === key) {
+      currentGoalieSortAsc = !currentGoalieSortAsc;
+    } else {
+      currentGoalieSortKey = key;
+      currentGoalieSortAsc = key === "gaa";
+    }
+    loadGoalieCards();
+  };
+});
 
-document
-  .querySelectorAll("#goalie-categories button")
-  .forEach(button => {
-    button.onclick = () => {
-      document
-        .querySelectorAll("#goalie-categories button")
-        .forEach(item => {
-          item.classList.remove("active");
-        });
-
-      button.classList.add("active");
-
-      const key = button.dataset.goalieSort;
-
-      if (currentGoalieSortKey === key) {
-        currentGoalieSortAsc = !currentGoalieSortAsc;
-      } else {
-        currentGoalieSortKey = key;
-        currentGoalieSortAsc = key === "gaa";
-      }
-
-      loadGoalieCards();
-    };
-  });
-
-// Функция перевода секунд в формат МИНУТЫ:СЕКУНДЫ
-function formatSecondsToTOI(seconds) {
-  if (seconds === undefined || seconds === null || seconds === "" || isNaN(seconds)) return "—";
-  const secNum = parseInt(seconds, 10);
-  if (!isFinite(secNum)) return String(seconds);
-  const minutes = Math.floor(secNum / 60);
-  const remainingSeconds = secNum % 60;
-  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
-}
-
+// Загрузка лидеров среди полевых игроков (включая SOG, HIT, BLK, TOI, ATOI)
 async function loadPlayers() {
   const body = document.getElementById("players-body");
-
-  body.innerHTML =
-    '<div class="loading">Загрузка...</div>';
+  body.innerHTML = '<div class="loading">Загрузка...</div>';
 
   try {
-    const seasonId =
-      seasonIdFromEndDate(selectedSeasonEndDate);
-
+    const seasonId = seasonIdFromEndDate(selectedSeasonEndDate);
     const params = new URLSearchParams({
-      limit: String(currentLimit)
+      limit: String(currentLimit),
+      category: currentCat
     });
+    if (seasonId) params.set("season", seasonId);
 
-    if (seasonId) {
-      params.set("season", seasonId);
-    }
-
-    const response = await fetch(
-      `${API_BASE}/api/leaders/${encodeURIComponent(currentCat)}?${params}`
-    );
-
+    const response = await fetch(`${API_BASE}/api/leaders/${encodeURIComponent(currentCat)}?${params}`);
     const data = await response.json();
-    const list = data[currentCat] || data.leaders || data.data || [];
+    const list = data[currentCat] || data.leaders || data.skaters || data.data || [];
 
     if (!Array.isArray(list) || !list.length) {
-      body.innerHTML =
-        '<div class="empty">Нет данных игроков</div>';
-
+      body.innerHTML = '<div class="empty">Нет данных игроков</div>';
       return;
     }
 
-    body.innerHTML = list
-      .map((player, index) => {
-        let rawVal = player.value ?? player[currentCat] ?? player.statValue;
-        
-        if (rawVal === undefined || rawVal === null) {
-          if (currentCat === "shots") rawVal = player.shots ?? player.shotsOnGoal;
-          else if (currentCat === "hits") rawVal = player.hits;
-          else if (currentCat === "blockedShots") rawVal = player.blockedShots ?? player.blocks;
-          else if (currentCat === "timeOnIce") rawVal = player.timeOnIce ?? player.toi;
-          else if (currentCat === "toiPerGame") rawVal = player.toiPerGame ?? player.avgTimeOnIce;
-        }
+    body.innerHTML = list.map((player, index) => {
+      let displayValue = player.value;
+      if (displayValue === undefined || displayValue === null) {
+        if (currentCat === "shots") displayValue = player.shots ?? player.sog;
+        else if (currentCat === "hits") displayValue = player.hits;
+        else if (currentCat === "blockedShots") displayValue = player.blockedShots ?? player.blocks;
+        else if (currentCat === "timeOnIce") displayValue = player.timeOnIce;
+        else if (currentCat === "toiPerGame") displayValue = player.toiPerGame;
+        else if (currentCat === "plusMinus") displayValue = player.plusMinus;
+        else if (currentCat === "goals") displayValue = player.goals;
+        else if (currentCat === "assists") displayValue = player.assists;
+        else displayValue = player.points;
+      }
 
-        let displayValue = rawVal ?? "—";
+      if (currentCat === "plusMinus" && typeof displayValue === "number" && displayValue > 0) {
+        displayValue = `+${displayValue}`;
+      }
 
-        if (currentCat === "timeOnIce" || currentCat === "toiPerGame") {
-          if (typeof displayValue === "number" || !isNaN(displayValue)) {
-            displayValue = formatSecondsToTOI(displayValue);
-          }
-        } else if (currentCat === "plusMinus" && typeof displayValue === "number" && displayValue > 0) {
-          displayValue = `+${displayValue}`;
-        }
-
-        return `
-          <div
-            class="player-row"
-            data-player-id="${escapeHtml(getPlayerId(player))}"
-          >
-            <div class="rank">${index + 1}</div>
-
-            <img
-              class="headshot"
-              src="${escapeHtml(getHeadshot(player))}"
-              alt=""
-              onerror="this.style.visibility='hidden'"
-            >
-
-            <div class="info">
-              <div class="pname">
-                ${escapeHtml(
-                  `${nameStr(player.firstName)} ${nameStr(player.lastName)}`
-                    .trim() || "Игрок"
-                )}
-              </div>
-
-              <div class="pteam">
-                <img
-                  class="team-logo"
-                  src="${escapeHtml(player.teamLogo || "")}"
-                  alt=""
-                  onerror="this.style.display='none'"
-                >
-
-                ${escapeHtml(player.teamAbbrev || "")}
-              </div>
+      return `
+        <div class="player-row" data-player-id="${escapeHtml(getPlayerId(player))}">
+          <div class="rank">${index + 1}</div>
+          <img class="headshot" src="${escapeHtml(getHeadshot(player))}" alt="" onerror="this.style.visibility='hidden'">
+          <div class="info">
+            <div class="pname">
+              ${escapeHtml(`${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || player.name || "Игрок")}
             </div>
-
-            <div class="pvalue">
-              ${escapeHtml(displayValue)}
+            <div class="pteam">
+              <img class="team-logo" src="${escapeHtml(player.teamLogo || "")}" alt="" onerror="this.style.display='none'">
+              ${escapeHtml(player.teamAbbrev || "")}
             </div>
           </div>
-        `;
-      })
-      .join("");
+          <div class="pvalue">${escapeHtml(val(displayValue))}</div>
+        </div>
+      `;
+    }).join("");
 
     if (list.length >= currentLimit && currentLimit < 50) {
-      body.insertAdjacentHTML(
-        "beforeend",
-        `
-          <button
-            class="show-more"
-            id="show-more-players"
-          >
-            Показать больше
-          </button>
-        `
-      );
-
-      document
-        .getElementById("show-more-players")
-        .onclick = () => {
-          currentLimit = 50;
-          loadPlayers();
-        };
+      body.insertAdjacentHTML("beforeend", `<button class="show-more" id="show-more-players">Показать больше</button>`);
+      document.getElementById("show-more-players").onclick = () => {
+        currentLimit = 50;
+        loadPlayers();
+      };
     }
 
-    body
-      .querySelectorAll(".player-row")
-      .forEach(row => {
-        row.addEventListener("click", () => {
-          openPlayerDetail(row.dataset.playerId);
-        });
-      });
+    body.querySelectorAll(".player-row").forEach(row => {
+      row.addEventListener("click", () => openPlayerDetail(row.dataset.playerId));
+    });
   } catch (error) {
     console.error(error);
-
-    body.innerHTML =
-      '<div class="empty">Не удалось загрузить лидеров</div>';
+    body.innerHTML = '<div class="empty">Не удалось загрузить лидеров</div>';
   }
 }
 
 function goalieSortValue(player) {
-  if (currentGoalieSortKey === "savePctg") {
-    return Number(
-      player.savePctg ??
-      player.savePercentage ??
-      -Infinity
-    );
-  }
-
-  if (currentGoalieSortKey === "gaa") {
-    return Number(
-      player.gaa ??
-      player.goalsAgainstAverage ??
-      Infinity
-    );
-  }
-
-  if (currentGoalieSortKey === "timeOnIce") {
-    return Number(
-      player.timeOnIce ??
-      player.toi ??
-      player.value ??
-      -Infinity
-    );
-  }
-
-  return Number(
-    player[currentGoalieSortKey] ??
-    -Infinity
-  );
+  if (currentGoalieSortKey === "savePctg") return Number(player.savePctg ?? player.savePercentage ?? -Infinity);
+  if (currentGoalieSortKey === "gaa") return Number(player.gaa ?? player.goalsAgainstAverage ?? Infinity);
+  if (currentGoalieSortKey === "timeOnIce") return Number(player.timeOnIce ?? -Infinity);
+  return Number(player[currentGoalieSortKey] ?? -Infinity);
 }
 
+// Загрузка статистики вратарей (время TOI только в целых минутах)
 async function loadGoalieCards() {
   const body = document.getElementById("players-body");
-
-  body.innerHTML =
-    '<div class="loading">Загрузка статистики вратарей...</div>';
+  body.innerHTML = '<div class="loading">Загрузка статистики вратарей...</div>';
 
   try {
-    const seasonId =
-      seasonIdFromEndDate(selectedSeasonEndDate);
+    const seasonId = seasonIdFromEndDate(selectedSeasonEndDate);
+    const params = new URLSearchParams({ limit: "100" });
+    if (seasonId) params.set("season", seasonId);
 
-    const params = new URLSearchParams({
-      limit: "100"
-    });
-
-    if (seasonId) {
-      params.set("season", seasonId);
-    }
-
-    const response = await fetch(
-      `${API_BASE}/api/goalie-leaders?${params}`,
-      {
-        cache: "no-store"
-      }
-    );
-
+    const response = await fetch(`${API_BASE}/api/goalie-leaders?${params}`, { cache: "no-store" });
     const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || `HTTP ${response.status}`);
 
-    if (!response.ok) {
-      throw new Error(
-        data?.error || `HTTP ${response.status}`
-      );
-    }
-
-    let rows = Array.isArray(data.goalies)
-      ? [...data.goalies]
-      : (Array.isArray(data.data) ? [...data.data] : []);
-
+    let rows = Array.isArray(data.goalies) ? [...data.goalies] : (Array.isArray(data.data) ? [...data.data] : []);
     if (!rows.length) {
-      body.innerHTML =
-        '<div class="empty">Нет данных вратарей за выбранный сезон</div>';
-
+      body.innerHTML = '<div class="empty">Нет данных вратарей за выбранный сезон</div>';
       return;
     }
 
     await hydrateGoalieHeadshots(rows);
-
     rows.sort((a, b) => {
-      const valueA = goalieSortValue(a);
-      const valueB = goalieSortValue(b);
-
-      return currentGoalieSortAsc
-        ? valueA - valueB
-        : valueB - valueA;
+      const va = goalieSortValue(a);
+      const vb = goalieSortValue(b);
+      return currentGoalieSortAsc ? va - vb : vb - va;
     });
 
-    body.innerHTML = rows
-      .map((player, index) => {
-        const savePct =
-          player.savePctg ??
-          player.savePercentage;
+    body.innerHTML = rows.map((player, index) => {
+      const savePct = player.savePctg ?? player.savePercentage;
+      const gaa = player.gaa ?? player.goalsAgainstAverage;
 
-        const gaa =
-          player.gaa ??
-          player.goalsAgainstAverage;
+      let mainValue = player[currentGoalieSortKey] ?? player.value ?? "—";
+      if (currentGoalieSortKey === "savePctg") {
+        mainValue = typeof savePct === "number" ? savePct.toFixed(3) : (mainValue !== "—" ? Number(mainValue).toFixed(3) : "—");
+      } else if (currentGoalieSortKey === "gaa") {
+        mainValue = typeof gaa === "number" ? gaa.toFixed(2) : (mainValue !== "—" ? Number(mainValue).toFixed(2) : "—");
+      } else if (currentGoalieSortKey === "timeOnIce") {
+        mainValue = Math.round(Number(player.timeOnIce) || 0);
+      }
 
-        let mainValue =
-          player[currentGoalieSortKey] ??
-          player.value ??
-          "—";
-
-        if (currentGoalieSortKey === "savePctg") {
-          mainValue =
-            typeof savePct === "number"
-              ? savePct.toFixed(3)
-              : (mainValue !== "—" ? Number(mainValue).toFixed(3) : "—");
-        } else if (currentGoalieSortKey === "gaa") {
-          mainValue =
-            typeof gaa === "number"
-              ? gaa.toFixed(2)
-              : (mainValue !== "—" ? Number(mainValue).toFixed(2) : "—");
-        } else if (currentGoalieSortKey === "timeOnIce") {
-          const toiSec = Number(player.timeOnIce ?? player.toi ?? player.value ?? 0);
-          mainValue = formatSecondsToTOI(toiSec);
-        }
-
-        return `
-          <div
-            class="player-row"
-            data-player-id="${escapeHtml(getPlayerId(player))}"
-          >
-            <div class="rank">${index + 1}</div>
-
-            <img
-              class="headshot"
-              src="${escapeHtml(getHeadshot(player))}"
-              alt=""
-              onerror="this.style.visibility='hidden'"
-            >
-
-            <div class="info">
-              <div class="pname">
-                ${escapeHtml(
-                  `${nameStr(player.firstName)} ${nameStr(player.lastName)}`
-                    .trim() || "Вратарь"
-                )}
-              </div>
-
-              <div class="pteam">
-                <img
-                  class="team-logo"
-                  src="${escapeHtml(player.teamLogo || "")}"
-                  alt=""
-                  onerror="this.style.display='none'"
-                />
-
-                ${escapeHtml(player.teamAbbrev || "")}
-              </div>
-            </div>
-
-            <div class="pvalue">
-              ${escapeHtml(mainValue)}
+      return `
+        <div class="player-row" data-player-id="${escapeHtml(getPlayerId(player))}">
+          <div class="rank">${index + 1}</div>
+          <img class="headshot" src="${escapeHtml(getHeadshot(player))}" alt="" onerror="this.style.visibility='hidden'">
+          <div class="info">
+            <div class="pname">${escapeHtml(`${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Вратарь")}</div>
+            <div class="pteam">
+              <img class="team-logo" src="${escapeHtml(player.teamLogo || "")}" alt="" onerror="this.style.display='none'">
+              ${escapeHtml(player.teamAbbrev || "")}
             </div>
           </div>
-        `;
-      })
-      .join("");
+          <div class="pvalue">${escapeHtml(mainValue)}</div>
+        </div>
+      `;
+    }).join("");
 
-    body
-      .querySelectorAll(".player-row")
-      .forEach(row => {
-        row.addEventListener("click", () => {
-          openPlayerDetail(row.dataset.playerId);
-        });
-      });
+    body.querySelectorAll(".player-row").forEach(row => {
+      row.addEventListener("click", () => openPlayerDetail(row.dataset.playerId));
+    });
   } catch (error) {
     console.error(error);
-
-    body.innerHTML = `
-      <div class="empty">
-        Не удалось загрузить статистику вратарей
-        <br>
-        <small>${escapeHtml(error.message || "Ошибка загрузки")}</small>
-      </div>
-    `;
+    body.innerHTML = `<div class="empty">Не удалось загрузить статистику вратарей<br><small>${escapeHtml(error.message || "Ошибка")}</small></div>`;
   }
 }
 
 async function hydrateGoalieHeadshots(players) {
-  await Promise.all(
-    players.map(async player => {
-      const playerId = getPlayerId(player);
-
-      if (
-        !playerId ||
-        player.headshot ||
-        goalieHeadshotCache.has(playerId)
-      ) {
-        return;
+  await Promise.all(players.map(async player => {
+    const playerId = getPlayerId(player);
+    if (!playerId || player.headshot || goalieHeadshotCache.has(playerId)) return;
+    try {
+      const response = await fetch(`${API_BASE}/api/player/${encodeURIComponent(playerId)}`);
+      if (!response.ok) return;
+      const profile = await response.json();
+      if (profile.headshot) {
+        goalieHeadshotCache.set(playerId, profile.headshot);
+        player.headshot = profile.headshot;
       }
-
-      try {
-        const response = await fetch(
-          `${API_BASE}/api/player/${encodeURIComponent(playerId)}`
-        );
-
-        if (!response.ok) {
-          return;
-        }
-
-        const profile = await response.json();
-
-        if (profile.headshot) {
-          goalieHeadshotCache.set(
-            playerId,
-            profile.headshot
-          );
-
-          player.headshot = profile.headshot;
-        }
-
-        if (!player.firstName && profile.firstName) {
-          player.firstName = profile.firstName;
-        }
-
-        if (!player.lastName && profile.lastName) {
-          player.lastName = profile.lastName;
-        }
-
-        if (!player.teamLogo && profile.teamLogo) {
-          player.teamLogo = profile.teamLogo;
-        }
-      } catch (error) {
-        console.error(
-          "Ошибка загрузки фото вратаря:",
-          error
-        );
-      }
-    })
-  );
+      if (!player.firstName && profile.firstName) player.firstName = profile.firstName;
+      if (!player.lastName && profile.lastName) player.lastName = profile.lastName;
+      if (!player.teamLogo && profile.teamLogo) player.teamLogo = profile.teamLogo;
+    } catch (_) {}
+  }));
 }
 
-async function openTeamDetail(
-  teamAbbrev,
-  teamName,
-  teamLogo
-) {
+async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
   const abbreviation = getTeamAbbrev(teamAbbrev);
   const name = getTeamName(teamName) || abbreviation;
   const logo = getTeamLogo(teamLogo);
 
   openDetail();
-
   if (!abbreviation) {
-    document.getElementById("detail-body").innerHTML =
-      '<div class="empty">Не удалось определить клуб</div>';
+    document.getElementById("detail-body").innerHTML = '<div class="empty">Не удалось определить клуб</div>';
     return;
   }
 
   try {
     const seasonId = seasonIdFromEndDate(selectedSeasonEndDate);
     const params = new URLSearchParams();
-
     if (seasonId) params.set("season", seasonId);
-
     const query = params.toString() ? `?${params}` : "";
 
-    const response = await fetch(
-      `${API_BASE}/api/roster-stats/${encodeURIComponent(abbreviation)}${query}`,
-      {
-        cache: "no-store",
-        headers: { Accept: "application/json" }
-      }
-    );
-
+    const response = await fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(abbreviation)}${query}`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" }
+    });
     const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data?.error || `HTTP ${response.status}`);
-    }
-
-    if (data?.error) {
-      throw new Error(data.error);
-    }
+    if (!response.ok || data?.error) throw new Error(data?.error || `HTTP ${response.status}`);
 
     currentTeamFullData = data.data || data.result || data.roster || data;
     currentTeamType = "regular";
@@ -3820,14 +3034,7 @@ async function openTeamDetail(
     renderTeamTabsAndTables(abbreviation, name, logo);
   } catch (error) {
     console.error(error);
-
-    document.getElementById("detail-body").innerHTML = `
-      <div class="empty">
-        Не удалось загрузить состав команды
-        <br>
-        <small>${escapeHtml(error.message || "Ошибка сервера")}</small>
-      </div>
-    `;
+    document.getElementById("detail-body").innerHTML = `<div class="empty">Не удалось загрузить состав команды<br><small>${escapeHtml(error.message || "Ошибка сервера")}</small></div>`;
   }
 }
 
@@ -3835,39 +3042,26 @@ async function loadTeamScheduleSeasons() {
   try {
     const response = await fetch(`${API_BASE}/api/seasons-list`, { cache: "no-store" });
     const data = await response.json();
-
     currentTeamScheduleSeasons = (Array.isArray(data?.seasons) ? data.seasons : [])
-      .map(item => ({
-        id: String(item?.id || item?.season || ""),
-        end: item?.standingsEnd || ""
-      }))
+      .map(item => ({ id: String(item?.id || item?.season || ""), end: item?.standingsEnd || "" }))
       .filter(item => /^\d{8}$/.test(item.id))
       .sort((a, b) => Number(b) - Number(a));
-  } catch (error) {
-    console.error("Ошибка загрузки сезонов расписания команды:", error);
+  } catch (_) {
     currentTeamScheduleSeasons = [];
   }
 }
 
 function formatSeasonId(seasonId) {
   const value = String(seasonId || "");
-  return /^\d{8}$/.test(value)
-    ? `${value.slice(0, 4)}-${value.slice(6, 8)}`
-    : value;
+  return /^\d{8}$/.test(value) ? `${value.slice(0, 4)}-${value.slice(6, 8)}` : value;
 }
 
 function teamScheduleGameDate(game) {
   const raw = game?.gameDate || game?.startTimeUTC || game?.date || "";
   if (!raw) return "";
-
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) return String(raw);
-
-  return date.toLocaleDateString("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric"
-  });
+  return date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function renderTeamScheduleGame(game, teamAbbrev) {
@@ -3885,6 +3079,7 @@ function renderTeamScheduleGame(game, teamAbbrev) {
   const completed = isCompletedGame(game);
   const scoreFor = isHome ? getGameScore(game, "home") : getGameScore(game, "away");
   const scoreAgainst = isHome ? getGameScore(game, "away") : getGameScore(game, "home");
+
   const result = completed && scoreFor !== null && scoreAgainst !== null
     ? (scoreFor > scoreAgainst ? "В" : scoreFor < scoreAgainst ? "П" : "ОТ")
     : "";
@@ -3918,83 +3113,48 @@ async function loadTeamSchedule(teamAbbrev, seasonId) {
   const container = document.getElementById("team-tables-container");
   currentTeamScheduleSeason = seasonId;
   currentTeamSchedule = null;
-
   container.innerHTML = '<div class="loading">Загрузка расписания...</div>';
 
   try {
-    const response = await fetch(
-      `${API_BASE}/api/team-schedule/${encodeURIComponent(teamAbbrev)}?season=${encodeURIComponent(seasonId)}`,
-      { cache: "no-store" }
-    );
-
+    const response = await fetch(`${API_BASE}/api/team-schedule/${encodeURIComponent(teamAbbrev)}?season=${encodeURIComponent(seasonId)}`, { cache: "no-store" });
     const data = await response.json();
-
-    if (!response.ok || data?.error) {
-      throw new Error(data?.error || `HTTP ${response.status}`);
-    }
-
+    if (!response.ok || data?.error) throw new Error(data?.error || `HTTP ${response.status}`);
     currentTeamSchedule = data;
     renderTeamSchedule(teamAbbrev, seasonId);
   } catch (error) {
-    console.error(error);
-    container.innerHTML = `
-      <div class="empty">
-        Не удалось загрузить расписание
-        <br>
-        <small>${escapeHtml(error.message || "Ошибка загрузки")}</small>
-      </div>
-    `;
+    container.innerHTML = `<div class="empty">Не удалось загрузить расписание<br><small>${escapeHtml(error.message || "Ошибка")}</small></div>`;
   }
 }
 
 function renderTeamSchedule(teamAbbrev, seasonId) {
   const container = document.getElementById("team-tables-container");
-  const games = getScheduleGames(currentTeamSchedule)
-    .sort((a, b) => {
-      const da = new Date(getGameDateValue(a)).getTime() || 0;
-      const db = new Date(getGameDateValue(b)).getTime() || 0;
-      return da - db;
-    });
+  const games = getScheduleGames(currentTeamSchedule).sort((a, b) => (new Date(getGameDateValue(a)).getTime() || 0) - (new Date(getGameDateValue(b)).getTime() || 0));
 
-  let html = `
-    <div class="section-title">Расписание ${escapeHtml(formatSeasonId(seasonId))}</div>
-  `;
-
+  let html = `<div class="section-title">Расписание ${escapeHtml(formatSeasonId(seasonId))}</div>`;
   if (!games.length) {
     container.innerHTML = html + '<div class="empty">Матчи за этот сезон не найдены</div>';
     return;
   }
 
   html += '<div class="team-schedule-list">';
-  games.forEach(game => {
-    html += renderTeamScheduleGame(game, teamAbbrev);
-  });
+  games.forEach(game => { html += renderTeamScheduleGame(game, teamAbbrev); });
   html += '</div>';
-
   container.innerHTML = html;
 }
 
 function renderTeamScheduleSeasonButtons(teamAbbrev) {
   const seasons = currentTeamScheduleSeasons.length
     ? currentTeamScheduleSeasons
-    : currentTeamFullData?.season
-      ? [{ id: String(currentTeamFullData.season), end: "" }]
-      : [];
+    : (currentTeamFullData?.season ? [{ id: String(currentTeamFullData.season), end: "" }] : []);
 
-  if (!seasons.length) {
-    return '<div class="empty">Список сезонов недоступен</div>';
-  }
-
+  if (!seasons.length) return '<div class="empty">Список сезонов недоступен</div>';
   const currentId = String(currentTeamFullData?.season || seasons[0].id);
 
   return `
     <div class="section-title">Сезон расписания</div>
     <div class="team-schedule-seasons">
       ${seasons.map(season => `
-        <button
-          class="team-season-btn ${season.id === currentId ? "active" : ""}"
-          data-team-season="${escapeHtml(season.id)}"
-        >
+        <button class="team-season-btn ${season.id === currentId ? "active" : ""}" data-team-season="${escapeHtml(season.id)}">
           ${escapeHtml(formatSeasonId(season.id))}
         </button>
       `).join("")}
@@ -4004,69 +3164,41 @@ function renderTeamScheduleSeasonButtons(teamAbbrev) {
 
 async function openTeamScheduleTab(teamAbbrev) {
   currentTeamType = "schedule";
-
   const container = document.getElementById("team-tables-container");
-
-  if (!currentTeamScheduleSeasons.length) {
-    await loadTeamScheduleSeasons();
-  }
+  if (!currentTeamScheduleSeasons.length) await loadTeamScheduleSeasons();
 
   container.innerHTML = renderTeamScheduleSeasonButtons(teamAbbrev);
+  container.querySelectorAll(".team-season-btn").forEach(button => {
+    button.onclick = async () => {
+      container.querySelectorAll(".team-season-btn").forEach(item => item.classList.remove("active"));
+      button.classList.add("active");
+      await loadTeamSchedule(teamAbbrev, button.dataset.teamSeason);
+    };
+  });
 
-  container
-    .querySelectorAll(".team-season-btn")
-    .forEach(button => {
-      button.onclick = async () => {
-        container
-          .querySelectorAll(".team-season-btn")
-          .forEach(item => item.classList.remove("active"));
-        button.classList.add("active");
-        await loadTeamSchedule(teamAbbrev, button.dataset.teamSeason);
-      };
-    });
-
-  const initialSeason =
-    currentTeamFullData?.season ||
-    currentTeamScheduleSeasons[0]?.id;
-
+  const initialSeason = currentTeamFullData?.season || currentTeamScheduleSeasons[0]?.id;
   if (initialSeason) {
-    const button = container.querySelector(
-      `.team-season-btn[data-team-season="${CSS.escape(String(initialSeason))}"]`
-    );
-
+    const button = container.querySelector(`.team-season-btn[data-team-season="${CSS.escape(String(initialSeason))}"]`);
     if (button) button.classList.add("active");
     await loadTeamSchedule(teamAbbrev, String(initialSeason));
   }
 }
 
-function renderTeamTabsAndTables(
-  teamAbbrev,
-  teamName,
-  teamLogo
-) {
+function renderTeamTabsAndTables(teamAbbrev, teamName, teamLogo) {
   const body = document.getElementById("detail-body");
-
   body.innerHTML = `
     <div class="detail-head">
-      <img
-        class="team-logo"
-        src="${escapeHtml(teamLogo)}"
-        alt=""
-        onerror="this.style.visibility='hidden'"
-      >
-
+      <img class="team-logo" src="${escapeHtml(teamLogo)}" alt="" onerror="this.style.visibility='hidden'">
       <div>
         <div class="title">${escapeHtml(teamName || teamAbbrev)}</div>
         <div class="subtitle">${escapeHtml(teamAbbrev)}</div>
       </div>
     </div>
-
     <div class="cat-row" style="margin-top:14px;">
       <button id="btn-team-reg" class="active">Регулярный сезон</button>
       <button id="btn-team-po">Плей-офф</button>
       <button id="btn-team-schedule">Расписание</button>
     </div>
-
     <div id="team-tables-container"></div>
   `;
 
@@ -4097,82 +3229,31 @@ function renderTeamTabsAndTables(
 }
 
 function normalizeTeamDataset(data) {
-  if (!data || typeof data !== "object") {
-    return {
-      skaters: [],
-      goalies: []
-    };
-  }
-
-  const skaters =
-    data.skaters ||
-    data.skatersStats ||
-    data.players ||
-    data.forwards ||
-    [];
-
-  const goalies =
-    data.goalies ||
-    data.goaltenders ||
-    data.goaliesStats ||
-    [];
-
+  if (!data || typeof data !== "object") return { skaters: [], goalies: [] };
+  const skaters = data.skaters || data.skatersStats || data.players || data.forwards || [];
+  const goalies = data.goalies || data.goaltenders || data.goaliesStats || [];
   return {
-    skaters: Array.isArray(skaters)
-      ? skaters
-      : [],
-
-    goalies: Array.isArray(goalies)
-      ? goalies
-      : []
+    skaters: Array.isArray(skaters) ? skaters : [],
+    goalies: Array.isArray(goalies) ? goalies : []
   };
 }
 
 function buildTeamTablesBlock() {
-  const container =
-    document.getElementById("team-tables-container");
-
-  const source =
-    currentTeamFullData?.[currentTeamType] ||
-    currentTeamFullData?.[
-      currentTeamType === "regular"
-        ? "regularSeason"
-        : "playoffs"
-    ] ||
-    currentTeamFullData;
-
+  const container = document.getElementById("team-tables-container");
+  const source = currentTeamFullData?.[currentTeamType] || currentTeamFullData?.[currentTeamType === "regular" ? "regularSeason" : "playoffs"] || currentTeamFullData;
   const dataset = normalizeTeamDataset(source);
 
   const skaters = [...dataset.skaters].sort((a, b) => {
-    const valueA = Number(
-      currentTeamSortKey === "penaltyMinutes"
-        ? a.penaltyMinutes ?? a.pim ?? 0
-        : a[currentTeamSortKey] ?? 0
-    );
-
-    const valueB = Number(
-      currentTeamSortKey === "penaltyMinutes"
-        ? b.penaltyMinutes ?? b.pim ?? 0
-        : b[currentTeamSortKey] ?? 0
-    );
-
-    return currentTeamSortAsc
-      ? valueA - valueB
-      : valueB - valueA;
+    const valueA = Number(currentTeamSortKey === "penaltyMinutes" ? a.penaltyMinutes ?? a.pim ?? 0 : a[currentTeamSortKey] ?? 0);
+    const valueB = Number(currentTeamSortKey === "penaltyMinutes" ? b.penaltyMinutes ?? b.pim ?? 0 : b[currentTeamSortKey] ?? 0);
+    return currentTeamSortAsc ? valueA - valueB : valueB - valueA;
   });
 
-  const goalies = [...dataset.goalies].sort(
-    (a, b) =>
-      Number(b.gamesPlayed ?? 0) -
-      Number(a.gamesPlayed ?? 0)
-  );
+  const goalies = [...dataset.goalies].sort((a, b) => Number(b.gamesPlayed ?? 0) - Number(a.gamesPlayed ?? 0));
 
-  let html =
-    '<div class="section-title">Полевые игроки</div>';
-
+  let html = '<div class="section-title">Полевые игроки</div>';
   if (!skaters.length) {
-    html +=
-      '<div class="empty">Нет данных полевых игроков</div>';
+    html += '<div class="empty">Нет данных полевых игроков</div>';
   } else {
     html += `
       <div class="table-scroll">
@@ -4188,43 +3269,16 @@ function buildTeamTablesBlock() {
               <th class="sortable" data-sort="penaltyMinutes">Штр</th>
             </tr>
           </thead>
-
           <tbody>
             ${skaters.map(player => `
-              <tr
-                class="clickable-row"
-                data-player-id="${escapeHtml(getPlayerId(player))}"
-              >
-                <td>
-                  ${escapeHtml(
-                    `${nameStr(player.firstName)} ${nameStr(player.lastName)}`
-                      .trim() || "Игрок"
-                  )}
-                </td>
-
-                <td class="num">
-                  ${val(player.gamesPlayed)}
-                </td>
-
-                <td class="num">
-                  ${val(player.goals)}
-                </td>
-
-                <td class="num">
-                  ${val(player.assists)}
-                </td>
-
-                <td class="num">
-                  ${val(player.points)}
-                </td>
-
-                <td class="num">
-                  ${val(player.plusMinus)}
-                </td>
-
-                <td class="num">
-                  ${val(player.penaltyMinutes ?? player.pim)}
-                </td>
+              <tr class="clickable-row" data-player-id="${escapeHtml(getPlayerId(player))}">
+                <td>${escapeHtml(`${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Игрок")}</td>
+                <td class="num">${val(player.gamesPlayed)}</td>
+                <td class="num">${val(player.goals)}</td>
+                <td class="num">${val(player.assists)}</td>
+                <td class="num">${val(player.points)}</td>
+                <td class="num">${val(player.plusMinus)}</td>
+                <td class="num">${val(player.penaltyMinutes ?? player.pim)}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -4234,10 +3288,8 @@ function buildTeamTablesBlock() {
   }
 
   html += '<div class="section-title">Вратари</div>';
-
   if (!goalies.length) {
-    html +=
-      '<div class="empty">Нет данных вратарей</div>';
+    html += '<div class="empty">Нет данных вратарей</div>';
   } else {
     html += `
       <div class="table-scroll">
@@ -4252,56 +3304,18 @@ function buildTeamTablesBlock() {
               <th>ГКИ</th>
             </tr>
           </thead>
-
           <tbody>
             ${goalies.map(player => {
-              const savePct =
-                player.savePercentage ??
-                player.savePctg;
-
-              const gaa =
-                player.goalsAgainstAverage ??
-                player.gaa;
-
+              const savePct = player.savePercentage ?? player.savePctg;
+              const gaa = player.goalsAgainstAverage ?? player.gaa;
               return `
-                <tr
-                  class="clickable-row"
-                  data-player-id="${escapeHtml(getPlayerId(player))}"
-                >
-                  <td>
-                    ${escapeHtml(
-                      `${nameStr(player.firstName)} ${nameStr(player.lastName)}`
-                        .trim() || "Вратарь"
-                    )}
-                  </td>
-
-                  <td class="num">
-                    ${val(player.gamesPlayed)}
-                  </td>
-
-                  <td class="num">
-                    ${val(player.wins)}
-                  </td>
-
-                  <td class="num">
-                    ${val(player.losses)}
-                  </td>
-
-                  <td class="num">
-                    ${
-                      typeof savePct === "number"
-                        ? savePct.toFixed(3)
-                        : val(savePct)
-                    }
-                  </td>
-
-                  <td class="num">
-                    ${
-                      typeof gaa === "number"
-                        ? gaa.toFixed(2)
-                        : val(gaa)
-                    }
-                  </td>
+                <tr class="clickable-row" data-player-id="${escapeHtml(getPlayerId(player))}">
+                  <td>${escapeHtml(`${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Вратарь")}</td>
+                  <td class="num">${val(player.gamesPlayed)}</td>
+                  <td class="num">${val(player.wins)}</td>
+                  <td class="num">${val(player.losses)}</td>
+                  <td class="num">${typeof savePct === "number" ? savePct.toFixed(3) : val(savePct)}</td>
+                  <td class="num">${typeof gaa === "number" ? gaa.toFixed(2) : val(gaa)}</td>
                 </tr>
               `;
             }).join("")}
@@ -4312,33 +3326,24 @@ function buildTeamTablesBlock() {
   }
 
   container.innerHTML = html;
-
-  container
-    .querySelectorAll(".clickable-row")
-    .forEach(row => {
-      row.addEventListener("click", () => {
-        if (row.dataset.playerId) {
-          openPlayerDetail(row.dataset.playerId);
-        }
-      });
+  container.querySelectorAll(".clickable-row").forEach(row => {
+    row.addEventListener("click", () => {
+      if (row.dataset.playerId) openPlayerDetail(row.dataset.playerId);
     });
+  });
 
-  container
-    .querySelectorAll("th.sortable")
-    .forEach(header => {
-      header.onclick = () => {
-        const key = header.dataset.sort;
-
-        if (currentTeamSortKey === key) {
-          currentTeamSortAsc = !currentTeamSortAsc;
-        } else {
-          currentTeamSortKey = key;
-          currentTeamSortAsc = false;
-        }
-
-        buildTeamTablesBlock();
-      };
-    });
+  container.querySelectorAll("th.sortable").forEach(header => {
+    header.onclick = () => {
+      const key = header.dataset.sort;
+      if (currentTeamSortKey === key) {
+        currentTeamSortAsc = !currentTeamSortAsc;
+      } else {
+        currentTeamSortKey = key;
+        currentTeamSortAsc = false;
+      }
+      buildTeamTablesBlock();
+    };
+  });
 }
 
 const TEAM_STAT_LABELS = {
@@ -4357,112 +3362,52 @@ const TEAM_STAT_LABELS = {
 };
 
 function formatPeriodsBreakdown(periods) {
-  if (!Array.isArray(periods) || !periods.length) {
-    return "";
-  }
-
+  if (!Array.isArray(periods) || !periods.length) return "";
   return `(${periods.map(value => val(value, "0")).join(" / ")})`;
 }
 
-function renderTeamGameStats(
-  rightRail,
-  awayAbbrev,
-  homeAbbrev,
-  awayLogo,
-  homeLogo
-) {
+function renderTeamGameStats(rightRail, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
   const stats = rightRail?.teamGameStats || [];
-
-  let html =
-    '<div class="section-title">Статистика команд</div>';
-
-  if (!stats.length) {
-    return html +
-      '<div class="empty">Статистика недоступна</div>';
-  }
+  let html = '<div class="section-title">Статистика команд</div>';
+  if (!stats.length) return html + '<div class="empty">Статистика недоступна</div>';
 
   html += `
     <div class="teamstat-head">
       <div class="side">
-        <img
-          class="team-logo"
-          src="${escapeHtml(awayLogo)}"
-          alt=""
-        >
-
+        <img class="team-logo" src="${escapeHtml(awayLogo)}" alt="">
         <span>${escapeHtml(awayAbbrev)}</span>
       </div>
-
       <div></div>
-
       <div class="side right">
         <span>${escapeHtml(homeAbbrev)}</span>
-
-        <img
-          class="team-logo"
-          src="${escapeHtml(homeLogo)}"
-          alt=""
-        >
+        <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="">
       </div>
     </div>
   `;
 
   stats.forEach(stat => {
-    const label =
-      TEAM_STAT_LABELS[stat.category] ||
-      stat.category;
-
+    const label = TEAM_STAT_LABELS[stat.category] || stat.category;
     let awayValue = stat.awayValue;
     let homeValue = stat.homeValue;
 
-    if (
-      typeof awayValue === "number" &&
-      (
-        stat.category === "faceoffWinningPctg" ||
-        stat.category === "powerPlayPctg"
-      )
-    ) {
-      awayValue =
-        `${(awayValue * 100).toFixed(1)}%`;
-
-      homeValue =
-        `${(homeValue * 100).toFixed(1)}%`;
+    if (typeof awayValue === "number" && (stat.category === "faceoffWinningPctg" || stat.category === "powerPlayPctg")) {
+      awayValue = `${(awayValue * 100).toFixed(1)}%`;
+      homeValue = `${(homeValue * 100).toFixed(1)}%`;
     }
 
-    const awayPeriods =
-      formatPeriodsBreakdown(
-        stat.awayPeriods ||
-        stat.away?.periods
-      );
-
-    const homePeriods =
-      formatPeriodsBreakdown(
-        stat.homePeriods ||
-        stat.home?.periods
-      );
+    const awayPeriods = formatPeriodsBreakdown(stat.awayPeriods || stat.away?.periods);
+    const homePeriods = formatPeriodsBreakdown(stat.homePeriods || stat.home?.periods);
 
     html += `
       <div class="teamstat-row">
         <div class="val away">
           ${escapeHtml(val(awayValue))}
-
-          ${
-            awayPeriods
-              ? `<span class="periods">${escapeHtml(awayPeriods)}</span>`
-              : ""
-          }
+          ${awayPeriods ? `<span class="periods">${escapeHtml(awayPeriods)}</span>` : ""}
         </div>
-
         <div class="label">${escapeHtml(label)}</div>
-
         <div class="val home">
           ${escapeHtml(val(homeValue))}
-
-          ${
-            homePeriods
-              ? `<span class="periods">${escapeHtml(homePeriods)}</span>`
-              : ""
-          }
+          ${homePeriods ? `<span class="periods">${escapeHtml(homePeriods)}</span>` : ""}
         </div>
       </div>
     `;
@@ -4489,11 +3434,9 @@ function formatPct(value) {
 
 function normalizeGameSkaters(team) {
   if (!team || typeof team !== "object") return [];
-
   const forwards = Array.isArray(team.forwards) ? team.forwards : [];
   const defense = Array.isArray(team.defense) ? team.defense : [];
   const skaters = Array.isArray(team.skaters) ? team.skaters : [];
-
   return [...forwards, ...defense, ...skaters];
 }
 
@@ -4535,9 +3478,7 @@ function initGameStatSorting() {
 
         const currentKey = table.dataset.sortKey || "";
         const currentDir = table.dataset.sortDir === "desc" ? "desc" : "asc";
-        const direction = currentKey === key
-          ? (currentDir === "asc" ? "desc" : "asc")
-          : "desc";
+        const direction = currentKey === key ? (currentDir === "asc" ? "desc" : "asc") : "desc";
 
         const rows = Array.from(tbody.querySelectorAll("tr"));
         rows.sort((a, b) => {
@@ -4575,13 +3516,7 @@ function initGameStatSorting() {
 }
 
 function getGamePlayerPosition(player) {
-  const value =
-    player?.positionCode ??
-    player?.position ??
-    player?.positionAbbrev ??
-    player?.positionCodeAbbrev ??
-    "";
-
+  const value = player?.positionCode ?? player?.position ?? player?.positionAbbrev ?? player?.positionCodeAbbrev ?? "";
   const position = String(value || "").toUpperCase();
   if (["D", "L", "R", "C"].includes(position)) return position;
   return "";
@@ -4589,14 +3524,8 @@ function getGamePlayerPosition(player) {
 
 function renderGamePlayerStats(team, teamAbbrev) {
   const skaters = normalizeGameSkaters(team);
-
-  let html = `
-    <div class="section-title">Игроки — ${escapeHtml(teamAbbrev)}</div>
-  `;
-
-  if (!skaters.length) {
-    return html + '<div class="empty">Статистика полевых игроков недоступна</div>';
-  }
+  let html = `<div class="section-title">Игроки — ${escapeHtml(teamAbbrev)}</div>`;
+  if (!skaters.length) return html + '<div class="empty">Статистика полевых игроков недоступна</div>';
 
   html += `
     <div class="table-scroll game-player-section">
@@ -4619,11 +3548,7 @@ function renderGamePlayerStats(team, teamAbbrev) {
   `;
 
   skaters.forEach(player => {
-    const baseName =
-      player.name?.default ||
-      player.name ||
-      `${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() ||
-      "Игрок";
+    const baseName = player.name?.default || player.name || `${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Игрок";
     const position = getGamePlayerPosition(player);
     const name = position ? `${baseName} (${position})` : baseName;
 
@@ -4635,11 +3560,7 @@ function renderGamePlayerStats(team, teamAbbrev) {
     const toi = getSkaterStatValue(player, ["toi", "timeOnIce"]);
     const hits = getSkaterStatValue(player, ["hits"]);
     const blocks = getSkaterStatValue(player, ["blockedShots", "blocks"]);
-    const faceoff = getSkaterStatValue(player, [
-      "faceoffWinningPctg",
-      "faceoffWinPctg",
-      "faceoffPctg"
-    ]);
+    const faceoff = getSkaterStatValue(player, ["faceoffWinningPctg", "faceoffWinPctg", "faceoffPctg"]);
 
     html += `
       <tr>
@@ -4655,7 +3576,6 @@ function renderGamePlayerStats(team, teamAbbrev) {
         ${gameStatCell("faceoff", faceoff, "number", formatPct(faceoff))}
       </tr>
     `;
-
   });
 
   html += '</tbody></table></div>';
@@ -4664,14 +3584,8 @@ function renderGamePlayerStats(team, teamAbbrev) {
 
 function renderGameGoalieStats(team, teamAbbrev) {
   const goalies = normalizeGameGoalies(team);
-
-  let html = `
-    <div class="section-title">Вратари — ${escapeHtml(teamAbbrev)}</div>
-  `;
-
-  if (!goalies.length) {
-    return html + '<div class="empty">Статистика вратарей недоступна</div>';
-  }
+  let html = `<div class="section-title">Вратари — ${escapeHtml(teamAbbrev)}</div>`;
+  if (!goalies.length) return html + '<div class="empty">Статистика вратарей недоступна</div>';
 
   html += `
     <div class="table-scroll game-player-section">
@@ -4690,27 +3604,12 @@ function renderGameGoalieStats(team, teamAbbrev) {
   `;
 
   goalies.forEach(goalie => {
-    const name =
-      goalie.name?.default ||
-      goalie.name ||
-      `${nameStr(goalie.firstName)} ${nameStr(goalie.lastName)}`.trim() ||
-      "Вратарь";
-
+    const name = goalie.name?.default || goalie.name || `${nameStr(goalie.firstName)} ${nameStr(goalie.lastName)}`.trim() || "Вратарь";
     const shotsAgainst = getSkaterStatValue(goalie, ["shotsAgainst", "shots"]);
     const saves = getSkaterStatValue(goalie, ["saves"]);
     const saveShotsAgainst = getSkaterStatValue(goalie, ["saveShotsAgainst"]);
-    const shots = shotsAgainst ?? (
-      typeof saveShotsAgainst === "string" && saveShotsAgainst.includes("/")
-        ? saveShotsAgainst.split("/").pop().trim()
-        : null
-    );
-
-    const savePct = goalie.savePctg ?? goalie.savePercentage ?? (
-      shots !== null && saves !== null && Number(shots) > 0
-        ? Number(saves) / Number(shots)
-        : null
-    );
-
+    const shots = shotsAgainst ?? (typeof saveShotsAgainst === "string" && saveShotsAgainst.includes("/") ? saveShotsAgainst.split("/").pop().trim() : null);
+    const savePct = goalie.savePctg ?? goalie.savePercentage ?? (shots !== null && saves !== null && Number(shots) > 0 ? Number(saves) / Number(shots) : null);
     const toi = goalie.toi ?? goalie.timeOnIce ?? "";
     let gaa = goalie.goalsAgainstAverage ?? goalie.gaa;
 
@@ -4718,14 +3617,11 @@ function renderGameGoalieStats(team, teamAbbrev) {
       const parts = String(toi).split(":").map(Number);
       if (parts.length >= 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1])) {
         const minutes = parts[0] + parts[1] / 60;
-        if (minutes > 0) {
-          gaa = Number(goalie.goalsAgainst) / (minutes / 60);
-        }
+        if (minutes > 0) gaa = Number(goalie.goalsAgainst) / (minutes / 60);
       }
     }
 
     const gaaDisplay = typeof gaa === "number" ? gaa.toFixed(2) : val(gaa);
-
     html += `
       <tr>
         <td data-sort-column="name" data-sort-value="${escapeHtml(gameSortValue(name, "name"))}">${escapeHtml(name)}</td>
@@ -4736,17 +3632,14 @@ function renderGameGoalieStats(team, teamAbbrev) {
         ${gameStatCell("gaa", gaa, "number", gaaDisplay)}
       </tr>
     `;
-
   });
 
   html += '</tbody></table></div>';
   return html;
 }
 
-// Генерация блока видеообзора
 function buildVideoRecapBlock(landingData, gameId) {
   if (!landingData) return "";
-
   const streamUrl = landingData.threeMinRecapStream || landingData.condensedGameStream;
   const videoPath = landingData.threeMinRecap || landingData.condensedGame;
 
@@ -4769,7 +3662,6 @@ function buildVideoRecapBlock(landingData, gameId) {
       </div>
     `;
   }
-
   return "";
 }
 
@@ -4780,7 +3672,7 @@ function initRecapPlayer(landingData, gameId) {
   const video = document.getElementById(`recap-player-${gameId}`);
   if (!video) return;
 
-  if (Hls && Hls.isSupported() && streamUrl.includes('.m3u8')) {
+  if (window.Hls && Hls.isSupported() && streamUrl.includes('.m3u8')) {
     const hls = new Hls();
     hls.loadSource(streamUrl);
     hls.attachMedia(video);
@@ -4789,15 +3681,8 @@ function initRecapPlayer(landingData, gameId) {
   }
 }
 
-async function openGameDetail(
-  gameId,
-  awayAbbrev,
-  homeAbbrev,
-  awayLogo,
-  homeLogo
-) {
+async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
   openDetail();
-
   const body = document.getElementById("detail-body");
 
   let html = `
@@ -4829,7 +3714,6 @@ async function openGameDetail(
     }
 
     html += buildVideoRecapBlock(landing || score, gameId);
-
     html += '<div class="section-title">Голы</div>';
 
     const scoring = score?.summary?.scoring || [];
@@ -4838,15 +3722,9 @@ async function openGameDetail(
     scoring.forEach(period => {
       const goals = period.goals || [];
       if (!goals.length) return;
-
       hasGoals = true;
 
-      html += `
-        <div class="period-label">
-          ${escapeHtml(formatPeriodLabel(period.periodDescriptor))}
-        </div>
-      `;
-
+      html += `<div class="period-label">${escapeHtml(formatPeriodLabel(period.periodDescriptor))}</div>`;
       goals.forEach(goal => {
         const scorer = `${nameStr(goal.firstName)} ${nameStr(goal.lastName)}`.trim();
         const strengthLabel = getGoalStrengthLabel(goal);
@@ -4863,25 +3741,15 @@ async function openGameDetail(
               </div>
               ${assists ? `<div class="assists">Передачи: ${escapeHtml(assists)}</div>` : ""}
             </div>
-            <div class="scoreline">
-              ${escapeHtml(val(goal.awayScore))} : ${escapeHtml(val(goal.homeScore))}
-            </div>
+            <div class="scoreline">${escapeHtml(val(goal.awayScore))} : ${escapeHtml(val(goal.homeScore))}</div>
           </div>
         `;
       });
     });
 
-    if (!hasGoals) {
-      html += '<div class="empty">Голов пока не было</div>';
-    }
+    if (!hasGoals) html += '<div class="empty">Голов пока не было</div>';
 
-    html += renderTeamGameStats(
-      rail,
-      awayAbbrev,
-      homeAbbrev,
-      awayLogo,
-      homeLogo
-    );
+    html += renderTeamGameStats(rail, awayAbbrev, homeAbbrev, awayLogo, homeLogo);
 
     const awayPlayers = box?.playerByGameStats?.awayTeam || {};
     const homePlayers = box?.playerByGameStats?.homeTeam || {};
@@ -4893,13 +3761,7 @@ async function openGameDetail(
     html += renderGameGoalieStats(homePlayers, homeAbbrev);
   } catch (error) {
     console.error(error);
-    html += `
-      <div class="empty">
-        Не удалось загрузить подробности матча
-        <br>
-        <small>${escapeHtml(error.message || "Ошибка загрузки")}</small>
-      </div>
-    `;
+    html += `<div class="empty">Не удалось загрузить подробности матча<br><small>${escapeHtml(error.message || "Ошибка загрузки")}</small></div>`;
   }
 
   body.innerHTML = html;
@@ -4909,178 +3771,64 @@ async function openGameDetail(
 
 async function openPlayerDetail(playerId) {
   openDetail();
-
   const body = document.getElementById("detail-body");
 
   try {
-    const response = await fetch(
-      `${API_BASE}/api/player/${encodeURIComponent(playerId)}`
-    );
-
+    const response = await fetch(`${API_BASE}/api/player/${encodeURIComponent(playerId)}`);
     const player = await response.json();
 
-    const fullName =
-      `${nameStr(player.firstName)} ${nameStr(player.lastName)}`
-        .trim();
-
-    const position =
-      player.positionCode ||
-      player.position ||
-      "";
-
-    const birthPlace = [
-      nameStr(player.birthCity),
-      player.birthCountry
-    ]
-      .filter(Boolean)
-      .join(", ");
+    const fullName = `${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim();
+    const position = player.positionCode || player.position || "";
+    const birthPlace = [nameStr(player.birthCity), player.birthCountry].filter(Boolean).join(", ");
 
     let draftText = "На драфте не выбран";
-
     if (player.draftDetails) {
       const draft = player.draftDetails;
-
-      draftText =
-        `Выбран командой «${draft.teamAbbrev || ""}» ` +
-        `в ${draft.year} году ` +
-        `(раунд ${draft.round}, общий номер ${draft.overallPick})`;
+      draftText = `Выбран командой «${draft.teamAbbrev || ""}» в ${draft.year} году (раунд ${draft.round}, общий номер ${draft.overallPick})`;
     }
 
     let html = `
       <div class="detail-head">
-        <img
-          class="headshot"
-          src="${escapeHtml(player.headshot || "")}"
-          alt=""
-        >
-
+        <img class="headshot" src="${escapeHtml(player.headshot || "")}" alt="">
         <div>
-          <div class="title">
-            ${escapeHtml(fullName || "Игрок")}
-          </div>
-
+          <div class="title">${escapeHtml(fullName || "Игрок")}</div>
           <div class="subtitle">
-            ${escapeHtml(player.teamAbbrev || "")}
-            · №${escapeHtml(val(player.sweaterNumber))}
-            · ${escapeHtml(position)}
+            ${escapeHtml(player.teamAbbrev || "")} · №${escapeHtml(val(player.sweaterNumber))} · ${escapeHtml(position)}
           </div>
         </div>
-
-        <img
-          class="team-logo"
-          src="${escapeHtml(player.teamLogo || "")}"
-          alt=""
-          style="margin-left:auto"
-        >
+        <img class="team-logo" src="${escapeHtml(player.teamLogo || "")}" alt="" style="margin-left:auto">
       </div>
 
       <div class="section-title">Личные данные</div>
-
       <div class="bio-grid">
-        <div>
-          <div class="label">Дата рождения</div>
-          <div class="value">
-            ${escapeHtml(val(player.birthDate))}
-          </div>
-        </div>
-
-        <div>
-          <div class="label">Место рождения</div>
-          <div class="value">
-            ${escapeHtml(birthPlace || "—")}
-          </div>
-        </div>
-
-        <div>
-          <div class="label">Рост</div>
-          <div class="value">
-            ${
-              player.heightInCentimeters
-                ? `${player.heightInCentimeters} см`
-                : "—"
-            }
-          </div>
-        </div>
-
-        <div>
-          <div class="label">Вес</div>
-          <div class="value">
-            ${
-              player.weightInKilograms
-                ? `${player.weightInKilograms} кг`
-                : "—"
-            }
-          </div>
-        </div>
-
-        <div>
-          <div class="label">Хват</div>
-          <div class="value">
-            ${escapeHtml(val(player.shootsCatches))}
-          </div>
-        </div>
-
-        <div style="grid-column:1/-1;">
-          <div class="label">Драфт</div>
-          <div class="value">
-            ${escapeHtml(draftText)}
-          </div>
-        </div>
+        <div><div class="label">Дата рождения</div><div class="value">${escapeHtml(val(player.birthDate))}</div></div>
+        <div><div class="label">Место рождения</div><div class="value">${escapeHtml(birthPlace || "—")}</div></div>
+        <div><div class="label">Рост</div><div class="value">${player.heightInCentimeters ? `${player.heightInCentimeters} см` : "—"}</div></div>
+        <div><div class="label">Вес</div><div class="value">${player.weightInKilograms ? `${player.weightInKilograms} кг` : "—"}</div></div>
+        <div><div class="label">Хват</div><div class="value">${escapeHtml(val(player.shootsCatches))}</div></div>
+        <div style="grid-column:1/-1;"><div class="label">Драфт</div><div class="value">${escapeHtml(draftText)}</div></div>
       </div>
     `;
 
-    const currentStats =
-      player.featuredStats?.regularSeason?.subSeason;
-
-    html +=
-      '<div class="section-title">Статистика в текущем сезоне</div>';
+    const currentStats = player.featuredStats?.regularSeason?.subSeason;
+    html += '<div class="section-title">Статистика в текущем сезоне</div>';
 
     if (!currentStats) {
-      html +=
-        '<div class="empty">Статистика текущего сезона отсутствует</div>';
+      html += '<div class="empty">Статистика текущего сезона отсутствует</div>';
     } else if (position === "G") {
       html += `
         <div class="table-scroll">
           <table class="stat-table">
             <thead>
-              <tr>
-                <th>И</th>
-                <th>В</th>
-                <th>П</th>
-                <th>%ОБ</th>
-                <th>ГКИ</th>
-              </tr>
+              <tr><th>И</th><th>В</th><th>П</th><th>%ОБ</th><th>ГКИ</th></tr>
             </thead>
-
             <tbody>
               <tr>
-                <td class="num">
-                  ${escapeHtml(val(currentStats.gamesPlayed))}
-                </td>
-
-                <td class="num">
-                  ${escapeHtml(val(currentStats.wins))}
-                </td>
-
-                <td class="num">
-                  ${escapeHtml(val(currentStats.losses))}
-                </td>
-
-                <td class="num">
-                  ${
-                    typeof currentStats.savePctg === "number"
-                      ? currentStats.savePctg.toFixed(3)
-                      : "—"
-                  }
-                </td>
-
-                <td class="num">
-                  ${
-                    typeof currentStats.goalsAgainstAverage === "number"
-                      ? currentStats.goalsAgainstAverage.toFixed(2)
-                      : "—"
-                  }
-                </td>
+                <td class="num">${escapeHtml(val(currentStats.gamesPlayed))}</td>
+                <td class="num">${escapeHtml(val(currentStats.wins))}</td>
+                <td class="num">${escapeHtml(val(currentStats.losses))}</td>
+                <td class="num">${typeof currentStats.savePctg === "number" ? currentStats.savePctg.toFixed(3) : "—"}</td>
+                <td class="num">${typeof currentStats.goalsAgainstAverage === "number" ? currentStats.goalsAgainstAverage.toFixed(2) : "—"}</td>
               </tr>
             </tbody>
           </table>
@@ -5091,46 +3839,16 @@ async function openPlayerDetail(playerId) {
         <div class="table-scroll">
           <table class="stat-table">
             <thead>
-              <tr>
-                <th>И</th>
-                <th>Г</th>
-                <th>П</th>
-                <th>О</th>
-                <th>+/-</th>
-                <th>Штр</th>
-              </tr>
+              <tr><th>И</th><th>Г</th><th>П</th><th>О</th><th>+/-</th><th>Штр</th></tr>
             </thead>
-
             <tbody>
               <tr>
-                <td class="num">
-                  ${escapeHtml(val(currentStats.gamesPlayed))}
-                </td>
-
-                <td class="num">
-                  ${escapeHtml(val(currentStats.goals))}
-                </td>
-
-                <td class="num">
-                  ${escapeHtml(val(currentStats.assists))}
-                </td>
-
-                <td class="num">
-                  ${escapeHtml(val(currentStats.points))}
-                </td>
-
-                <td class="num">
-                  ${escapeHtml(val(currentStats.plusMinus))}
-                </td>
-
-                <td class="num">
-                  ${escapeHtml(
-                    val(
-                      currentStats.pim ??
-                      currentStats.penaltyMinutes
-                    )
-                  )}
-                </td>
+                <td class="num">${escapeHtml(val(currentStats.gamesPlayed))}</td>
+                <td class="num">${escapeHtml(val(currentStats.goals))}</td>
+                <td class="num">${escapeHtml(val(currentStats.assists))}</td>
+                <td class="num">${escapeHtml(val(currentStats.points))}</td>
+                <td class="num">${escapeHtml(val(currentStats.plusMinus))}</td>
+                <td class="num">${escapeHtml(val(currentStats.pim ?? currentStats.penaltyMinutes))}</td>
               </tr>
             </tbody>
           </table>
@@ -5138,29 +3856,14 @@ async function openPlayerDetail(playerId) {
       `;
     }
 
-    html +=
-      '<div class="section-title">История карьеры в NHL</div>';
-
-    const history = Array.isArray(player.seasonTotals)
-      ? player.seasonTotals.filter(
-          item => item.leagueAbbrev === "NHL"
-        )
-      : [];
+    html += '<div class="section-title">История карьеры в NHL</div>';
+    const history = Array.isArray(player.seasonTotals) ? player.seasonTotals.filter(item => item.leagueAbbrev === "NHL") : [];
 
     if (!history.length) {
-      html +=
-        '<div class="empty">История выступлений в NHL отсутствует</div>';
+      html += '<div class="empty">История выступлений в NHL отсутствует</div>';
     } else {
-      const regular = history.filter(item =>
-        item.gameTypeId === 2 ||
-        item.gameTypeCode === 2
-      );
-
-      const playoffs = history.filter(item =>
-        item.gameTypeId === 3 ||
-        item.gameTypeCode === 3
-      );
-
+      const regular = history.filter(item => item.gameTypeId === 2 || item.gameTypeCode === 2);
+      const playoffs = history.filter(item => item.gameTypeId === 3 || item.gameTypeCode === 3);
       const columns = position === "G" ? 7 : 8;
 
       html += `
@@ -5168,157 +3871,60 @@ async function openPlayerDetail(playerId) {
           <table class="stat-table">
             <thead>
               <tr>
-                <th>Сезон</th>
-                <th>Клуб</th>
-                <th>И</th>
-      `;
-
-      if (position === "G") {
-        html += `
-                <th>В</th>
-                <th>П</th>
-                <th>%ОБ</th>
-                <th>ГКИ</th>
-        `;
-      } else {
-        html += `
-                <th>Г</th>
-                <th>П</th>
-                <th>О</th>
-                <th>+/-</th>
-                <th>Штр</th>
-        `;
-      }
-
-      html += `
+                <th>Сезон</th><th>Клуб</th><th>И</th>
+                ${position === "G" ? "<th>В</th><th>П</th><th>%ОБ</th><th>ГКИ</th>" : "<th>Г</th><th>П</th><th>О</th><th>+/-</th><th>Штр</th>"}
               </tr>
             </thead>
-
             <tbody>
       `;
 
       if (regular.length) {
-        html += `
-          <tr class="playoff-header-row">
-            <td colspan="${columns}">
-              Регулярный сезон
-            </td>
-          </tr>
-        `;
-
-        regular.forEach(item => {
-          html += renderCareerRow(item, position);
-        });
+        html += `<tr class="playoff-header-row"><td colspan="${columns}">Регулярный сезон</td></tr>`;
+        regular.forEach(item => { html += renderCareerRow(item, position); });
       }
 
       if (playoffs.length) {
-        html += `
-          <tr class="playoff-header-row playoff-border">
-            <td colspan="${columns}">
-              Плей-офф
-            </td>
-          </tr>
-        `;
-
-        playoffs.forEach(item => {
-          html += renderCareerRow(item, position);
-        });
+        html += `<tr class="playoff-header-row playoff-border"><td colspan="${columns}">Плей-офф</td></tr>`;
+        playoffs.forEach(item => { html += renderCareerRow(item, position); });
       }
 
-      html += `
-            </tbody>
-          </table>
-        </div>
-      `;
+      html += `</tbody></table></div>`;
     }
 
     body.innerHTML = html;
   } catch (error) {
     console.error(error);
-
-    body.innerHTML =
-      '<div class="empty">Не удалось загрузить карточку игрока</div>';
+    body.innerHTML = '<div class="empty">Не удалось загрузить карточку игрока</div>';
   }
 }
 
 function renderCareerRow(season, position) {
-  const seasonName = String(season.season)
-    .replace(/^(\d{4})(\d{4})$/, "$1-$2");
-
-  const teamName =
-    season.teamName?.default ||
-    season.teamAbbrev ||
-    "—";
+  const seasonName = String(season.season).replace(/^(\d{4})(\d{4})$/, "$1-$2");
+  const teamName = season.teamName?.default || season.teamAbbrev || "—";
 
   let html = `
     <tr>
       <td>${escapeHtml(seasonName)}</td>
       <td>${escapeHtml(teamName)}</td>
-      <td class="num">
-        ${escapeHtml(val(season.gamesPlayed))}
-      </td>
+      <td class="num">${escapeHtml(val(season.gamesPlayed))}</td>
   `;
 
   if (position === "G") {
-    const savePct =
-      season.savePctg ??
-      season.savePercentage;
-
-    const gaa =
-      season.goalsAgainstAverage ??
-      season.gaa;
-
+    const savePct = season.savePctg ?? season.savePercentage;
+    const gaa = season.goalsAgainstAverage ?? season.gaa;
     html += `
-      <td class="num">
-        ${escapeHtml(val(season.wins))}
-      </td>
-
-      <td class="num">
-        ${escapeHtml(val(season.losses))}
-      </td>
-
-      <td class="num">
-        ${
-          typeof savePct === "number"
-            ? savePct.toFixed(3)
-            : escapeHtml(val(savePct))
-        }
-      </td>
-
-      <td class="num">
-        ${
-          typeof gaa === "number"
-            ? gaa.toFixed(2)
-            : escapeHtml(val(gaa))
-        }
-      </td>
+      <td class="num">${escapeHtml(val(season.wins))}</td>
+      <td class="num">${escapeHtml(val(season.losses))}</td>
+      <td class="num">${typeof savePct === "number" ? savePct.toFixed(3) : escapeHtml(val(savePct))}</td>
+      <td class="num">${typeof gaa === "number" ? gaa.toFixed(2) : escapeHtml(val(gaa))}</td>
     `;
   } else {
     html += `
-      <td class="num">
-        ${escapeHtml(val(season.goals))}
-      </td>
-
-      <td class="num">
-        ${escapeHtml(val(season.assists))}
-      </td>
-
-      <td class="num">
-        ${escapeHtml(val(season.points))}
-      </td>
-
-      <td class="num">
-        ${escapeHtml(val(season.plusMinus))}
-      </td>
-
-      <td class="num">
-        ${escapeHtml(
-          val(
-            season.pim ??
-            season.penaltyMinutes
-          )
-        )}
-      </td>
+      <td class="num">${escapeHtml(val(season.goals))}</td>
+      <td class="num">${escapeHtml(val(season.assists))}</td>
+      <td class="num">${escapeHtml(val(season.points))}</td>
+      <td class="num">${escapeHtml(val(season.plusMinus))}</td>
+      <td class="num">${escapeHtml(val(season.pim ?? season.penaltyMinutes))}</td>
     `;
   }
 
@@ -5326,28 +3932,20 @@ function renderCareerRow(season, position) {
 }
 
 function applyInitialSection() {
-  const params = new URLSearchParams(
-    window.location.search
-  );
-
+  const params = new URLSearchParams(window.location.search);
   const section = params.get("section");
-
-  if (!section) {
-    return false;
-  }
+  if (!section) return false;
 
   if (section === "goalies") {
     switchTab("players");
     document.getElementById("leaders-goalies-btn").click();
     return true;
   }
-
   if (section === "players") {
     switchTab("players");
     document.getElementById("leaders-skaters-btn").click();
     return true;
   }
-
   if (section === "leaders") {
     switchTab("players");
     return true;
@@ -5358,7 +3956,6 @@ function applyInitialSection() {
 }
 
 buildSeasonOptions();
-
 if (!applyInitialSection()) {
   loadSchedule();
 }
