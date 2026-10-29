@@ -268,7 +268,7 @@ async def team_special_teams(season: str | None = None):
     }
 
     url = f"{NHL_STATS_BASE}/team/summary?{httpx.QueryParams(params)}"
-    data = await fetch_with_cache(f"team-special-teams:v9:{target_season}", url, CACHE_TTL["standings"])
+    data = await fetch_with_cache(f"team-special-teams:v11:{target_season}", url, CACHE_TTL["standings"])
 
     rows = data.get("data", []) if isinstance(data, dict) else []
 
@@ -644,7 +644,7 @@ async def goalie_leaders(
     }
 
 
-# Поиск видеообзора матча на YouTube
+# Поиск видеообзора матча на YouTube для встроенного плеера
 @app.get("/api/game-youtube-recap")
 async def game_youtube_recap(away: str, home: str, date: str):
     query = f"NHL highlights {away} vs {home} {date}"
@@ -685,7 +685,7 @@ async def game_youtube_recap(away: str, home: str, date: str):
     return {"videoId": None, "embedUrl": None}
 
 
-# Лента трансферов и переходов
+# Лента трансферов и переходов (ESPN)
 @app.get("/api/transactions")
 async def transactions():
     url = f"{ESPN_BASE}/transactions"
