@@ -81,7 +81,7 @@ TEAM_NAME_TO_ABBREV = {
     "st. louis blues": "STL", "st louis blues": "STL", "blues": "STL", "stl": "STL",
     "tampa bay lightning": "TBL", "lightning": "TBL", "tbl": "TBL", "tb": "TBL",
     "toronto maple leafs": "TOR", "maple leafs": "TOR", "tor": "TOR",
-    "utah hockey club": "UTA", "utah": "UTA", "uta": "UTA",
+    "utah hockey club": "UTA", "utah": "UTA", "uta": "UTA", "utah mammoth": "UTA",
     "vancouver canucks": "VAN", "canucks": "VAN", "van": "VAN",
     "vegas golden knights": "VGK", "golden knights": "VGK", "vgk": "VGK",
     "washington capitals": "WSH", "capitals": "WSH", "wsh": "WSH", "was": "WSH",
@@ -130,7 +130,7 @@ async def fetch_with_cache(
         return cached[1]
 
     async with httpx.AsyncClient(
-        timeout=12,
+        timeout=14,
         follow_redirects=True,
     ) as client:
         try:
@@ -312,18 +312,23 @@ async def playoff_bracket(year: str):
 
 
 @app.get("/api/skater-leaders-ext")
-async def skater_leaders_ext(season: str | None = None):
+async def skater_leaders_ext(
+    season: str | None = None,
+    category: str = "points",
+    limit: int = 50,
+):
     now = time.localtime()
     current_start_year = now.tm_year if now.tm_mon >= 9 else now.tm_year - 1
     current_season = f"{current_start_year}{current_start_year + 1}"
     target_season = season or current_season
+    safe_limit = max(1, min(limit, 100))
 
     summary_params = {
         "isAggregate": "false",
         "isGame": "false",
         "cayenneExp": f"gameTypeId=2 and seasonId={target_season}",
         "start": 0,
-        "limit": 100,
+        "limit": 150,
         "sort": '[{"property":"points","direction":"DESC"}]',
     }
 
@@ -332,7 +337,7 @@ async def skater_leaders_ext(season: str | None = None):
         "isGame": "false",
         "cayenneExp": f"gameTypeId=2 and seasonId={target_season}",
         "start": 0,
-        "limit": 100,
+        "limit": 150,
         "sort": '[{"property":"hits","direction":"DESC"}]',
     }
 
@@ -367,14 +372,27 @@ async def skater_leaders_ext(season: str | None = None):
 
         rt = realtime_map.get(player_id, {})
 
-        time_on_ice = row.get("timeOnIcePerGame", row.get("timeOnIce", 0))
+        games_played = row.get("gamesPlayed", 0)
+        total_toi_sec = row.get("timeOnIce", 0)
+        toi_pg_sec = row.get("timeOnIcePerGame", (total_toi_sec / games_played if games_played else 0))
+
         toi_str = "0:00"
-        if isinstance(time_on_ice, (int, float)):
-            mins = int(time_on_ice // 60)
-            secs = int(time_on_ice % 60)
+        if isinstance(toi_pg_sec, (int, float)):
+            mins = int(toi_pg_sec // 60)
+            secs = int(toi_pg_sec % 60)
             toi_str = f"{mins}:{secs:02d}"
-        elif isinstance(time_on_ice, str):
-            toi_str = time_on_ice
+        elif isinstance(toi_pg_sec, str):
+            toi_str = toi_pg_sec
+
+        toi_minutes = round(total_toi_sec / 60) if isinstance(total_toi_sec, (int, float)) else 0
+
+        goals = row.get("goals", 0)
+        assists = row.get("assists", 0)
+        points = row.get("points", 0)
+        plus_minus = row.get("plusMinus", 0)
+        shots = row.get("shots", row.get("sog", 0))
+        hits = rt.get("hits", row.get("hits", 0))
+        blocks = rt.get("blockedShots", row.get("blockedShots", row.get("blocks", 0)))
 
         skaters.append({
             "id": player_id,
@@ -384,29 +402,74 @@ async def skater_leaders_ext(season: str | None = None):
             "lastName": last_name,
             "teamAbbrev": team_abbr,
             "headshot": f"https://assets.nhle.com/mugs/nhl/latest/{player_id}.png",
-            "gamesPlayed": row.get("gamesPlayed", 0),
-            "goals": row.get("goals", 0),
-            "assists": row.get("assists", 0),
-            "points": row.get("points", 0),
-            "plusMinus": row.get("plusMinus", 0),
+            "gamesPlayed": games_played,
+            "goals": goals,
+            "assists": assists,
+            "points": points,
+            "plusMinus": plus_minus,
             "penaltyMinutes": row.get("penaltyMinutes", row.get("pim", 0)),
-            "shots": row.get("shots", row.get("sog", 0)),
-            "hits": rt.get("hits", row.get("hits", 0)),
-            "blockedShots": rt.get("blockedShots", row.get("blockedShots", row.get("blocks", 0))),
+            "shots": shots,
+            "hits": hits,
+            "blockedShots": blocks,
+            "timeOnIce": toi_minutes,
+            "timeOnIceSeconds": total_toi_sec,
             "toiPerGame": toi_str,
+            "toiPerGameSeconds": toi_pg_sec,
         })
+
+    # Сортировка по запрашиваемой категории
+    if category == "goals":
+        skaters.sort(key=lambda x: x.get("goals", 0), reverse=True)
+    elif category == "assists":
+        skaters.sort(key=lambda x: x.get("assists", 0), reverse=True)
+    elif category == "plusMinus":
+        skaters.sort(key=lambda x: x.get("plusMinus", 0), reverse=True)
+    elif category in ("shots", "sog"):
+        skaters.sort(key=lambda x: x.get("shots", 0), reverse=True)
+    elif category in ("hits", "hit"):
+        skaters.sort(key=lambda x: x.get("hits", 0), reverse=True)
+    elif category in ("blockedShots", "blk"):
+        skaters.sort(key=lambda x: x.get("blockedShots", 0), reverse=True)
+    elif category in ("timeOnIce", "toi"):
+        skaters.sort(key=lambda x: x.get("timeOnIceSeconds", 0), reverse=True)
+    elif category in ("toiPerGame", "atoi"):
+        skaters.sort(key=lambda x: x.get("toiPerGameSeconds", 0), reverse=True)
+    else:
+        skaters.sort(key=lambda x: x.get("points", 0), reverse=True)
+
+    result_slice = skaters[:safe_limit]
+
+    # Проставляем value для удобного отображения в интерфейсе
+    for p in result_slice:
+        if category == "goals":
+            p["value"] = p["goals"]
+        elif category == "assists":
+            p["value"] = p["assists"]
+        elif category == "plusMinus":
+            p["value"] = p["plusMinus"]
+        elif category in ("shots", "sog"):
+            p["value"] = p["shots"]
+        elif category in ("hits", "hit"):
+            p["value"] = p["hits"]
+        elif category in ("blockedShots", "blk"):
+            p["value"] = p["blockedShots"]
+        elif category in ("timeOnIce", "toi"):
+            p["value"] = p["timeOnIce"]
+        elif category in ("toiPerGame", "atoi"):
+            p["value"] = p["toiPerGame"]
+        else:
+            p["value"] = p["points"]
 
     return {
         "season": target_season,
-        "skaters": skaters,
+        "category": category,
+        category: result_slice,
+        "skaters": result_slice,
     }
 
 
-ALLOWED_CATEGORIES = {
-    "points",
-    "goals",
-    "assists",
-    "plusMinus",
+EXTENDED_SKATER_CATEGORIES = {
+    "shots", "sog", "hits", "hit", "blockedShots", "blk", "timeOnIce", "toi", "toiPerGame", "atoi"
 }
 
 
@@ -416,26 +479,28 @@ async def leaders(
     limit: int = 25,
     season: str | None = None,
 ):
-    if category not in ALLOWED_CATEGORIES:
-        category = "points"
+    if category in EXTENDED_SKATER_CATEGORIES:
+        return await skater_leaders_ext(season=season, category=category, limit=limit)
 
+    allowed = {"points", "goals", "assists", "plusMinus"}
+    cat = category if category in allowed else "points"
     limit = max(1, min(limit, 50))
 
     if season:
         url = (
             f"{NHL_BASE}/skater-stats-leaders/"
             f"{season}/2"
-            f"?categories={category}"
+            f"?categories={cat}"
             f"&limit={limit}"
         )
-        cache_key = f"leaders:{category}:{limit}:{season}"
+        cache_key = f"leaders:{cat}:{limit}:{season}"
     else:
         url = (
             f"{NHL_BASE}/skater-stats-leaders/"
-            f"current?categories={category}"
+            f"current?categories={cat}"
             f"&limit={limit}"
         )
-        cache_key = f"leaders:{category}:{limit}"
+        cache_key = f"leaders:{cat}:{limit}"
 
     return await fetch_with_cache(
         cache_key,
@@ -534,6 +599,7 @@ async def goalie_leaders(
             team_abbrev = ", ".join(str(value) for value in team_abbrev)
         team_abbrev = normalize_team_abbr(team_abbrev)
 
+        # Перевод в минуты
         time_on_ice = row.get("timeOnIce", 0)
         time_in_min = round(time_on_ice / 60) if isinstance(time_on_ice, (int, float)) else 0
 
@@ -903,6 +969,8 @@ def extract_top_scorers(skaters: list[dict], limit: int = 3) -> list[dict]:
         result.append({
             "id": s.get("playerId") or s.get("id"),
             "name": name,
+            "firstName": first,
+            "lastName": last,
             "position": s.get("positionCode") or s.get("position") or "",
             "gamesPlayed": s.get("gamesPlayed", 0),
             "goals": s.get("goals", 0),
@@ -934,9 +1002,28 @@ def extract_club_goalies(goalies: list[dict]) -> list[dict]:
             last = last.get("default", "")
 
         name = f"{first} {last}".strip() or g.get("name") or "Вратарь"
+
+        # Приводим timeOnIce к целым минутам
+        time_on_ice = g.get("timeOnIce", 0)
+        toi_mins = 0
+        if isinstance(time_on_ice, (int, float)):
+            toi_mins = round(time_on_ice / 60) if time_on_ice > 3000 else round(time_on_ice)
+        elif isinstance(time_on_ice, str):
+            try:
+                val_num = float(time_on_ice)
+                toi_mins = round(val_num / 60) if val_num > 3000 else round(val_num)
+            except ValueError:
+                toi_mins = 0
+
+        shots = g.get("shotsAgainst", 0)
+        ga = g.get("goalsAgainst", 0)
+        saves = g.get("saves", (shots - ga if shots and ga is not None else 0))
+
         result.append({
             "id": g.get("playerId") or g.get("id"),
             "name": name,
+            "firstName": first,
+            "lastName": last,
             "gamesPlayed": g.get("gamesPlayed", 0),
             "gamesStarted": g.get("gamesStarted", 0),
             "wins": g.get("wins", 0),
@@ -945,6 +1032,9 @@ def extract_club_goalies(goalies: list[dict]) -> list[dict]:
             "savePctg": g.get("savePctg", g.get("savePercentage")),
             "gaa": g.get("goalsAgainstAverage", g.get("gaa")),
             "shutouts": g.get("shutouts", 0),
+            "saves": saves,
+            "shotsAgainst": shots,
+            "timeOnIce": toi_mins,
             "headshot": g.get("headshot", ""),
         })
 
@@ -968,6 +1058,10 @@ async def pregame(
     away: str | None = None,
     home: str | None = None,
 ):
+    now = time.localtime()
+    current_start_year = now.tm_year if now.tm_mon >= 9 else now.tm_year - 1
+    current_season_id = f"{current_start_year}{current_start_year + 1}"
+
     rail_task = fetch_with_cache(
         f"rightrail:{game_id}",
         f"{NHL_BASE}/gamecenter/{game_id}/right-rail",
@@ -985,225 +1079,4 @@ async def pregame(
     )
     injuries_task = fetch_espn_injuries()
 
-    rail_data, landing_data, standings_data, injuries_data = await asyncio.gather(
-        rail_task,
-        landing_task,
-        standings_task,
-        injuries_task,
-        return_exceptions=True,
-    )
-
-    rail_data = rail_data if isinstance(rail_data, dict) else {}
-    landing_data = landing_data if isinstance(landing_data, dict) else {}
-    standings_data = standings_data if isinstance(standings_data, dict) else {}
-    injuries_data = injuries_data if isinstance(injuries_data, dict) else {}
-
-    away_team_obj = landing_data.get("awayTeam") or {}
-    home_team_obj = landing_data.get("homeTeam") or {}
-
-    away_abbr = normalize_team_abbr(
-        away
-        or away_team_obj.get("abbrev")
-        or away_team_obj.get("teamAbbrev")
-    )
-    home_abbr = normalize_team_abbr(
-        home
-        or home_team_obj.get("abbrev")
-        or home_team_obj.get("teamAbbrev")
-    )
-
-    game_date = date or landing_data.get("gameDate") or ""
-    espn_events = await fetch_espn_scoreboard(game_date)
-    probable_goalies = extract_probable_goalies(espn_events, away_abbr, home_abbr)
-
-    roster_tasks = []
-    if away_abbr:
-        roster_tasks.append(roster_stats(away_abbr))
-    else:
-        roster_tasks.append(asyncio.sleep(0, result={}))
-
-    if home_abbr:
-        roster_tasks.append(roster_stats(home_abbr))
-    else:
-        roster_tasks.append(asyncio.sleep(0, result={}))
-
-    away_roster, home_roster = await asyncio.gather(*roster_tasks)
-    away_roster = away_roster if isinstance(away_roster, dict) else {}
-    home_roster = home_roster if isinstance(home_roster, dict) else {}
-
-    standings_rows = standings_data.get("standings", []) if isinstance(standings_data, dict) else []
-    standings_map = {}
-    for row in standings_rows:
-        if isinstance(row, dict):
-            abbr = normalize_team_abbr(row.get("teamAbbrev"))
-            if abbr:
-                standings_map[abbr] = row
-
-    away_st = standings_map.get(away_abbr, {})
-    home_st = standings_map.get(home_abbr, {})
-
-    pregame_stats = []
-    rail_pre = rail_data.get("preGameStats") or rail_data.get("teamGameStats") or []
-
-    if isinstance(rail_pre, list) and rail_pre:
-        pregame_stats = rail_pre
-    else:
-        def make_comp(cat, label, away_val, home_val, higher_is_better=True):
-            return {
-                "category": cat,
-                "label": label,
-                "awayValue": away_val,
-                "homeValue": home_val,
-                "higherIsBetter": higher_is_better,
-            }
-
-        away_gp = away_st.get("gamesPlayed") or 1
-        home_gp = home_st.get("gamesPlayed") or 1
-
-        away_gf_pg = round((away_st.get("goalFor", 0) / away_gp), 2) if away_gp else 0
-        home_gf_pg = round((home_st.get("goalFor", 0) / home_gp), 2) if home_gp else 0
-
-        away_ga_pg = round((away_st.get("goalAgainst", 0) / away_gp), 2) if away_gp else 0
-        home_ga_pg = round((home_st.get("goalAgainst", 0) / home_gp), 2) if home_gp else 0
-
-        pregame_stats = [
-            make_comp("powerPlayPctg", "Большинство (%PP)", away_st.get("powerPlayPctg"), home_st.get("powerPlayPctg"), True),
-            make_comp("penaltyKillPctg", "Меньшинство (%PK)", away_st.get("penaltyKillPctg"), home_st.get("penaltyKillPctg"), True),
-            make_comp("goalsForPerGame", "Заброшено за игру (GF/G)", away_gf_pg, home_gf_pg, True),
-            make_comp("goalsAgainstPerGame", "Пропущено за игру (GA/G)", away_ga_pg, home_ga_pg, False),
-        ]
-
-    away_streak_code = away_st.get("streakCode") or ""
-    away_streak_count = away_st.get("streakCount") or 0
-    home_streak_code = home_st.get("streakCode") or ""
-    home_streak_count = home_st.get("streakCount") or 0
-
-    rail_streaks = rail_data.get("streaks") or {}
-    if isinstance(rail_streaks, dict):
-        if "awayTeam" in rail_streaks:
-            away_streak_code = rail_streaks["awayTeam"].get("type") or away_streak_code
-            away_streak_count = rail_streaks["awayTeam"].get("count") or away_streak_count
-        if "homeTeam" in rail_streaks:
-            home_streak_code = rail_streaks["homeTeam"].get("type") or home_streak_code
-            home_streak_count = rail_streaks["homeTeam"].get("count") or home_streak_count
-
-    season_series = rail_data.get("seasonSeries") or landing_data.get("seasonSeries") or []
-    if isinstance(season_series, dict):
-        season_series = season_series.get("games") or [season_series]
-
-    away_skaters = away_roster.get("regular", {}).get("skaters", [])
-    home_skaters = home_roster.get("regular", {}).get("skaters", [])
-    away_goalies = away_roster.get("regular", {}).get("goalies", [])
-    home_goalies = home_roster.get("regular", {}).get("goalies", [])
-
-    return {
-        "gameId": game_id,
-        "gameDate": game_date,
-        "startTimeUTC": landing_data.get("startTimeUTC"),
-        "awayTeam": {
-            "abbrev": away_abbr,
-            "name": away_team_obj.get("name") or away_team_obj.get("placeName", {}).get("default") or away_abbr,
-            "logo": away_team_obj.get("logo") or f"https://assets.nhle.com/mugs/nhl/default-team/{away_abbr}.png",
-            "record": {
-                "wins": away_st.get("wins", 0),
-                "losses": away_st.get("losses", 0),
-                "otLosses": away_st.get("otLosses", 0),
-                "points": away_st.get("points", 0),
-                "gamesPlayed": away_st.get("gamesPlayed", 0),
-            },
-            "homeRecord": f"{away_st.get('homeWins', 0)}-{away_st.get('homeLosses', 0)}-{away_st.get('homeOtLosses', 0)}",
-            "roadRecord": f"{away_st.get('roadWins', 0)}-{away_st.get('roadLosses', 0)}-{away_st.get('roadOtLosses', 0)}",
-            "l10Record": f"{away_st.get('l10Wins', 0)}-{away_st.get('l10Losses', 0)}-{away_st.get('l10OtLosses', 0)}",
-            "streak": f"{away_streak_code}{away_streak_count}" if away_streak_code else "—",
-            "streakCode": away_streak_code,
-            "streakCount": away_streak_count,
-        },
-        "homeTeam": {
-            "abbrev": home_abbr,
-            "name": home_team_obj.get("name") or home_team_obj.get("placeName", {}).get("default") or home_abbr,
-            "logo": home_team_obj.get("logo") or f"https://assets.nhle.com/mugs/nhl/default-team/{home_abbr}.png",
-            "record": {
-                "wins": home_st.get("wins", 0),
-                "losses": home_st.get("losses", 0),
-                "otLosses": home_st.get("otLosses", 0),
-                "points": home_st.get("points", 0),
-                "gamesPlayed": home_st.get("gamesPlayed", 0),
-            },
-            "homeRecord": f"{home_st.get('homeWins', 0)}-{home_st.get('homeLosses', 0)}-{home_st.get('homeOtLosses', 0)}",
-            "roadRecord": f"{home_st.get('roadWins', 0)}-{home_st.get('roadLosses', 0)}-{home_st.get('roadOtLosses', 0)}",
-            "l10Record": f"{home_st.get('l10Wins', 0)}-{home_st.get('l10Losses', 0)}-{home_st.get('l10OtLosses', 0)}",
-            "streak": f"{home_streak_code}{home_streak_count}" if home_streak_code else "—",
-            "streakCode": home_streak_code,
-            "streakCount": home_streak_count,
-        },
-        "preGameStats": pregame_stats,
-        "probableGoalies": probable_goalies,
-        "injuries": {
-            "away": injuries_data.get(away_abbr, []),
-            "home": injuries_data.get(home_abbr, []),
-        },
-        "topScorers": {
-            "away": extract_top_scorers(away_skaters, limit=3),
-            "home": extract_top_scorers(home_skaters, limit=3),
-        },
-        "clubGoalies": {
-            "away": extract_club_goalies(away_goalies),
-            "home": extract_club_goalies(home_goalies),
-        },
-        "seasonSeries": season_series,
-    }
-
-
-@app.post("/webhook")
-async def telegram_webhook(update: dict):
-    message = update.get("message")
-    if not message:
-        return {"ok": True}
-
-    chat_id = message["chat"]["id"]
-    text = message.get("text", "")
-
-    if text == "/start":
-        keyboard = {
-            "inline_keyboard": [
-                [{"text": "🏒 ОТКРЫТЬ NHL", "web_app": {"url": WEBAPP_URL}}],
-                [
-                    {"text": "📅 Матчи", "web_app": {"url": f"{WEBAPP_URL}?section=schedule"}},
-                    {"text": "📊 Таблица", "web_app": {"url": f"{WEBAPP_URL}?section=standings"}},
-                ],
-                [
-                    {"text": "🏆 Лидеры", "web_app": {"url": f"{WEBAPP_URL}?section=leaders"}},
-                    {"text": "🥅 Вратари", "web_app": {"url": f"{WEBAPP_URL}?section=goalies"}},
-                ],
-            ],
-        }
-
-        async with httpx.AsyncClient(timeout=12) as client:
-            await client.post(
-                f"{TELEGRAM_API}/sendMessage",
-                json={
-                    "chat_id": chat_id,
-                    "text": "Добро пожаловать в NHL Live! Выберите раздел:",
-                    "reply_markup": keyboard,
-                },
-            )
-
-    return {"ok": True}
-
-
-BASE_DIR = Path(__file__).resolve().parent
-STATIC_DIR = BASE_DIR / "static"
-ROOT_INDEX = BASE_DIR / "index.html"
-STATIC_INDEX = STATIC_DIR / "index.html"
-
-if STATIC_DIR.is_dir():
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-
-
-@app.get("/")
-async def index():
-    if STATIC_INDEX.is_file():
-        return FileResponse(str(STATIC_INDEX), media_type="text/html")
-    if ROOT_INDEX.is_file():
-        return FileResponse(str(ROOT_INDEX), media_type="text/html")
-    return {"detail": "index.html not found"}
+    team_summa
