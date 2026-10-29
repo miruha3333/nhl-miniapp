@@ -2153,7 +2153,31 @@ function renderStandings() {
   });
 }
 
-// Навешивание клика на кнопки полевых игроков
+// Переключение главных кнопок "Полевые" / "Вратари"
+document.getElementById("leaders-skaters-btn").onclick = () => {
+  leadersMode = "skaters";
+  document.getElementById("leaders-skaters-btn").classList.add("active");
+  document.getElementById("leaders-goalies-btn").classList.remove("active");
+  document.getElementById("skater-categories").style.display = "grid";
+  document.getElementById("goalie-categories").style.display = "none";
+  loadPlayers();
+};
+
+document.getElementById("leaders-goalies-btn").onclick = () => {
+  leadersMode = "goalies";
+  document.getElementById("leaders-goalies-btn").classList.add("active");
+  document.getElementById("leaders-skaters-btn").classList.remove("active");
+  document.getElementById("skater-categories").style.display = "none";
+  document.getElementById("goalie-categories").style.display = "grid";
+  
+  if (cachedGoaliesList.length > 0) {
+    renderGoaliesFromCache();
+  } else {
+    loadGoalieCards();
+  }
+};
+
+// Клик по подкатегориям полевых игроков
 document.querySelectorAll("#skater-categories button").forEach(button => {
   button.onclick = () => {
     document.querySelectorAll("#skater-categories button").forEach(item => item.classList.remove("active"));
@@ -2164,7 +2188,7 @@ document.querySelectorAll("#skater-categories button").forEach(button => {
   };
 });
 
-// Навешивание клика на кнопки вратарей с локальной моментальной сортировкой
+// Клик по подкатегориям вратарей с моментальной сортировкой
 document.querySelectorAll("#goalie-categories button").forEach(button => {
   button.onclick = () => {
     document.querySelectorAll("#goalie-categories button").forEach(item => item.classList.remove("active"));
@@ -2177,7 +2201,12 @@ document.querySelectorAll("#goalie-categories button").forEach(button => {
       currentGoalieSortKey = key;
       currentGoalieSortAsc = (key === "gaa" || key === "losses");
     }
-    renderGoaliesFromCache();
+
+    if (cachedGoaliesList.length > 0) {
+      renderGoaliesFromCache();
+    } else {
+      loadGoalieCards();
+    }
   };
 });
 
@@ -2294,6 +2323,12 @@ function renderGoaliesFromCache() {
       mainValue = val(player.saves, 0);
     } else if (currentGoalieSortKey === "shotsAgainst") {
       mainValue = val(player.shotsAgainst, 0);
+    } else if (currentGoalieSortKey === "wins") {
+      mainValue = val(player.wins, 0);
+    } else if (currentGoalieSortKey === "losses") {
+      mainValue = val(player.losses, 0);
+    } else if (currentGoalieSortKey === "shutouts") {
+      mainValue = val(player.shutouts, 0);
     }
 
     return `
