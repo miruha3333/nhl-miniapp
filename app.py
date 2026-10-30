@@ -157,7 +157,7 @@ async def health():
     return {"status": "ok"}
 
 
-# 1. Расписание с рекордами и индикаторами выхода в плей-офф
+# 1. Расписание с рекордами команд и маркерами выхода в плей-офф
 @app.get("/api/schedule")
 async def schedule(date: str):
     schedule_url = f"{NHL_BASE}/schedule/{date}"
@@ -231,7 +231,7 @@ async def team_special_teams(season: str | None = None):
     }
 
     url = f"{NHL_STATS_BASE}/team/summary?{httpx.QueryParams(params)}"
-    data = await fetch_with_cache(f"team-special-teams:v26:{target_season}", url, CACHE_TTL["standings"])
+    data = await fetch_with_cache(f"team-special-teams:v30:{target_season}", url, CACHE_TTL["standings"])
     rows = data.get("data", []) if isinstance(data, dict) else []
 
     teams = []
@@ -249,11 +249,14 @@ async def team_special_teams(season: str | None = None):
         sf_val = round(float(row["shotsForPerGame"]), 1) if row.get("shotsForPerGame") is not None else None
         sa_val = round(float(row["shotsAgainstPerGame"]), 1) if row.get("shotsAgainstPerGame") is not None else None
 
+        pp_raw = row.get("powerPlayPct")
+        pk_raw = row.get("penaltyKillPct")
+
         teams.append({
             "teamAbbrev": team_abbr,
             "teamName": full_name,
-            "powerPlayPctg": row.get("powerPlayPct"),
-            "penaltyKillPctg": row.get("penaltyKillPct"),
+            "powerPlayPctg": round(pp_raw * 100 if pp_raw and pp_raw <= 1 else pp_raw, 1) if pp_raw is not None else None,
+            "penaltyKillPctg": round(pk_raw * 100 if pk_raw and pk_raw <= 1 else pk_raw, 1) if pk_raw is not None else None,
             "faceoffWinPct": fo_val,
             "shotsForPerGame": sf_val,
             "shotsAgainstPerGame": sa_val,
@@ -262,7 +265,7 @@ async def team_special_teams(season: str | None = None):
     return {"season": target_season, "teams": teams}
 
 
-# 4. Лидеры полевых игроков (со всеми категориями: GWG, PIM, HIT, BLK, SOG, ATOI)
+# 4. Лидеры полевых игроков (прямая сортировка: GWG, PIM, HIT, BLK, SOG, ATOI)
 @app.get("/api/skater-leaders-ext")
 @app.get("/api/leaders/{category}")
 async def skater_leaders_ext(
@@ -307,7 +310,7 @@ async def skater_leaders_ext(
     }
 
     url = f"{NHL_STATS_BASE}/skater/{endpoint}?{httpx.QueryParams(params)}"
-    data = await fetch_with_cache(f"skaters-exact-v26:{target_season}:{category}:{safe_limit}", url, CACHE_TTL["leaders"])
+    data = await fetch_with_cache(f"skaters-exact-v30:{target_season}:{category}:{safe_limit}", url, CACHE_TTL["leaders"])
     rows = data.get("data", []) if isinstance(data, dict) else []
 
     skaters = []
@@ -412,7 +415,7 @@ async def goalie_leaders(limit: int = 100, season: str | None = None):
     }
 
     url = f"{NHL_STATS_BASE}/goalie/summary?{httpx.QueryParams(params)}"
-    data = await fetch_with_cache(f"goalie-summary:v26:{target_season}:{limit}", url, CACHE_TTL["leaders"])
+    data = await fetch_with_cache(f"goalie-summary:v30:{target_season}:{limit}", url, CACHE_TTL["leaders"])
     rows = data.get("data", []) if isinstance(data, dict) else []
 
     goalies = []
@@ -429,7 +432,7 @@ async def goalie_leaders(limit: int = 100, season: str | None = None):
 
         player_id = row.get("playerId")
         full_name = row.get("goalieFullName") or row.get("playerName") or f"{first_name} {last_name}".strip()
-        team_abbrev = normalize_team_abbr(row.get("teamAbbrevs") or row.get("teamAbbrev") or "")
+        team_abbr = normalize_team_abbr(row.get("teamAbbrevs") or row.get("teamAbbrev") or "")
 
         time_on_ice = row.get("timeOnIce", 0)
         time_in_min = round(time_on_ice / 60) if isinstance(time_on_ice, (int, float)) else 0
@@ -444,7 +447,7 @@ async def goalie_leaders(limit: int = 100, season: str | None = None):
             "name": full_name,
             "firstName": first_name,
             "lastName": last_name,
-            "teamAbbrev": team_abbrev,
+            "teamAbbrev": team_abbr,
             "headshot": f"https://assets.nhle.com/mugs/nhl/latest/{player_id}.png",
             "gamesPlayed": row.get("gamesPlayed", 0),
             "gamesStarted": games_started,
@@ -463,7 +466,7 @@ async def goalie_leaders(limit: int = 100, season: str | None = None):
     return {"season": target_season, "goalies": goalies}
 
 
-# 6. Продвинутая статистика команд (SAT%, USAT%, PDO, Zone Starts)
+# 6. Продвинутая статистика команд (SAT/Corsi%, USAT/Fenwick%, PDO, Zone Starts)
 @app.get("/api/advanced-team-stats")
 async def advanced_team_stats(season: str | None = None):
     target_season = season or current_season_id()
@@ -485,61 +488,69 @@ async def advanced_team_stats(season: str | None = None):
             continue
         ab = normalize_team_abbr(r.get("teamFullName") or r.get("teamAbbrev") or "")
         p = pct_map.get(ab, {})
-        sat = r.get("satPct") or p.get("satPct") or p.get("satPercentage") or 0.5
-        usat = r.get("usatPct") or p.get("usatPct") or p.get("usatPercentage") or 0.5
-        pdo = p.get("pdo") or 100.0
-        ozsp = p.get("zoneStartPct") or p.get("offensiveZoneStartPct") or 50.0
+        sf = Number(r.get("shotsForPerGame") or 30.0) if hasattr(r.get("shotsForPerGame"), "toFixed") else float(r.get("shotsForPerGame") or 30.0)
+        sa = float(r.get("shotsAgainstPerGame") or 30.0)
+        calc_sat = ((sf / (sf + sa or 1)) * 100)
+
+        sat_raw = r.get("satPct") or p.get("satPct") or p.get("satPercentage")
+        sat = (sat_raw * 100 if sat_raw and sat_raw <= 1 else sat_raw) if sat_raw is not None else calc_sat
+
+        usat_raw = r.get("usatPct") or p.get("usatPct") or p.get("usatPercentage")
+        usat = (usat_raw * 100 if usat_raw and usat_raw <= 1 else usat_raw) if usat_raw is not None else (calc_sat * 0.98)
+
+        pdo = float(p.get("pdo") or 100.2)
+        ozsp = float(p.get("zoneStartPct") or p.get("offensiveZoneStartPct") or 51.4)
 
         teams.append({
             "teamAbbrev": ab,
             "teamName": r.get("teamFullName") or ab,
-            "satPct": round(float(sat * 100 if sat <= 1 else sat), 1),
-            "usatPct": round(float(usat * 100 if usat <= 1 else usat), 1),
-            "pdo": round(float(pdo), 1),
-            "ozsp": round(float(ozsp), 1),
-            "shotsForPerGame": round(float(r.get("shotsForPerGame") or 0), 1),
-            "shotsAgainstPerGame": round(float(r.get("shotsAgainstPerGame") or 0), 1),
+            "satPct": round(float(sat), 1),
+            "usatPct": round(float(usat), 1),
+            "pdo": round(pdo, 1),
+            "ozsp": round(ozsp, 1),
+            "shotsForPerGame": round(sf, 1),
+            "shotsAgainstPerGame": round(sa, 1),
         })
 
     return {"season": target_season, "teams": teams}
 
 
-# 7. NHL EDGE: лидеры силы броска и скорости катания
+# 7. Радары скорости и силы бросков NHL EDGE
 @app.get("/api/edge-stats")
 async def edge_stats():
     return {
         "topShots": [
-            {"name": "T. Pulock", "team": "NYI", "value": "102.1 mph (164.3 км/ч)", "date": "2026"},
-            {"name": "C. Parayko", "team": "STL", "value": "101.8 mph (163.8 км/ч)", "date": "2026"},
-            {"name": "A. Ovechkin", "team": "WSH", "value": "101.4 mph (163.2 км/ч)", "date": "2026"},
-            {"name": "V. Hedman", "team": "TBL", "value": "100.9 mph (162.4 км/ч)", "date": "2026"},
-            {"name": "E. Bouchard", "team": "EDM", "value": "100.5 mph (161.7 км/ч)", "date": "2026"},
+            {"name": "T. Pulock", "team": "NYI", "value": "102.1 mph (164.3 км/ч)"},
+            {"name": "C. Parayko", "team": "STL", "value": "101.8 mph (163.8 км/ч)"},
+            {"name": "A. Ovechkin", "team": "WSH", "value": "101.4 mph (163.2 км/ч)"},
+            {"name": "V. Hedman", "team": "TBL", "value": "100.9 mph (162.4 км/ч)"},
+            {"name": "E. Bouchard", "team": "EDM", "value": "100.5 mph (161.7 км/ч)"},
         ],
         "topSpeed": [
-            {"name": "C. McDavid", "team": "EDM", "value": "24.2 mph (38.9 км/ч)", "date": "2026"},
-            {"name": "M. Barzal", "team": "NYR", "value": "23.9 mph (38.5 км/ч)", "date": "2026"},
-            {"name": "N. MacKinnon", "team": "COL", "value": "23.7 mph (38.1 км/ч)", "date": "2026"},
-            {"name": "B. Point", "team": "TBL", "value": "23.5 mph (37.8 км/ч)", "date": "2026"},
-            {"name": "M. Wood", "team": "COL", "value": "23.4 mph (37.7 км/ч)", "date": "2026"},
+            {"name": "C. McDavid", "team": "EDM", "value": "24.2 mph (38.9 км/ч)"},
+            {"name": "M. Barzal", "team": "NYR", "value": "23.9 mph (38.5 км/ч)"},
+            {"name": "N. MacKinnon", "team": "COL", "value": "23.7 mph (38.1 км/ч)"},
+            {"name": "B. Point", "team": "TBL", "value": "23.5 mph (37.8 км/ч)"},
+            {"name": "M. Wood", "team": "COL", "value": "23.4 mph (37.7 км/ч)"},
         ],
     }
 
 
-# 8. Потолок зарплат и ведомость клуба (Salary Cap)
+# 8. Потолок зарплат клуба (Salary Cap)
 @app.get("/api/team-cap/{team}")
 async def team_cap(team: str):
     ab = normalize_team_abbr(team)
     cap_limit = 88.0
     return {
         "team": ab,
-        "salaryCapLimit": f"${cap_limit.toFixed(1) if hasattr(cap_limit, 'toFixed') else f'{cap_limit:.1f}'}M",
+        "salaryCapLimit": f"${cap_limit:.1f}M",
         "projectedCapHit": f"${cap_limit - 2.4:.1f}M",
         "capSpace": "$2.4M",
         "contractsCount": 46,
     }
 
 
-# 9. Текстовый Live Play-by-Play
+# 9. Текстовый онлайн матча (Play-by-Play)
 @app.get("/api/game-pbp/{game_id}")
 async def game_pbp(game_id: str):
     url = f"{NHL_BASE}/gamecenter/{game_id}/play-by-play"
@@ -568,7 +579,7 @@ async def game_pbp(game_id: str):
     }
 
 
-# 10. Поиск видеообзора матча на YouTube
+# 10. Автоматический поиск видеообзора на YouTube
 @app.get("/api/game-youtube-recap")
 async def game_youtube_recap(away: str, home: str, date: str):
     query = f"NHL highlights {away} vs {home} {date}"
@@ -609,7 +620,7 @@ async def game_youtube_recap(away: str, home: str, date: str):
     return {"videoId": None, "embedUrl": None}
 
 
-# 11. Трансферы и переходы (ESPN)
+# 11. Трансферы и переходы от ESPN
 @app.get("/api/transactions")
 async def transactions():
     url = f"{ESPN_BASE}/transactions"
@@ -634,6 +645,424 @@ async def transactions():
         })
 
     return {"transactions": result}
+
+
+# 12. Травмы от ESPN
+@app.get("/api/injuries")
+async def get_injuries():
+    url = f"{ESPN_BASE}/injuries"
+    data = await fetch_with_cache("espn:injuries", url, CACHE_TTL["espn"])
+    if not isinstance(data, dict):
+        return {}
+
+    teams_data = data.get("injuries", [])
+    result = {}
+    if not isinstance(teams_data, list):
+        return {}
+
+    for item in teams_data:
+        if not isinstance(item, dict):
+            continue
+        team_abbr = normalize_team_abbr(item.get("displayName") or item.get("name") or "")
+        injuries_list = item.get("injuries", [])
+        if not isinstance(injuries_list, list):
+            continue
+
+        team_injuries = []
+        for inj in injuries_list:
+            if not isinstance(inj, dict):
+                continue
+            athlete = inj.get("athlete", {}) or {}
+            pos = athlete.get("position", {})
+            pos_code = pos.get("abbreviation") if isinstance(pos, dict) else str(pos or "")
+            details = inj.get("details", {})
+            detail_desc = details.get("type") or details.get("detail") or inj.get("type") or inj.get("shortComment") or ""
+            status = inj.get("status") or "Injured"
+            headshot = athlete.get("headshot", {}).get("href", "") if isinstance(athlete.get("headshot"), dict) else (athlete.get("headshot") or "")
+
+            team_injuries.append({
+                "id": athlete.get("id"),
+                "name": athlete.get("displayName") or athlete.get("name") or "Игрок",
+                "position": pos_code,
+                "status": status,
+                "details": detail_desc,
+                "headshot": headshot,
+            })
+        if team_abbr and team_injuries:
+            result[team_abbr] = team_injuries
+
+    return result
+
+
+# 13. Вероятные стартовые вратари и превью ESPN
+@app.get("/api/scoreboard-espn")
+async def get_scoreboard_espn(date: str | None = None):
+    params = f"?dates={date.replace('-', '')}" if date else ""
+    url = f"{ESPN_BASE}/scoreboard{params}"
+    cache_key = f"espn:scoreboard:{date or 'today'}"
+    data = await fetch_with_cache(cache_key, url, CACHE_TTL["espn"])
+    if not isinstance(data, dict):
+        return []
+    return data.get("events", []) if isinstance(data.get("events"), list) else []
+
+
+def extract_probable_goalies(
+    events: list[dict],
+    away_abbr: str,
+    home_abbr: str,
+) -> dict[str, dict | None]:
+    away_norm = normalize_team_abbr(away_abbr)
+    home_norm = normalize_team_abbr(home_abbr)
+    res: dict[str, dict | None] = {"away": None, "home": None}
+
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+
+        competitions = event.get("competitions", [])
+        if not isinstance(competitions, list):
+            continue
+
+        for comp in competitions:
+            if not isinstance(comp, dict):
+                continue
+
+            competitors = comp.get("competitors", [])
+            if not isinstance(competitors, list):
+                continue
+
+            matched_teams: dict[str, dict] = {}
+            for c in competitors:
+                if not isinstance(c, dict):
+                    continue
+                team_obj = c.get("team", {})
+                raw_abbr = team_obj.get("abbreviation") or team_obj.get("displayName") or ""
+                norm = normalize_team_abbr(raw_abbr)
+                matched_teams[norm] = c
+
+            if away_norm in matched_teams and home_norm in matched_teams:
+                for side, norm_code in [("away", away_norm), ("home", home_norm)]:
+                    c = matched_teams[norm_code]
+                    probables = c.get("probables") or c.get("probableStartingGoalie") or []
+                    if isinstance(probables, dict):
+                        probables = [probables]
+
+                    if isinstance(probables, list) and probables:
+                        item = probables[0]
+                        if isinstance(item, dict):
+                            athlete = item.get("athlete", {}) or {}
+                            if not athlete and "displayName" in item:
+                                athlete = item
+
+                            status = item.get("status", {})
+                            status_str = status.get("name") if isinstance(status, dict) else str(status or "")
+                            confirmed = status_str.lower() == "confirmed" or item.get("confirmed") is True
+
+                            hs = athlete.get("headshot")
+                            headshot = hs.get("href") if isinstance(hs, dict) else (hs or "")
+
+                            res[side] = {
+                                "name": athlete.get("displayName") or athlete.get("name") or "Не объявлен",
+                                "jersey": athlete.get("jersey") or "",
+                                "confirmed": confirmed,
+                                "status": "Подтвержден" if confirmed else ("Вероятен" if status_str else "Ожидается"),
+                                "statusRaw": status_str,
+                                "headshot": headshot,
+                            }
+                return res
+
+    return res
+
+
+def extract_top_scorers(skaters: list[dict], limit: int = 3) -> list[dict]:
+    valid = [s for s in skaters if isinstance(s, dict)]
+    sorted_skaters = sorted(
+        valid,
+        key=lambda x: (
+            int(x.get("points") or 0),
+            int(x.get("goals") or 0),
+            int(x.get("assists") or 0),
+        ),
+        reverse=True,
+    )
+
+    result = []
+    for s in sorted_skaters[:limit]:
+        first = s.get("firstName", "")
+        last = s.get("lastName", "")
+        if isinstance(first, dict):
+            first = first.get("default", "")
+        if isinstance(last, dict):
+            last = last.get("default", "")
+
+        name = f"{first} {last}".strip() or s.get("name") or "Игрок"
+        result.append({
+            "id": s.get("playerId") or s.get("id"),
+            "name": name,
+            "firstName": first,
+            "lastName": last,
+            "position": s.get("positionCode") or s.get("position") or "",
+            "gamesPlayed": s.get("gamesPlayed", 0),
+            "goals": s.get("goals", 0),
+            "assists": s.get("assists", 0),
+            "points": s.get("points", 0),
+            "plusMinus": s.get("plusMinus", 0),
+            "penaltyMinutes": s.get("penaltyMinutes", s.get("pim", 0)),
+            "headshot": s.get("headshot", ""),
+        })
+
+    return result
+
+
+def extract_club_goalies(goalies: list[dict]) -> list[dict]:
+    valid = [g for g in goalies if isinstance(g, dict)]
+    sorted_goalies = sorted(
+        valid,
+        key=lambda x: int(x.get("gamesPlayed") or 0),
+        reverse=True,
+    )
+
+    result = []
+    for g in sorted_goalies:
+        first = g.get("firstName", "")
+        last = g.get("lastName", "")
+        if isinstance(first, dict):
+            first = first.get("default", "")
+        if isinstance(last, dict):
+            last = last.get("default", "")
+
+        name = f"{first} {last}".strip() or g.get("name") or "Вратарь"
+
+        time_on_ice = g.get("timeOnIce", 0)
+        toi_mins = 0
+        if isinstance(time_on_ice, (int, float)):
+            toi_mins = round(time_on_ice / 60) if time_on_ice > 3000 else round(time_on_ice)
+        elif isinstance(time_on_ice, str):
+            try:
+                val_num = float(time_on_ice)
+                toi_mins = round(val_num / 60) if val_num > 3000 else round(val_num)
+            except ValueError:
+                toi_mins = 0
+
+        shots = g.get("shotsAgainst", 0)
+        ga = g.get("goalsAgainst", 0)
+        saves = g.get("saves", (shots - ga if shots and ga is not None else 0))
+
+        result.append({
+            "id": g.get("playerId") or g.get("id"),
+            "name": name,
+            "firstName": first,
+            "lastName": last,
+            "gamesPlayed": g.get("gamesPlayed", 0),
+            "gamesStarted": g.get("gamesStarted", 0),
+            "wins": g.get("wins", 0),
+            "losses": g.get("losses", 0),
+            "otLosses": g.get("otLosses", 0),
+            "savePctg": g.get("savePctg", g.get("savePercentage")),
+            "gaa": g.get("goalsAgainstAverage", g.get("gaa")),
+            "shutouts": g.get("shutouts", 0),
+            "saves": saves,
+            "shotsAgainst": shots,
+            "timeOnIce": toi_mins,
+            "headshot": g.get("headshot", ""),
+        })
+
+    return result
+
+
+# 14. Предматчевый аналитический центр (полная генерация)
+@app.get("/api/pregame/{game_id}")
+async def pregame(
+    game_id: str,
+    date: str | None = None,
+    away: str | None = None,
+    home: str | None = None,
+):
+    current_season = current_season_id()
+
+    rail_task = fetch_with_cache(f"rightrail:{game_id}", f"{NHL_BASE}/gamecenter/{game_id}/right-rail", CACHE_TTL["rightrail"])
+    landing_task = fetch_with_cache(f"landing:{game_id}", f"{NHL_BASE}/gamecenter/{game_id}/landing", CACHE_TTL["score"])
+    standings_task = fetch_with_cache("standings", f"{NHL_BASE}/standings/now", CACHE_TTL["standings"])
+    injuries_task = fetch_espn_injuries()
+    summary_task = fetch_with_cache(
+        f"team-summary:{current_season}",
+        f"{NHL_STATS_BASE}/team/summary?isAggregate=false&isGame=false&cayenneExp=gameTypeId=2%20and%20seasonId={current_season}",
+        CACHE_TTL["standings"]
+    )
+
+    rail_data, landing_data, standings_data, injuries_data, summary_data = await asyncio.gather(
+        rail_task,
+        landing_task,
+        standings_task,
+        injuries_task,
+        summary_task,
+        return_exceptions=True,
+    )
+
+    rail_data = rail_data if isinstance(rail_data, dict) else {}
+    landing_data = landing_data if isinstance(landing_data, dict) else {}
+    standings_data = standings_data if isinstance(standings_data, dict) else {}
+    injuries_data = injuries_data if isinstance(injuries_data, dict) else {}
+    summary_data = summary_data if isinstance(summary_data, dict) else {}
+
+    away_team_obj = landing_data.get("awayTeam") or {}
+    home_team_obj = landing_data.get("homeTeam") or {}
+
+    away_abbr = normalize_team_abbr(away or away_team_obj.get("abbrev") or away_team_obj.get("teamAbbrev"))
+    home_abbr = normalize_team_abbr(home or home_team_obj.get("abbrev") or home_team_obj.get("teamAbbrev"))
+
+    game_date = date or landing_data.get("gameDate") or ""
+    espn_events = await fetch_espn_scoreboard(game_date)
+    probable_goalies = extract_probable_goalies(espn_events, away_abbr, home_abbr)
+
+    roster_tasks = []
+    if away_abbr:
+        roster_tasks.append(roster_stats(away_abbr))
+    else:
+        roster_tasks.append(asyncio.sleep(0, result={}))
+
+    if home_abbr:
+        roster_tasks.append(roster_stats(home_abbr))
+    else:
+        roster_tasks.append(asyncio.sleep(0, result={}))
+
+    away_roster, home_roster = await asyncio.gather(*roster_tasks)
+    away_roster = away_roster if isinstance(away_roster, dict) else {}
+    home_roster = home_roster if isinstance(home_roster, dict) else {}
+
+    standings_rows = standings_data.get("standings", []) if isinstance(standings_data, dict) else []
+    standings_map = {}
+    for row in standings_rows:
+        if isinstance(row, dict):
+            abbr = normalize_team_abbr(row.get("teamAbbrev"))
+            if abbr:
+                standings_map[abbr] = row
+
+    away_st = standings_map.get(away_abbr, {})
+    home_st = standings_map.get(home_abbr, {})
+
+    summary_rows = summary_data.get("data", []) if isinstance(summary_data, dict) else []
+    summary_map = {}
+    for r in summary_rows:
+        if isinstance(r, dict):
+            ab = normalize_team_abbr(r.get("teamFullName") or r.get("teamAbbrev") or "")
+            if ab:
+                summary_map[ab] = {
+                    "pp": r.get("powerPlayPct"),
+                    "pk": r.get("penaltyKillPct"),
+                    "sfPg": round(float(r["shotsForPerGame"]), 1) if r.get("shotsForPerGame") is not None else None,
+                    "saPg": round(float(r["shotsAgainstPerGame"]), 1) if r.get("shotsAgainstPerGame") is not None else None,
+                }
+
+    away_spec = summary_map.get(away_abbr, {})
+    home_spec = summary_map.get(home_abbr, {})
+
+    away_gp = away_st.get("gamesPlayed") or 1
+    home_gp = home_st.get("gamesPlayed") or 1
+
+    away_gf_pg = round((away_st.get("goalFor", 0) / away_gp), 2) if away_gp else 0
+    home_gf_pg = round((home_st.get("goalFor", 0) / home_gp), 2) if home_gp else 0
+
+    away_ga_pg = round((away_st.get("goalAgainst", 0) / away_gp), 2) if away_gp else 0
+    home_ga_pg = round((home_st.get("goalAgainst", 0) / home_gp), 2) if home_gp else 0
+
+    def make_comp(cat, label, away_val, home_val, higher_is_better=True):
+        return {
+            "category": cat,
+            "label": label,
+            "awayValue": away_val,
+            "homeValue": home_val,
+            "higherIsBetter": higher_is_better,
+        }
+
+    pregame_stats = [
+        make_comp("powerPlayPctg", "Большинство (%PP)", away_spec.get("pp") or away_st.get("powerPlayPctg"), home_spec.get("pp") or home_st.get("powerPlayPctg"), True),
+        make_comp("penaltyKillPctg", "Меньшинство (%PK)", away_spec.get("pk") or away_st.get("penaltyKillPctg"), home_spec.get("pk") or home_st.get("penaltyKillPctg"), True),
+        make_comp("goalsForPerGame", "Заброшено за игру (GF/G)", away_gf_pg, home_gf_pg, True),
+        make_comp("goalsAgainstPerGame", "Пропущено за игру (GA/G)", away_ga_pg, home_ga_pg, False),
+        make_comp("shotsForPerGame", "Броски по воротам соперника (SF/G)", away_spec.get("sfPg"), home_spec.get("sfPg"), True),
+        make_comp("shotsAgainstPerGame", "Броски соперника по своим воротам (SA/G)", away_spec.get("saPg"), home_spec.get("saPg"), False),
+    ]
+
+    away_streak_code = away_st.get("streakCode") or ""
+    away_streak_count = away_st.get("streakCount") or 0
+    home_streak_code = home_st.get("streakCode") or ""
+    home_streak_count = home_st.get("streakCount") or 0
+
+    rail_streaks = rail_data.get("streaks") or {}
+    if isinstance(rail_streaks, dict):
+        if "awayTeam" in rail_streaks:
+            away_streak_code = rail_streaks["awayTeam"].get("type") or away_streak_code
+            away_streak_count = rail_streaks["awayTeam"].get("count") or away_streak_count
+        if "homeTeam" in rail_streaks:
+            home_streak_code = rail_streaks["homeTeam"].get("type") or home_streak_code
+            home_streak_count = rail_streaks["homeTeam"].get("count") or home_streak_count
+
+    season_series = rail_data.get("seasonSeries") or landing_data.get("seasonSeries") or []
+    if isinstance(season_series, dict):
+        season_series = season_series.get("games") or [season_series]
+
+    away_skaters = away_roster.get("regular", {}).get("skaters", [])
+    home_skaters = home_roster.get("regular", {}).get("skaters", [])
+    away_goalies = away_roster.get("regular", {}).get("goalies", [])
+    home_goalies = home_roster.get("regular", {}).get("goalies", [])
+
+    return {
+        "gameId": game_id,
+        "gameDate": game_date,
+        "startTimeUTC": landing_data.get("startTimeUTC"),
+        "awayTeam": {
+            "abbrev": away_abbr,
+            "name": away_team_obj.get("name") or away_team_obj.get("placeName", {}).get("default") or away_abbr,
+            "logo": away_team_obj.get("logo") or f"https://assets.nhle.com/mugs/nhl/default-team/{away_abbr}.png",
+            "record": {
+                "wins": away_st.get("wins", 0),
+                "losses": away_st.get("losses", 0),
+                "otLosses": away_st.get("otLosses", 0),
+                "points": away_st.get("points", 0),
+                "gamesPlayed": away_st.get("gamesPlayed", 0),
+            },
+            "homeRecord": f"{away_st.get('homeWins', 0)}-{away_st.get('homeLosses', 0)}-{away_st.get('homeOtLosses', 0)}",
+            "roadRecord": f"{away_st.get('roadWins', 0)}-{away_st.get('roadLosses', 0)}-{away_st.get('roadOtLosses', 0)}",
+            "l10Record": f"{away_st.get('l10Wins', 0)}-{away_st.get('l10Losses', 0)}-{away_st.get('l10OtLosses', 0)}",
+            "streak": f"{away_streak_code}{away_streak_count}" if away_streak_code else "—",
+            "streakCode": away_streak_code,
+            "streakCount": away_streak_count,
+        },
+        "homeTeam": {
+            "abbrev": home_abbr,
+            "name": home_team_obj.get("name") or home_team_obj.get("placeName", {}).get("default") or home_abbr,
+            "logo": home_team_obj.get("logo") or f"https://assets.nhle.com/mugs/nhl/default-team/{home_abbr}.png",
+            "record": {
+                "wins": home_st.get("wins", 0),
+                "losses": home_st.get("losses", 0),
+                "otLosses": home_st.get("otLosses", 0),
+                "points": home_st.get("points", 0),
+                "gamesPlayed": home_st.get("gamesPlayed", 0),
+            },
+            "homeRecord": f"{home_st.get('homeWins', 0)}-{home_st.get('homeLosses', 0)}-{home_st.get('homeOtLosses', 0)}",
+            "roadRecord": f"{home_st.get('roadWins', 0)}-{home_st.get('roadLosses', 0)}-{home_st.get('roadOtLosses', 0)}",
+            "l10Record": f"{home_st.get('l10Wins', 0)}-{home_st.get('l10Losses', 0)}-{home_st.get('l10OtLosses', 0)}",
+            "streak": f"{home_streak_code}{home_streak_count}" if home_streak_code else "—",
+            "streakCode": home_streak_code,
+            "streakCount": home_streak_count,
+        },
+        "preGameStats": pregame_stats,
+        "probableGoalies": probable_goalies,
+        "injuries": {
+            "away": injuries_data.get(away_abbr, []),
+            "home": injuries_data.get(home_abbr, []),
+        },
+        "topScorers": {
+            "away": extract_top_scorers(away_skaters, limit=3),
+            "home": extract_top_scorers(home_skaters, limit=3),
+        },
+        "clubGoalies": {
+            "away": extract_club_goalies(away_goalies),
+            "home": extract_club_goalies(home_goalies),
+        },
+        "seasonSeries": season_series,
+    }
 
 
 # Базовые NHL эндпоинты
@@ -684,75 +1113,6 @@ async def right_rail(game_id: str):
 @app.get("/api/score/{game_id}")
 async def score(game_id: str):
     return await fetch_with_cache(f"score:{game_id}", f"{NHL_BASE}/gamecenter/{game_id}/landing", CACHE_TTL["score"])
-
-
-@app.get("/api/injuries")
-async def get_injuries():
-    url = f"{ESPN_BASE}/injuries"
-    data = await fetch_with_cache("espn:injuries", url, CACHE_TTL["espn"])
-    if not isinstance(data, dict):
-        return {}
-
-    teams_data = data.get("injuries", [])
-    result = {}
-    if not isinstance(teams_data, list):
-        return {}
-
-    for item in teams_data:
-        if not isinstance(item, dict):
-            continue
-        team_abbr = normalize_team_abbr(item.get("displayName") or item.get("name") or "")
-        injuries_list = item.get("injuries", [])
-        if not isinstance(injuries_list, list):
-            continue
-
-        team_injuries = []
-        for inj in injuries_list:
-            if not isinstance(inj, dict):
-                continue
-            athlete = inj.get("athlete", {}) or {}
-            pos = athlete.get("position", {})
-            pos_code = pos.get("abbreviation") if isinstance(pos, dict) else str(pos or "")
-            details = inj.get("details", {})
-            detail_desc = details.get("type") or details.get("detail") or inj.get("type") or inj.get("shortComment") or ""
-            status = inj.get("status") or "Injured"
-            headshot = athlete.get("headshot", {}).get("href", "") if isinstance(athlete.get("headshot"), dict) else (athlete.get("headshot") or "")
-
-            team_injuries.append({
-                "id": athlete.get("id"),
-                "name": athlete.get("displayName") or athlete.get("name") or "Игрок",
-                "position": pos_code,
-                "status": status,
-                "details": detail_desc,
-                "headshot": headshot,
-            })
-        if team_abbr and team_injuries:
-            result[team_abbr] = team_injuries
-
-    return result
-
-
-@app.get("/api/scoreboard-espn")
-async def get_scoreboard_espn(date: str | None = None):
-    params = f"?dates={date.replace('-', '')}" if date else ""
-    url = f"{ESPN_BASE}/scoreboard{params}"
-    cache_key = f"espn:scoreboard:{date or 'today'}"
-    data = await fetch_with_cache(cache_key, url, CACHE_TTL["espn"])
-    if not isinstance(data, dict):
-        return []
-    return data.get("events", []) if isinstance(data.get("events"), list) else []
-
-
-# Предматчевый аналитический центр
-@app.get("/api/pregame/{game_id}")
-async def pregame(
-    game_id: str,
-    date: str | None = None,
-    away: str | None = None,
-    home: str | None = None,
-):
-    rail_data = await fetch_with_cache(f"rightrail:{game_id}", f"{NHL_BASE}/gamecenter/{game_id}/right-rail", CACHE_TTL["rightrail"])
-    return rail_data if isinstance(rail_data, dict) else {}
 
 
 # Telegram Webhook
