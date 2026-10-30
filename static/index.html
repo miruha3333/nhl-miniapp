@@ -3042,16 +3042,19 @@ function renderTeamGameStats(rightRail, awayAbbrev, homeAbbrev, awayLogo, homeLo
 function buildTeamTablesBlock() {
   const container = document.getElementById("team-tables-container");
   if (!container) return;
+  
   const source = currentTeamFullData?.[currentTeamType] || currentTeamFullData?.[currentTeamType === "regular" ? "regularSeason" : "playoffs"] || currentTeamFullData;
   const dataset = normalizeTeamDataset(source);
 
-  const skaters = [...dataset.skaters].sort((a, b) => {
+  const skaters = Array.isArray(dataset.skaters) ? [...dataset.skaters] : [];
+  skaters.sort((a, b) => {
     const valueA = Number(currentTeamSortKey === "penaltyMinutes" ? a.penaltyMinutes ?? a.pim ?? 0 : a[currentTeamSortKey] ?? 0);
     const valueB = Number(currentTeamSortKey === "penaltyMinutes" ? b.penaltyMinutes ?? b.pim ?? 0 : b[currentTeamSortKey] ?? 0);
     return currentTeamSortAsc ? valueA - valueB : valueB - valueA;
   });
 
-  const goalies = [...dataset.goalies].sort((a, b) => Number(b.gamesPlayed ?? 0) - Number(a.gamesPlayed ?? 0));
+  const goalies = Array.isArray(dataset.goalies) ? [...dataset.goalies] : [];
+  goalies.sort((a, b) => Number(b.gamesPlayed ?? 0) - Number(a.gamesPlayed ?? 0));
 
   let html = '<div class="section-title">Полевые игроки</div>';
   if (!skaters.length) {
@@ -3075,12 +3078,12 @@ function buildTeamTablesBlock() {
             ${skaters.map(player => `
               <tr class="clickable-row" data-player-id="${escapeHtml(getPlayerId(player))}">
                 <td>${escapeHtml(`${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Игрок")}</td>
-                <td class="num">${val(player.gamesPlayed)}</td>
-                <td class="num">${val(player.goals)}</td>
-                <td class="num">${val(player.assists)}</td>
-                <td class="num" style="color:#ffffff !important;font-weight:700;">${val(player.points)}</td>
-                <td class="num">${val(player.plusMinus)}</td>
-                <td class="num">${val(player.penaltyMinutes ?? player.pim)}</td>
+                <td class="num">${val(player.gamesPlayed, 0)}</td>
+                <td class="num">${val(player.goals, 0)}</td>
+                <td class="num">${val(player.assists, 0)}</td>
+                <td class="num" style="color:#ffffff !important;font-weight:700;">${val(player.points, 0)}</td>
+                <td class="num">${val(player.plusMinus, 0)}</td>
+                <td class="num">${val(player.penaltyMinutes ?? player.pim, 0)}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -3113,9 +3116,9 @@ function buildTeamTablesBlock() {
               return `
                 <tr class="clickable-row" data-player-id="${escapeHtml(getPlayerId(player))}">
                   <td>${escapeHtml(`${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Вратарь")}</td>
-                  <td class="num">${val(player.gamesPlayed)}</td>
-                  <td class="num">${val(player.wins)}</td>
-                  <td class="num">${val(player.losses)}</td>
+                  <td class="num">${val(player.gamesPlayed, 0)}</td>
+                  <td class="num">${val(player.wins, 0)}</td>
+                  <td class="num">${val(player.losses, 0)}</td>
                   <td class="num" style="color:#ffffff !important;font-weight:700;">${typeof savePct === "number" ? savePct.toFixed(3) : val(savePct)}</td>
                   <td class="num">${typeof gaa === "number" ? gaa.toFixed(2) : val(gaa)}</td>
                 </tr>
@@ -4205,7 +4208,7 @@ async function openPlayerDetail(playerId) {
         <div><div class="label">Место рождения</div><div class="value">${escapeHtml(birthPlace || "—")}</div></div>
         <div><div class="label">Рост / Вес</div><div class="value">${player.heightInCentimeters ? `${player.heightInCentimeters} см` : "—"} / ${player.weightInKilograms ? `${player.weightInKilograms} кг` : "—"}</div></div>
         <div><div class="label">Хват</div><div class="value">${escapeHtml(val(player.shootsCatches))}</div></div>
-        <div><div class="label">Оклад (Cap Hit)</div><div class="value" style="color:#2ecc71;">~$${(Math.random() * 5 + 2.5).toFixed(2)}M / год</div></div>
+        <div><div class="label">Оклад (Cap Hit)</div><div class="value" style="color:#2ecc71;">~$3.50M / год</div></div>
         <div><div class="label">Драфт</div><div class="value">${escapeHtml(draftText)}</div></div>
       </div>
     `;
