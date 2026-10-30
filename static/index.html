@@ -4179,7 +4179,39 @@ function renderTeamTabsAndTables(teamAbbrev, teamName, teamLogo, capData) {
 async function openTeamльнайРасписание(teamAbbrev) {
   await openTeamScheduleTab(teamAbbrev);
 }
+// Вспомогательная функция отрисовки строк карьеры игрока (решение ошибки renderCareerRow)
+function renderCareerRow(season, position) {
+  const seasonName = String(season.season || "").replace(/^(\d{4})(\d{4})$/, "$1-$2");
+  const teamName = season.teamName?.default || season.teamAbbrev || "—";
 
+  let html = `
+    <tr>
+      <td>${escapeHtml(seasonName)}</td>
+      <td>${escapeHtml(teamName)}</td>
+      <td class="num">${escapeHtml(val(season.gamesPlayed, 0))}</td>
+  `;
+
+  if (position === "G") {
+    const savePct = season.savePctg ?? season.savePercentage;
+    const gaa = season.goalsAgainstAverage ?? season.gaa;
+    html += `
+      <td class="num">${escapeHtml(val(season.wins, 0))}</td>
+      <td class="num">${escapeHtml(val(season.losses, 0))}</td>
+      <td class="num" style="color:#ffffff !important;font-weight:700;">${typeof savePct === "number" ? savePct.toFixed(3) : escapeHtml(val(savePct))}</td>
+      <td class="num">${typeof gaa === "number" ? gaa.toFixed(2) : escapeHtml(val(gaa))}</td>
+    `;
+  } else {
+    html += `
+      <td class="num">${escapeHtml(val(season.goals, 0))}</td>
+      <td class="num">${escapeHtml(val(season.assists, 0))}</td>
+      <td class="num" style="color:#ffffff !important;font-weight:700;">${escapeHtml(val(season.points, 0))}</td>
+      <td class="num">${escapeHtml(val(season.plusMinus, 0))}</td>
+      <td class="num">${escapeHtml(val(season.pim ?? season.penaltyMinutes, 0))}</td>
+    `;
+  }
+
+  return `${html}</tr>`;
+}
 // Карточка игрока
 async function openPlayerDetail(playerId) {
   openDetail();
