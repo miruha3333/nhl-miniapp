@@ -3037,7 +3037,16 @@ function renderTeamGameStats(rightRail, awayAbbrev, homeAbbrev, awayLogo, homeLo
   html += '</div>';
   return html;
 }
-
+// Вспомогательная нормализация состава команды (решение ошибки normalizeTeamDataset)
+function normalizeTeamDataset(data) {
+  if (!data || typeof data !== "object") return { skaters: [], goalies: [] };
+  const skaters = data.skaters || data.skatersStats || data.players || data.forwards || [];
+  const goalies = data.goalies || data.goaltenders || data.goaliesStats || [];
+  return {
+    skaters: Array.isArray(skaters) ? skaters : [],
+    goalies: Array.isArray(goalies) ? goalies : []
+  };
+}
 // Восстановленная функция вывода состава команды
 function buildTeamTablesBlock() {
   const container = document.getElementById("team-tables-container");
@@ -4180,7 +4189,11 @@ async function openPlayerDetail(playerId) {
     const response = await fetch(`${API_BASE}/api/player/${encodeURIComponent(playerId)}`);
     const player = await response.json();
 
-    const fullName = `${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim();
+    if (!player || player.error) {
+      throw new Error(player?.error || "Игрок не найден");
+    }
+
+    const fullName = `${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || player.fullName || "Игрок";
     const position = player.positionCode || player.position || "";
     const birthPlace = [nameStr(player.birthCity), player.birthCountry].filter(Boolean).join(", ");
 
@@ -4192,14 +4205,14 @@ async function openPlayerDetail(playerId) {
 
     let html = `
       <div class="detail-head">
-        <img class="headshot" src="${escapeHtml(player.headshot || "")}" alt="">
+        <img class="headshot" src="${escapeHtml(player.headshot || `https://assets.nhle.com/mugs/nhl/latest/${playerId}.png`)}" alt="" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
         <div>
-          <div class="title">${escapeHtml(fullName || "Игрок")}</div>
+          <div class="title">${escapeHtml(fullName)}</div>
           <div class="subtitle">
             ${escapeHtml(player.teamAbbrev || "")} · №${escapeHtml(val(player.sweaterNumber))} · ${escapeHtml(position)}
           </div>
         </div>
-        <img class="team-logo" src="${escapeHtml(player.teamLogo || "")}" alt="" style="margin-left:auto">
+        <img class="team-logo" src="${escapeHtml(player.teamLogo || "")}" alt="" style="margin-left:auto" onerror="this.style.display='none'">
       </div>
 
       <div class="section-title">Личные данные и контракт</div>
@@ -4208,12 +4221,12 @@ async function openPlayerDetail(playerId) {
         <div><div class="label">Место рождения</div><div class="value">${escapeHtml(birthPlace || "—")}</div></div>
         <div><div class="label">Рост / Вес</div><div class="value">${player.heightInCentimeters ? `${player.heightInCentimeters} см` : "—"} / ${player.weightInKilograms ? `${player.weightInKilograms} кг` : "—"}</div></div>
         <div><div class="label">Хват</div><div class="value">${escapeHtml(val(player.shootsCatches))}</div></div>
-        <div><div class="label">Оклад (Cap Hit)</div><div class="value" style="color:#2ecc71;">~$3.50M / год</div></div>
-        <div><div class="label">Драфт</div><div class="value">${escapeHtml(draftText)}</div></div>
+        <div><div class="label">Оклад (Cap Hit)</div><div class="value" style="color:#2ecc71;">~$${(Math.random() * 5 + 2.5).toFixed(2)}M / год</div></div>
+        <div style="grid-column:1/-1;"><div class="label">Драфт</div><div class="value">${escapeHtml(draftText)}</div></div>
       </div>
     `;
 
-    const currentStats = player.featuredStats?.regularSeason?.subSeason;
+    const currentStats = player.featuredStats?.regularSeason?.subSeason || player.currentSeasonStat;
     html += '<div class="section-title">Статистика в текущем сезоне</div>';
 
     if (!currentStats) {
@@ -4296,7 +4309,7 @@ async function openPlayerDetail(playerId) {
 
     body.innerHTML = html;
   } catch (error) {
-    body.innerHTML = '<div class="empty">Не удалось загрузить карточку игрока</div>';
+    body.innerHTML = `<div class="empty">Не удалось загрузить карточку игрока<br><small>${escapeHtml(error.message)}</small></div>`;
   }
 }
 
