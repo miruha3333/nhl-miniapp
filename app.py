@@ -521,7 +521,7 @@ async def advanced_team_stats(season: str | None = None):
 async def vote(game_id: str, request: Request):
     store_key = f"pickem_{game_id}"
     if store_key not in _votes_store:
-        _votes_store[store_key] = {"away": 14, "tie": 5, "home": 11}
+        _votes_store[store_key] = {"away": 0, "tie": 0, "home": 0}
 
     current = _votes_store[store_key]
 
