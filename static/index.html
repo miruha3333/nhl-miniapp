@@ -3430,10 +3430,6 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
       <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="" onerror="this.style.display='none'">
     </div>
     <div id="video-recap-slot"></div>
-    <div class="section-title">Лента событий (Play-by-Play)</div>
-    <div class="pbp-ticker" id="pbp-ticker-box">
-      <div class="loading">Загрузка протокола матча...</div>
-    </div>
   `;
 
   try {
@@ -3507,25 +3503,6 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
 
     body.innerHTML = html;
     initGameStatSorting();
-
-    const pbpBox = document.getElementById("pbp-ticker-box");
-    if (pbpBox) {
-      if (pbp && Array.isArray(pbp.plays) && pbp.plays.length) {
-        pbpBox.innerHTML = pbp.plays.map(p => `
-          <div class="pbp-item">
-            <div class="pbp-time" style="color:#ffffff !important;">${escapeHtml(p.timeInPeriod || "—")}</div>
-            <div class="pbp-desc"><strong>[${escapeHtml(p.team || "NHL")}]</strong> ${escapeHtml(p.description || "")}</div>
-          </div>
-        `).join("");
-      } else {
-        pbpBox.innerHTML = '<div class="empty" style="padding:8px 0;">Протокол событий формируется лигой во время и после матча</div>';
-      }
-    }
-  } catch (error) {
-    html += `<div class="empty">Не удалось загрузить подробности матча<br><small>${escapeHtml(error.message || "Ошибка загрузки")}</small></div>`;
-    body.innerHTML = html;
-  }
-}
 
 // Загрузка последних 10 матчей между клубами (ТОЛЬКО регулярка и плей-офф)
 async function loadMatchupHistory(awayAbbrev, homeAbbrev) {
