@@ -4368,22 +4368,40 @@ async function loadSpotlight() {
 // ==========================================
 // 8. СТАРТОВАЯ ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
 // ==========================================
+// Надежный запуск приложения, защищенный от любых сбоев сети
 function initApp() {
-  buildSeasonOptions();
-  updateMyTeamButton();
+  try {
+    buildSeasonOptions();
+  } catch (e) {
+    console.error("Seasons load error:", e);
+  }
+
+  try {
+    updateMyTeamButton();
+  } catch (e) {
+    console.error("Team theme error:", e);
+  }
 
   const params = new URLSearchParams(window.location.search);
   const rawSection = params.get("section") || "schedule";
   const safeSection = normalizeInitialSection(rawSection);
 
+  // Всегда открываем вкладку без задержек
   switchTab(safeSection);
 
   if (rawSection === "goalies") {
-    document.getElementById("leaders-goalies-btn")?.click();
+    setTimeout(() => {
+      document.getElementById("leaders-goalies-btn")?.click();
+    }, 100);
   }
 }
 
-initApp();
+// Запускаем инициализацию сразу после загрузки DOM
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initApp);
+} else {
+  initApp();
+}
 </script>
 </body>
 </html>
