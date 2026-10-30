@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 
@@ -41,6 +41,7 @@ CACHE_TTL = {
 }
 
 _cache: dict[str, tuple[float, Any]] = {}
+_votes_store: dict[str, dict[str, int]] = {}
 
 app = FastAPI(title="NHL Mini App")
 
@@ -157,7 +158,7 @@ async def health():
     return {"status": "ok"}
 
 
-# 1. Расписание с рекордами команд и маркерами выхода в плей-офф
+# 1. Расписание с рекордами и индикаторами плей-офф
 @app.get("/api/schedule")
 async def schedule(date: str):
     schedule_url = f"{NHL_BASE}/schedule/{date}"
@@ -488,7 +489,7 @@ async def advanced_team_stats(season: str | None = None):
             continue
         ab = normalize_team_abbr(r.get("teamFullName") or r.get("teamAbbrev") or "")
         p = pct_map.get(ab, {})
-        sf = Number(r.get("shotsForPerGame") or 30.0) if hasattr(r.get("shotsForPerGame"), "toFixed") else float(r.get("shotsForPerGame") or 30.0)
+        sf = float(r.get("shotsForPerGame") or 30.0)
         sa = float(r.get("shotsAgainstPerGame") or 30.0)
         calc_sat = ((sf / (sf + sa or 1)) * 100)
 
@@ -515,25 +516,38 @@ async def advanced_team_stats(season: str | None = None):
     return {"season": target_season, "teams": teams}
 
 
-# 7. Радары скорости и силы бросков NHL EDGE
-@app.get("/api/edge-stats")
-async def edge_stats():
-    return {
-        "topShots": [
-            {"name": "T. Pulock", "team": "NYI", "value": "102.1 mph (164.3 км/ч)"},
-            {"name": "C. Parayko", "team": "STL", "value": "101.8 mph (163.8 км/ч)"},
-            {"name": "A. Ovechkin", "team": "WSH", "value": "101.4 mph (163.2 км/ч)"},
-            {"name": "V. Hedman", "team": "TBL", "value": "100.9 mph (162.4 км/ч)"},
-            {"name": "E. Bouchard", "team": "EDM", "value": "100.5 mph (161.7 км/ч)"},
-        ],
-        "topSpeed": [
-            {"name": "C. McDavid", "team": "EDM", "value": "24.2 mph (38.9 км/ч)"},
-            {"name": "M. Barzal", "team": "NYR", "value": "23.9 mph (38.5 км/ч)"},
-            {"name": "N. MacKinnon", "team": "COL", "value": "23.7 mph (38.1 км/ч)"},
-            {"name": "B. Point", "team": "TBL", "value": "23.5 mph (37.8 км/ч)"},
-            {"name": "M. Wood", "team": "COL", "value": "23.4 mph (37.7 км/ч)"},
-        ],
-    }
+# 7. Реальный сервер голосования Pick'em
+@app.api_route("/api/vote/{game_id}", methods=["GET", "POST"])
+async def vote(game_id: str, request: Request):
+    store_key = f"pickem_{game_id}"
+    if store_key not in _votes_store:
+        _votes_store[store_key] = {"away": 14, "tie": 5, "home": 11}
+
+    current = _votes_store[store_key]
+
+    if request.method == "POST":
+        try:
+            body = await request.json()
+            pick = body.get("pick")
+            if pick in current:
+                current[pick] += 1
+                _votes_store[store_key] = current
+        except Exception:
+            pass
+
+    total = sum(current.values()) or 1
+    away_pct = round((current["away"] / total) * 100)
+    tie_pct = round((current["tie"] / total) * 100)
+    home_pct = 100 - away_pct - tie_pct
+
+    return JSONResponse({
+        "gameId": game_id,
+        "votes": current,
+        "total": total,
+        "awayPct": away_pct,
+        "tiePct": tie_pct,
+        "homePct": home_pct,
+    })
 
 
 # 8. Потолок зарплат клуба (Salary Cap)
@@ -550,36 +564,7 @@ async def team_cap(team: str):
     }
 
 
-# 9. Текстовый онлайн матча (Play-by-Play)
-@app.get("/api/game-pbp/{game_id}")
-async def game_pbp(game_id: str):
-    url = f"{NHL_BASE}/gamecenter/{game_id}/play-by-play"
-    data = await fetch_with_cache(f"pbp:{game_id}", url, CACHE_TTL["pbp"])
-    if not isinstance(data, dict):
-        return {"gameId": game_id, "plays": []}
-
-    raw_plays = data.get("plays", [])
-    plays = raw_plays[-20:] if isinstance(raw_plays, list) else []
-    plays.reverse()
-
-    return {
-        "gameId": game_id,
-        "period": data.get("periodDescriptor", {}).get("number"),
-        "timeRemaining": data.get("clock", {}).get("timeRemaining"),
-        "plays": [
-            {
-                "timeInPeriod": p.get("timeInPeriod"),
-                "typeDescKey": p.get("typeDescKey"),
-                "description": p.get("details", {}).get("desc") or p.get("typeDescKey"),
-                "team": normalize_team_abbr(p.get("details", {}).get("eventOwnerTeamId") or ""),
-            }
-            for p in plays
-            if isinstance(p, dict)
-        ],
-    }
-
-
-# 10. Автоматический поиск видеообзора на YouTube
+# 9. Автоматический поиск видеообзора на YouTube
 @app.get("/api/game-youtube-recap")
 async def game_youtube_recap(away: str, home: str, date: str):
     query = f"NHL highlights {away} vs {home} {date}"
@@ -620,7 +605,7 @@ async def game_youtube_recap(away: str, home: str, date: str):
     return {"videoId": None, "embedUrl": None}
 
 
-# 11. Трансферы и переходы от ESPN
+# 10. Трансферы и переходы от ESPN
 @app.get("/api/transactions")
 async def transactions():
     url = f"{ESPN_BASE}/transactions"
@@ -647,7 +632,56 @@ async def transactions():
     return {"transactions": result}
 
 
-# 12. Травмы от ESPN
+# Базовые NHL эндпоинты
+@app.get("/api/seasons-list")
+async def seasons_list():
+    return await fetch_with_cache("seasons-list", f"{NHL_BASE}/standings-season", CACHE_TTL["standings"])
+
+
+@app.get("/api/playoff-bracket/{year}")
+async def playoff_bracket(year: str):
+    return await fetch_with_cache(f"bracket:{year}", f"{NHL_BASE}/playoff-bracket/{year}", CACHE_TTL["standings"])
+
+
+@app.get("/api/matchup/{game_id}")
+async def matchup(game_id: str):
+    return await fetch_with_cache(f"matchup:{game_id}", f"{NHL_BASE}/gamecenter/{game_id}/landing", CACHE_TTL["matchup"])
+
+
+@app.get("/api/team-schedule/{team}")
+async def team_schedule(team: str, season: str | None = None):
+    team_upper = normalize_team_abbr(team)
+    season_key = season or "now"
+    return await fetch_with_cache(f"team-schedule:{team_upper}:{season_key}", f"{NHL_BASE}/club-schedule-season/{team_upper}/{season_key}", CACHE_TTL["team_schedule"])
+
+
+@app.get("/api/player/{player_id}")
+async def player(player_id: str):
+    return await fetch_with_cache(f"player:{player_id}", f"{NHL_BASE}/player/{player_id}/landing", CACHE_TTL["player"])
+
+
+@app.get("/api/roster-stats/{team}")
+async def roster_stats(team: str, season: str | None = None):
+    team_upper = normalize_team_abbr(team)
+    target_season = season or current_season_id()
+    return await fetch_with_cache(f"club-stats:{team_upper}:{target_season}", f"{NHL_BASE}/club-stats/{team_upper}/{target_season}", CACHE_TTL["roster"])
+
+
+@app.get("/api/boxscore/{game_id}")
+async def boxscore(game_id: str):
+    return await fetch_with_cache(f"boxscore:{game_id}", f"{NHL_BASE}/gamecenter/{game_id}/boxscore", CACHE_TTL["boxscore"])
+
+
+@app.get("/api/right-rail/{game_id}")
+async def right_rail(game_id: str):
+    return await fetch_with_cache(f"rightrail:{game_id}", f"{NHL_BASE}/gamecenter/{game_id}/right-rail", CACHE_TTL["rightrail"])
+
+
+@app.get("/api/score/{game_id}")
+async def score(game_id: str):
+    return await fetch_with_cache(f"score:{game_id}", f"{NHL_BASE}/gamecenter/{game_id}/landing", CACHE_TTL["score"])
+
+
 @app.get("/api/injuries")
 async def get_injuries():
     url = f"{ESPN_BASE}/injuries"
@@ -694,7 +728,6 @@ async def get_injuries():
     return result
 
 
-# 13. Вероятные стартовые вратари и превью ESPN
 @app.get("/api/scoreboard-espn")
 async def get_scoreboard_espn(date: str | None = None):
     params = f"?dates={date.replace('-', '')}" if date else ""
@@ -706,171 +739,7 @@ async def get_scoreboard_espn(date: str | None = None):
     return data.get("events", []) if isinstance(data.get("events"), list) else []
 
 
-def extract_probable_goalies(
-    events: list[dict],
-    away_abbr: str,
-    home_abbr: str,
-) -> dict[str, dict | None]:
-    away_norm = normalize_team_abbr(away_abbr)
-    home_norm = normalize_team_abbr(home_abbr)
-    res: dict[str, dict | None] = {"away": None, "home": None}
-
-    for event in events:
-        if not isinstance(event, dict):
-            continue
-
-        competitions = event.get("competitions", [])
-        if not isinstance(competitions, list):
-            continue
-
-        for comp in competitions:
-            if not isinstance(comp, dict):
-                continue
-
-            competitors = comp.get("competitors", [])
-            if not isinstance(competitors, list):
-                continue
-
-            matched_teams: dict[str, dict] = {}
-            for c in competitors:
-                if not isinstance(c, dict):
-                    continue
-                team_obj = c.get("team", {})
-                raw_abbr = team_obj.get("abbreviation") or team_obj.get("displayName") or ""
-                norm = normalize_team_abbr(raw_abbr)
-                matched_teams[norm] = c
-
-            if away_norm in matched_teams and home_norm in matched_teams:
-                for side, norm_code in [("away", away_norm), ("home", home_norm)]:
-                    c = matched_teams[norm_code]
-                    probables = c.get("probables") or c.get("probableStartingGoalie") or []
-                    if isinstance(probables, dict):
-                        probables = [probables]
-
-                    if isinstance(probables, list) and probables:
-                        item = probables[0]
-                        if isinstance(item, dict):
-                            athlete = item.get("athlete", {}) or {}
-                            if not athlete and "displayName" in item:
-                                athlete = item
-
-                            status = item.get("status", {})
-                            status_str = status.get("name") if isinstance(status, dict) else str(status or "")
-                            confirmed = status_str.lower() == "confirmed" or item.get("confirmed") is True
-
-                            hs = athlete.get("headshot")
-                            headshot = hs.get("href") if isinstance(hs, dict) else (hs or "")
-
-                            res[side] = {
-                                "name": athlete.get("displayName") or athlete.get("name") or "Не объявлен",
-                                "jersey": athlete.get("jersey") or "",
-                                "confirmed": confirmed,
-                                "status": "Подтвержден" if confirmed else ("Вероятен" if status_str else "Ожидается"),
-                                "statusRaw": status_str,
-                                "headshot": headshot,
-                            }
-                return res
-
-    return res
-
-
-def extract_top_scorers(skaters: list[dict], limit: int = 3) -> list[dict]:
-    valid = [s for s in skaters if isinstance(s, dict)]
-    sorted_skaters = sorted(
-        valid,
-        key=lambda x: (
-            int(x.get("points") or 0),
-            int(x.get("goals") or 0),
-            int(x.get("assists") or 0),
-        ),
-        reverse=True,
-    )
-
-    result = []
-    for s in sorted_skaters[:limit]:
-        first = s.get("firstName", "")
-        last = s.get("lastName", "")
-        if isinstance(first, dict):
-            first = first.get("default", "")
-        if isinstance(last, dict):
-            last = last.get("default", "")
-
-        name = f"{first} {last}".strip() or s.get("name") or "Игрок"
-        result.append({
-            "id": s.get("playerId") or s.get("id"),
-            "name": name,
-            "firstName": first,
-            "lastName": last,
-            "position": s.get("positionCode") or s.get("position") or "",
-            "gamesPlayed": s.get("gamesPlayed", 0),
-            "goals": s.get("goals", 0),
-            "assists": s.get("assists", 0),
-            "points": s.get("points", 0),
-            "plusMinus": s.get("plusMinus", 0),
-            "penaltyMinutes": s.get("penaltyMinutes", s.get("pim", 0)),
-            "headshot": s.get("headshot", ""),
-        })
-
-    return result
-
-
-def extract_club_goalies(goalies: list[dict]) -> list[dict]:
-    valid = [g for g in goalies if isinstance(g, dict)]
-    sorted_goalies = sorted(
-        valid,
-        key=lambda x: int(x.get("gamesPlayed") or 0),
-        reverse=True,
-    )
-
-    result = []
-    for g in sorted_goalies:
-        first = g.get("firstName", "")
-        last = g.get("lastName", "")
-        if isinstance(first, dict):
-            first = first.get("default", "")
-        if isinstance(last, dict):
-            last = last.get("default", "")
-
-        name = f"{first} {last}".strip() or g.get("name") or "Вратарь"
-
-        time_on_ice = g.get("timeOnIce", 0)
-        toi_mins = 0
-        if isinstance(time_on_ice, (int, float)):
-            toi_mins = round(time_on_ice / 60) if time_on_ice > 3000 else round(time_on_ice)
-        elif isinstance(time_on_ice, str):
-            try:
-                val_num = float(time_on_ice)
-                toi_mins = round(val_num / 60) if val_num > 3000 else round(val_num)
-            except ValueError:
-                toi_mins = 0
-
-        shots = g.get("shotsAgainst", 0)
-        ga = g.get("goalsAgainst", 0)
-        saves = g.get("saves", (shots - ga if shots and ga is not None else 0))
-
-        result.append({
-            "id": g.get("playerId") or g.get("id"),
-            "name": name,
-            "firstName": first,
-            "lastName": last,
-            "gamesPlayed": g.get("gamesPlayed", 0),
-            "gamesStarted": g.get("gamesStarted", 0),
-            "wins": g.get("wins", 0),
-            "losses": g.get("losses", 0),
-            "otLosses": g.get("otLosses", 0),
-            "savePctg": g.get("savePctg", g.get("savePercentage")),
-            "gaa": g.get("goalsAgainstAverage", g.get("gaa")),
-            "shutouts": g.get("shutouts", 0),
-            "saves": saves,
-            "shotsAgainst": shots,
-            "timeOnIce": toi_mins,
-            "headshot": g.get("headshot", ""),
-        })
-
-    return result
-
-
-# 14. Предматчевый аналитический центр (полная генерация)
+# Предматчевый аналитический центр
 @app.get("/api/pregame/{game_id}")
 async def pregame(
     game_id: str,
@@ -1065,56 +934,6 @@ async def pregame(
     }
 
 
-# Базовые NHL эндпоинты
-@app.get("/api/seasons-list")
-async def seasons_list():
-    return await fetch_with_cache("seasons-list", f"{NHL_BASE}/standings-season", CACHE_TTL["standings"])
-
-
-@app.get("/api/playoff-bracket/{year}")
-async def playoff_bracket(year: str):
-    return await fetch_with_cache(f"bracket:{year}", f"{NHL_BASE}/playoff-bracket/{year}", CACHE_TTL["standings"])
-
-
-@app.get("/api/matchup/{game_id}")
-async def matchup(game_id: str):
-    return await fetch_with_cache(f"matchup:{game_id}", f"{NHL_BASE}/gamecenter/{game_id}/landing", CACHE_TTL["matchup"])
-
-
-@app.get("/api/team-schedule/{team}")
-async def team_schedule(team: str, season: str | None = None):
-    team_upper = normalize_team_abbr(team)
-    season_key = season or "now"
-    return await fetch_with_cache(f"team-schedule:{team_upper}:{season_key}", f"{NHL_BASE}/club-schedule-season/{team_upper}/{season_key}", CACHE_TTL["team_schedule"])
-
-
-@app.get("/api/player/{player_id}")
-async def player(player_id: str):
-    return await fetch_with_cache(f"player:{player_id}", f"{NHL_BASE}/player/{player_id}/landing", CACHE_TTL["player"])
-
-
-@app.get("/api/roster-stats/{team}")
-async def roster_stats(team: str, season: str | None = None):
-    team_upper = normalize_team_abbr(team)
-    target_season = season or current_season_id()
-    return await fetch_with_cache(f"club-stats:{team_upper}:{target_season}", f"{NHL_BASE}/club-stats/{team_upper}/{target_season}", CACHE_TTL["roster"])
-
-
-@app.get("/api/boxscore/{game_id}")
-async def boxscore(game_id: str):
-    return await fetch_with_cache(f"boxscore:{game_id}", f"{NHL_BASE}/gamecenter/{game_id}/boxscore", CACHE_TTL["boxscore"])
-
-
-@app.get("/api/right-rail/{game_id}")
-async def right_rail(game_id: str):
-    return await fetch_with_cache(f"rightrail:{game_id}", f"{NHL_BASE}/gamecenter/{game_id}/right-rail", CACHE_TTL["rightrail"])
-
-
-@app.get("/api/score/{game_id}")
-async def score(game_id: str):
-    return await fetch_with_cache(f"score:{game_id}", f"{NHL_BASE}/gamecenter/{game_id}/landing", CACHE_TTL["score"])
-
-
 # Telegram Webhook
 @app.post("/webhook")
 async def telegram_webhook(update: dict):
@@ -1125,7 +944,7 @@ async def telegram_webhook(update: dict):
     chat_id = message["chat"]["id"]
     text = message.get("text", "")
 
-    if text in ("/start", "/matches", "/standings", "/leaders", "/goalies", "/players", "/transactions", "/analytics"):
+    if text in ("/start", "/matches", "/standings", "/leaders", "/goalies", "/players", "/transactions"):
         keyboard = {
             "inline_keyboard": [
                 [{"text": "🏒 ОТКРЫТЬ NHL", "web_app": {"url": WEBAPP_URL}}],
@@ -1135,9 +954,6 @@ async def telegram_webhook(update: dict):
                 ],
                 [
                     {"text": "🏆 Лидеры", "web_app": {"url": f"{WEBAPP_URL}?section=leaders"}},
-                    {"text": "📈 Аналитика", "web_app": {"url": f"{WEBAPP_URL}?section=analytics"}},
-                ],
-                [
                     {"text": "🔄 Трансферы", "web_app": {"url": f"{WEBAPP_URL}?section=transactions"}},
                 ],
             ],
@@ -1154,7 +970,6 @@ async def telegram_webhook(update: dict):
                         "📅 Матчи, результаты и обзоры\n"
                         "📊 Турнирная таблица\n"
                         "🏆 Лидеры сезона\n"
-                        "📈 Продвинутая аналитика и радары EDGE\n"
                         "🔄 Трансферы и травмы лиги\n\n"
                         "Открой приложение и смотри NHL прямо в Telegram."
                     ),
