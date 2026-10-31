@@ -661,15 +661,19 @@ async def player(player_id: str):
 
 
 @app.get("/api/roster-stats/{team}")
-async def roster_stats(team: str, season: str | None = None):
+async def roster_stats(team: str, season: str | None = None, gameType: str = "2"):
     team_upper = normalize_team_abbr(team)
-    if not season or season == "now":
+    target_season = season or current_season_id()
+    if target_season == "now" and gameType == "2":
         target_url = f"{NHL_BASE}/club-stats/{team_upper}/now"
         cache_key = f"club-stats:{team_upper}:now"
     else:
-        target_url = f"{NHL_BASE}/club-stats/{team_upper}/{season}/2"
-        cache_key = f"club-stats:{team_upper}:{season}:2"
-    return await fetch_with_cache(cache_key, target_url, CACHE_TTL["roster"])
+        target_url = f"{NHL_BASE}/club-stats/{team_upper}/{target_season}/{gameType}"
+        cache_key = f"club-stats:{team_upper}:{target_season}:{gameType}"
+    data = await fetch_with_cache(cache_key, target_url, CACHE_TTL["roster"])
+    if isinstance(data, dict) and "error" in data:
+        return {"skaters": [], "goalies": [], "season": target_season, "gameType": gameType}
+    return data
 
 
 @app.get("/api/boxscore/{game_id}")
