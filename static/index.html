@@ -1426,24 +1426,31 @@ select.date-input option {
   font-weight:700;
   color:#ffffff !important;
 }
-  /* === СТИЛИ ДЛЯ ЛЕНТЫ НОВОСТЕЙ TELEGRAM === */
+  /* === СТИЛИ ТИЗЕРНЫХ КАРТОЧЕК НОВОСТЕЙ === */
 .news-card {
-  margin-bottom: 12px;
-  padding: 14px;
+  margin-bottom: 14px;
+  padding: 12px;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--surface);
   display: flex;
   flex-direction: column;
   gap: 10px;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.news-card:active {
+  border-color: var(--accent);
 }
 
 .news-card img {
   width: 100%;
+  aspect-ratio: 16 / 9;
   max-height: 220px;
   object-fit: cover;
   border-radius: 10px;
   border: 1px solid var(--border);
+  cursor: pointer;
 }
 
 .news-meta {
@@ -1455,38 +1462,53 @@ select.date-input option {
   color: var(--silver-dim);
 }
 
-.news-title {
-  font-family: "Oswald", sans-serif;
-  font-size: 16px;
+.news-tg-tag {
+  color: #29b6f6;
   font-weight: 700;
-  line-height: 1.3;
-  color: #ffffff;
-  cursor: pointer;
-}
-
-.news-desc {
-  font-size: 13px;
-  color: var(--silver);
-  line-height: 1.4;
-}
-
-.news-read-btn {
-  align-self: flex-start;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--accent);
-  background: rgba(31, 95, 206, 0.15);
-  color: #fff;
+  gap: 4px;
+}
+
+/* Кликабельный заголовок-гиперссылка */
+.news-title-link {
   font-family: "Oswald", sans-serif;
-  font-size: 11px;
+  font-size: 17px;
   font-weight: 700;
-  letter-spacing: .03em;
-  text-transform: uppercase;
+  line-height: 1.35;
+  color: #ffffff;
   text-decoration: none;
   cursor: pointer;
+  display: block;
+}
+
+.news-title-link:hover,
+.news-title-link:active {
+  color: #3a86ff;
+  text-decoration: underline;
+}
+
+/* Кнопка перехода в Telegram */
+.news-read-btn {
+  width: 100%;
+  margin-top: 2px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--accent);
+  background: rgba(31, 95, 206, 0.15);
+  color: #ffffff;
+  font-family: "Oswald", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.news-read-btn:active {
+  background: var(--accent);
 }
 </style>
 </head>
@@ -4676,7 +4698,7 @@ function openPostInTelegram(url) {
 
 async function loadNews() {
   const container = document.getElementById("news-feed-container");
-  container.innerHTML = '<div class="loading">Загрузка новостей канала...</div>';
+  container.innerHTML = '<div class="loading">Загрузка свежих новостей...</div>';
 
   try {
     const res = await fetch(`${API_BASE}/api/news`);
@@ -4685,33 +4707,45 @@ async function loadNews() {
 
     if (!list.length) {
       container.innerHTML = `
-        <div class="card" style="text-align:center;padding:24px 14px;">
-          <div style="font-size:24px;margin-bottom:8px;">📢</div>
-          <div style="font-family:'Oswald',sans-serif;font-size:15px;margin-bottom:4px;">Пока нет новостей</div>
-          <div style="font-size:12px;color:var(--silver-dim);">Новые посты из канала появятся здесь сразу после публикации.</div>
+        <div class="card" style="text-align:center;padding:28px 14px;">
+          <div style="font-size:30px;margin-bottom:10px;">📢</div>
+          <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;margin-bottom:6px;text-transform:uppercase;">
+            В канале пока нет новостей
+          </div>
+          <div style="font-size:12px;color:var(--silver-dim);line-height:1.4;">
+            Опубликуйте пост с фотографией и заголовком в вашем канале — он мгновенно появится в этом разделе.
+          </div>
         </div>
       `;
       return;
     }
 
     container.innerHTML = list.map(item => {
+      // Клик по картинке также открывает пост в Telegram
       const imgHtml = item.photo_id 
-        ? `<img src="${API_BASE}/api/news/photo/${escapeHtml(item.photo_id)}" alt="" loading="lazy">` 
+        ? `<img src="${API_BASE}/api/news/photo/${escapeHtml(item.photo_id)}" 
+                alt="" 
+                loading="lazy" 
+                onclick="openPostInTelegram('${escapeHtml(item.link)}')">` 
         : "";
 
       return `
         <div class="news-card">
           ${imgHtml}
+          
           <div class="news-meta">
             <span>📅 ${escapeHtml(item.date)}</span>
-            <span style="color:var(--accent);">Telegram</span>
+            <span class="news-tg-tag">✈ Telegram</span>
           </div>
-          <div class="news-title" onclick="openPostInTelegram('${escapeHtml(item.link)}')">
+
+          <!-- Заголовок оформлен как ссылка с переходом в канал -->
+          <a class="news-title-link" 
+             href="${escapeHtml(item.link)}" 
+             onclick="event.preventDefault(); openPostInTelegram('${escapeHtml(item.link)}');">
             ${escapeHtml(item.title)}
-          </div>
-          <div class="news-desc">
-            ${escapeHtml(item.desc)}
-          </div>
+          </a>
+
+          <!-- Кнопка перехода к полному посту -->
           <button class="news-read-btn" onclick="openPostInTelegram('${escapeHtml(item.link)}')">
             Читать полностью в канале ↗
           </button>
