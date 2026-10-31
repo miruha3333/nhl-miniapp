@@ -3438,7 +3438,54 @@ function renderGameGoalieStats(team, teamAbbrev) {
   html += '</tbody></table></div>';
   return html;
 }
+/* ======================================================= */
+/* === НАЧАЛО: ФИЧА 1 (ТРИ ЗВЕЗДЫ МАТЧА) ================= */
+/* ======================================================= */
+function renderThreeStarsBlock(stars) {
+  if (!Array.isArray(stars) || !stars.length) return "";
+  const titles = ["1-я звезда", "2-я звезда", "3-я звезда"];
+  const badges = ["🥇", "🥈", "🥉"];
 
+  return `
+    <div class="section-title">Три звезды матча</div>
+    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;margin-bottom:14px;">
+      ${stars.map((s, idx) => {
+        const name = `${nameStr(s.firstName)} ${nameStr(s.lastName)}`.trim() || s.name || "Игрок";
+        const pId = s.playerId || s.id;
+        const headshot = s.headshot || (pId ? `https://assets.nhle.com/mugs/nhl/latest/${pId}.png` : "");
+        const team = s.teamAbbrev?.default || s.teamAbbrev || "";
+        
+        let statText = "";
+        if (s.goals !== undefined) {
+          statText = `${s.goals} Г, ${s.assists || 0} П`;
+        } else if (s.savePctg !== undefined) {
+          statText = `${(Number(s.savePctg) * 100).toFixed(1)}% ОБ`;
+        }
+
+        return `
+          <div class="card clickable-row" style="padding:10px 6px;text-align:center;display:flex;flex-direction:column;align-items:center;" onclick="openPlayerDetail('${pId}')">
+            <div style="font-size:11px;font-family:'Oswald',sans-serif;color:var(--silver-dim);margin-bottom:6px;text-transform:uppercase;">
+              ${badges[idx] || "⭐"} ${titles[idx] || `${idx + 1} звезда`}
+            </div>
+            <img src="${escapeHtml(headshot)}" 
+                 style="width:48px;height:48px;border-radius:50%;object-fit:cover;background:var(--surface-2);border:1px solid var(--border);" 
+                 onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
+            <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:12px;margin-top:6px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;">
+              ${escapeHtml(name)}
+            </div>
+            <div style="font-size:10px;color:var(--silver-dim);margin-top:2px;">
+              ${escapeHtml(team)} · ${escapeHtml(s.position || "")}
+            </div>
+            ${statText ? `<div style="font-family:'Roboto Mono',monospace;font-size:10px;color:#2ecc71;font-weight:700;margin-top:4px;">${escapeHtml(statText)}</div>` : ''}
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+/* ======================================================= */
+/* === КОНЕЦ: ФИЧА 1 (ТРИ ЗВЕЗДЫ МАТЧА) ================== */
+/* ======================================================= */
 // Загрузка YouTube-видеообзора
 async function fetchYouTubeHighlight(away, home, date) {
   try {
@@ -3503,7 +3550,12 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
         }
       });
     }
-
+/* === НАЧАЛО: ВСТАВКА ТРЁХ ЗВЁЗД В КАРТОЧКУ === */
+    const threeStars = score?.summary?.threeStars || score?.threeStars || [];
+    if (Array.isArray(threeStars) && threeStars.length > 0) {
+      html += renderThreeStarsBlock(threeStars);
+    }
+/* === КОНЕЦ: ВСТАВКА ТРЁХ ЗВЁЗД В КАРТОЧКУ === */
     html += '<div class="section-title">Голы</div>';
 
     const scoring = score?.summary?.scoring || [];
