@@ -2538,10 +2538,7 @@ function renderAdvancedStandings() {
              alt="" 
              onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(t.teamAbbrev)}_dark.svg';">
       </div>
-      <div class="name sticky-col sticky-col-3" style="display:flex;align-items:center;gap:6px;">
-        <img src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(t.teamAbbrev)}_light.svg" 
-             style="width:16px;height:16px;object-fit:contain;" 
-             onerror="this.style.display='none'">
+      <div class="name sticky-col sticky-col-3">
         <span>${escapeHtml(t.teamAbbrev)}</span>
       </div>
       <div class="num" style="color:${t.satPct >= 50 ? '#2ecc71' : '#ff4d4d'};font-weight:700;">${t.satPct}%</div>
@@ -4282,8 +4279,30 @@ async function openTeamScheduleTab(teamAbbrev) {
       const d = getGameDateValue(g);
       const dStr = d ? new Date(d).toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) : "";
 
-      const isWin = isFin && ((away === teamAbbrev && aScore > hScore) || (home === teamAbbrev && hScore > aScore));
-      const resBadge = isFin ? (isWin ? '<span style="color:#2ecc71;font-weight:700;">В</span>' : '<span style="color:#e74c3c;font-weight:700;">П</span>') : '—';
+     const isWin = isFin && ((away === teamAbbrev && aScore > hScore) || (home === teamAbbrev && hScore > aScore));
+      
+      // Распознавание типа завершения матча: овертайм (OT) или буллиты (SO)
+      const lastPeriod = String(
+        g.gameOutcome?.lastPeriodType || 
+        g.periodDescriptor?.periodType || 
+        g.lastPeriodType || 
+        ""
+      ).toUpperCase();
+
+      let resBadge = '—';
+      if (isFin) {
+        if (isWin) {
+          resBadge = '<span style="color:#2ecc71;font-weight:700;">В</span>';
+        } else {
+          if (lastPeriod === 'SO') {
+            resBadge = '<span style="color:#e67e22;font-weight:700;" title="Поражение по буллитам">ПБ</span>';
+          } else if (lastPeriod === 'OT') {
+            resBadge = '<span style="color:#f39c12;font-weight:700;" title="Поражение в овертайме">ПО</span>';
+          } else {
+            resBadge = '<span style="color:#e74c3c;font-weight:700;" title="Поражение в основное время">П</span>';
+          }
+        }
+      }
 
       html += `
         <div class="h2h-game-row">
