@@ -2402,7 +2402,7 @@ function renderTeamRow(team, rank) {
     <div class="standings-row" data-team="${escapeHtml(abbreviation)}" data-name="${escapeHtml(teamName)}" data-logo="${escapeHtml(logo)}">
       <div class="num sticky-col sticky-col-1">${rank}</div>
       <div class="sticky-col sticky-col-2">
-        <img class="team-logo" src="${escapeHtml(logo)}" alt="" onerror="this.style.visibility='hidden'">
+        <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(t.teamAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(t.teamAbbrev)}_dark.svg';">
       </div>
       <div class="name sticky-col sticky-col-3">
         ${escapeHtml(abbreviation)} ${clinchHtml}
@@ -4089,18 +4089,12 @@ async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
     const params = new URLSearchParams();
     if (seasonId) params.set("season", seasonId);
     const query = params.toString() ? `?${params}` : "";
-
-    const [rosterRes, capRes] = await Promise.all([
-      fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(abbreviation)}${query}`, {
-        cache: "no-store",
-        headers: { Accept: "application/json" }
-      }),
-      fetch(`${API_BASE}/api/team-cap/${encodeURIComponent(abbreviation)}`).catch(() => null),
-    ]);
+const rosterRes = await fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(abbreviation)}${query}`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" }
+    });
 
     const data = await rosterRes.json();
-    const capData = capRes && capRes.ok ? await capRes.json() : null;
-
     if (!rosterRes.ok || data?.error) throw new Error(data?.error || `HTTP ${rosterRes.status}`);
 
     currentTeamFullData = data.data || data.result || data.roster || data;
@@ -4111,25 +4105,15 @@ async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
     currentTeamScheduleSeason = "";
     currentTeamScheduleSeasons = [];
 
-    renderTeamTabsAndTables(abbreviation, name, logo, capData);
+    renderTeamTabsAndTables(abbreviation, name, logo);
+    
   } catch (error) {
     document.getElementById("detail-body").innerHTML = `<div class="empty">Не удалось загрузить состав команды<br><small>${escapeHtml(error.message || "Ошибка сервера")}</small></div>`;
   }
 }
 
-function renderTeamTabsAndTables(teamAbbrev, teamName, teamLogo, capData) {
+function renderTeamTabsAndTables(teamAbbrev, teamName, teamLogo) {
   const body = document.getElementById("detail-body");
-  
-  const capHtml = capData ? `
-    <div class="card" style="margin-top:10px;padding:10px 14px;background:var(--surface-2);">
-      <div style="font-family:'Oswald';font-size:12px;text-transform:uppercase;color:var(--silver-dim);margin-bottom:6px;">💰 Ведомость клуба (Salary Cap)</div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;font-family:'Roboto Mono';">
-        <div>Потолок: <strong>${escapeHtml(capData.salaryCapLimit)}</strong></div>
-        <div>Платёжка: <strong>${escapeHtml(capData.projectedCapHit)}</strong></div>
-        <div style="color:#2ecc71;">Место: <strong>${escapeHtml(capData.capSpace)}</strong></div>
-      </div>
-    </div>
-  ` : '';
 
   body.innerHTML = `
     <div class="detail-head">
@@ -4139,8 +4123,6 @@ function renderTeamTabsAndTables(teamAbbrev, teamName, teamLogo, capData) {
         <div class="subtitle">${escapeHtml(teamAbbrev)}</div>
       </div>
     </div>
-
-    ${capHtml}
 
     <div class="cat-row" style="margin-top:14px;">
       <button id="btn-team-reg" class="active">Регулярный сезон</button>
@@ -4253,8 +4235,7 @@ async function openPlayerDetail(playerId) {
         <div><div class="label">Место рождения</div><div class="value">${escapeHtml(birthPlace || "—")}</div></div>
         <div><div class="label">Рост / Вес</div><div class="value">${player.heightInCentimeters ? `${player.heightInCentimeters} см` : "—"} / ${player.weightInKilograms ? `${player.weightInKilograms} кг` : "—"}</div></div>
         <div><div class="label">Хват</div><div class="value">${escapeHtml(val(player.shootsCatches))}</div></div>
-        <div><div class="label">Оклад (Cap Hit)</div><div class="value" style="color:#2ecc71;">~$${(Math.random() * 5 + 2.5).toFixed(2)}M / год</div></div>
-        <div style="grid-column:1/-1;"><div class="label">Драфт</div><div class="value">${escapeHtml(draftText)}</div></div>
+                <div style="grid-column:1/-1;"><div class="label">Драфт</div><div class="value">${escapeHtml(draftText)}</div></div>
       </div>
     `;
 
