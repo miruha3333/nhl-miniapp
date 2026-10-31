@@ -1426,6 +1426,68 @@ select.date-input option {
   font-weight:700;
   color:#ffffff !important;
 }
+  /* === СТИЛИ ДЛЯ ЛЕНТЫ НОВОСТЕЙ TELEGRAM === */
+.news-card {
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.news-card img {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.news-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: "Roboto Mono", monospace;
+  font-size: 11px;
+  color: var(--silver-dim);
+}
+
+.news-title {
+  font-family: "Oswald", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.news-desc {
+  font-size: 13px;
+  color: var(--silver);
+  line-height: 1.4;
+}
+
+.news-read-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: rgba(31, 95, 206, 0.15);
+  color: #fff;
+  font-family: "Oswald", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+}
 </style>
 </head>
 
@@ -1447,6 +1509,7 @@ select.date-input option {
   <button id="tab-standings">Таблица</button>
   <button id="tab-players">Лидеры</button>
   <button id="tab-transactions">Трансферы</button>
+  <button id="tab-news">Новости</button>
 </nav>
 
 <main>
@@ -1578,6 +1641,14 @@ select.date-input option {
     </div>
   </div>
 
+  <!-- ВКЛАДКА: НОВОСТИ TELEGRAM -->
+  <div id="view-news" style="display:none">
+    <div class="section-title">Новости нашего Telegram-канала</div>
+    <div id="news-feed-container">
+      <div class="loading">Загрузка новостей...</div>
+    </div>
+  </div>
+  
   <!-- 5. ЭКРАН ПОДРОБНОСТЕЙ / КАРТОЧКА МАТЧА / ПРОФИЛЬ -->
   <div id="view-detail" style="display:none">
     <button class="back-btn" id="back-btn">‹ Назад</button>
@@ -1886,11 +1957,14 @@ function switchTab(tab) {
   document.getElementById("tab-standings").classList.toggle("active", safeTab === "standings");
   document.getElementById("tab-players").classList.toggle("active", safeTab === "players");
   document.getElementById("tab-transactions").classList.toggle("active", safeTab === "transactions");
+  document.getElementById("tab-news")?.classList.toggle("active", safeTab === "news");
 
   document.getElementById("view-schedule").style.display = safeTab === "schedule" ? "" : "none";
   document.getElementById("view-standings").style.display = safeTab === "standings" ? "" : "none";
   document.getElementById("view-players").style.display = safeTab === "players" ? "" : "none";
   document.getElementById("view-transactions").style.display = safeTab === "transactions" ? "" : "none";
+  const newsView = document.getElementById("view-news");
+  if (newsView) newsView.style.display = safeTab === "news" ? "" : "none";
 
   document.getElementById("view-detail").style.display = "none";
   document.getElementById("main-nav").style.display = "flex";
@@ -1898,40 +1972,17 @@ function switchTab(tab) {
   lastMainTab = safeTab;
 
   if (safeTab === "schedule") loadSchedule();
-  if (safeTab === "standings") {
-    loadStandings();
-    if (!bracketLoadedOnce) {
-      const now = new Date();
-      const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
-      const playoffYear = startYear + 1;
-      const playoffStart = new Date(playoffYear, 3, 14);
-
-      if (now >= playoffStart) {
-        loadPlayoffBracket(String(playoffYear));
-      } else {
-        document.getElementById("bracket-container").innerHTML = `
-          <div class="bracket-wrap">
-            <div class="section-title">Сетка плей-офф</div>
-            <div class="empty">Регулярный сезон ещё не завершён — пары формируются к старту плей-офф</div>
-          </div>
-        `;
-      }
-      bracketLoadedOnce = true;
-    }
-  }
-  if (safeTab === "players") {
-    resetLeadersToSkaters();
-    loadPlayers();
-  }
-  if (safeTab === "transactions") {
-    loadTransactions();
-  }
+  if (safeTab === "standings") loadStandings();
+  if (safeTab === "players") { resetLeadersToSkaters(); loadPlayers(); }
+  if (safeTab === "transactions") loadTransactions();
+  if (safeTab === "news") loadNews();
 }
 
 document.getElementById("tab-schedule").onclick = () => switchTab("schedule");
 document.getElementById("tab-standings").onclick = () => switchTab("standings");
 document.getElementById("tab-players").onclick = () => switchTab("players");
 document.getElementById("tab-transactions").onclick = () => switchTab("transactions");
+document.getElementById("tab-news").onclick = () => switchTab("news");
 document.getElementById("back-btn").onclick = () => {
   stopAllVideos();
   switchTab(lastMainTab);
@@ -4612,7 +4663,65 @@ async function loadTransactions() {
     container.innerHTML = `<div class="empty">Не удалось загрузить трансферы</div>`;
   }
 }
+// =======================================================
+// === ЗАГРУЗКА НОВОСТЕЙ ИЗ TELEGRAM ====================
+// =======================================================
+function openPostInTelegram(url) {
+  if (window.Telegram?.WebApp?.openTelegramLink) {
+    window.Telegram.WebApp.openTelegramLink(url);
+  } else {
+    window.open(url, "_blank");
+  }
+}
 
+async function loadNews() {
+  const container = document.getElementById("news-feed-container");
+  container.innerHTML = '<div class="loading">Загрузка новостей канала...</div>';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/news`);
+    const data = await res.json();
+    const list = data.news || [];
+
+    if (!list.length) {
+      container.innerHTML = `
+        <div class="card" style="text-align:center;padding:24px 14px;">
+          <div style="font-size:24px;margin-bottom:8px;">📢</div>
+          <div style="font-family:'Oswald',sans-serif;font-size:15px;margin-bottom:4px;">Пока нет новостей</div>
+          <div style="font-size:12px;color:var(--silver-dim);">Новые посты из канала появятся здесь сразу после публикации.</div>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = list.map(item => {
+      const imgHtml = item.photo_id 
+        ? `<img src="${API_BASE}/api/news/photo/${escapeHtml(item.photo_id)}" alt="" loading="lazy">` 
+        : "";
+
+      return `
+        <div class="news-card">
+          ${imgHtml}
+          <div class="news-meta">
+            <span>📅 ${escapeHtml(item.date)}</span>
+            <span style="color:var(--accent);">Telegram</span>
+          </div>
+          <div class="news-title" onclick="openPostInTelegram('${escapeHtml(item.link)}')">
+            ${escapeHtml(item.title)}
+          </div>
+          <div class="news-desc">
+            ${escapeHtml(item.desc)}
+          </div>
+          <button class="news-read-btn" onclick="openPostInTelegram('${escapeHtml(item.link)}')">
+            Читать полностью в канале ↗
+          </button>
+        </div>
+      `;
+    }).join("");
+  } catch (err) {
+    container.innerHTML = '<div class="empty">Не удалось загрузить ленту новостей</div>';
+  }
+}
 async function loadSpotlight() {
   const games = document.getElementById("games");
   try {
