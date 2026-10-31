@@ -445,7 +445,6 @@ select.date-input option {
   height:20px;
 }
 
-/* Все цифры очков, процентов и показателей — СТРОГО БЕЛЫЕ */
 .standings-row .pts {
   color:#ffffff !important;
   font-weight:700;
@@ -673,7 +672,6 @@ select.date-input option {
   text-align:center;
 }
 
-/* Flexbox для очных встреч */
 .matchup-summary-box {
   display:flex;
   align-items:center;
@@ -751,7 +749,6 @@ select.date-input option {
   margin-top:2px;
 }
 
-/* Статистика команд в матче */
 .teamstat-header-flex {
   display:flex;
   align-items:center;
@@ -1434,7 +1431,8 @@ select.date-input option {
   font-weight:700;
   color:#ffffff !important;
 }
-  /* === СТИЛИ ТИЗЕРНЫХ КАРТОЧЕК НОВОСТЕЙ === */
+
+/* === СТИЛИ ТИЗЕРНЫХ КАРТОЧЕК НОВОСТЕЙ === */
 .news-card {
   margin-bottom: 14px;
   padding: 12px;
@@ -1519,6 +1517,7 @@ select.date-input option {
   background: var(--accent);
 }
 </style>
+html
 </head>
 
 <body>
@@ -1556,7 +1555,7 @@ select.date-input option {
     </div>
   </div>
 
-  <!-- 2. ВКЛАДКА: ТУРНИРНАЯ ТАБЛИЦА С РЕЖИМОМ «ПРОДВИНУТАЯ» -->
+  <!-- 2. ВКЛАДКА: ТУРНИРНАЯ ТАБЛИЦА -->
   <div id="view-standings" style="display:none">
     <div class="cat-row">
       <button id="std-mode-all" class="active">Общая</button>
@@ -1671,8 +1670,7 @@ select.date-input option {
     </div>
   </div>
 
-
-   <!-- ВКЛАДКА: НОВОСТИ TELEGRAM -->
+  <!-- 5. ВКЛАДКА: НОВОСТИ TELEGRAM (Единственный экземпляр) -->
   <div id="view-news" style="display:none">
     <div class="section-title">Новости нашего Telegram-канала</div>
     <div id="news-feed-container">
@@ -1680,7 +1678,7 @@ select.date-input option {
     </div>
   </div>
   
-  <!-- 5. ЭКРАН ПОДРОБНОСТЕЙ / КАРТОЧКА МАТЧА / ПРОФИЛЬ -->
+  <!-- 6. ЭКРАН ПОДРОБНОСТЕЙ / КАРТОЧКА МАТЧА / ПРОФИЛЬ -->
   <div id="view-detail" style="display:none">
     <button class="back-btn" id="back-btn">‹ Назад</button>
     <div id="detail-body">
@@ -1688,6 +1686,7 @@ select.date-input option {
     </div>
   </div>
 </main>
+
 <!-- МОДАЛЬНОЕ ОКНО: ВЫБОР ЛЮБИМОГО КЛУБА -->
 <div id="my-team-modal" class="h2h-modal-wrap" style="display:none;">
   <div class="h2h-modal">
@@ -1702,7 +1701,7 @@ select.date-input option {
   </div>
 </div>
 
-<!-- МОДАЛЬНОЕ ОКНО: ДУЭЛЬНОЕ СРАВНЕНИЕ ИГРОКОВ (КЛУБ -> ИГРОК) -->
+<!-- МОДАЛЬНОЕ ОКНО: ДУЭЛЬНОЕ СРАВНЕНИЕ ИГРОКОВ -->
 <div id="h2h-modal" class="h2h-modal-wrap" style="display:none;">
   <div class="h2h-modal">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
@@ -1712,12 +1711,12 @@ select.date-input option {
     
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
       <div>
-        <label style="font-size:10px;color:var(--silver-dim);text-transform:uppercase;font-family:'Oswald';display:block;margin-bottom:4px;">1. Клуб и Игрок</label>
+        <label style="font-size:10px;color:var(--silver-dim);text-transform:uppercase;font-family:'Oswald',sans-serif;display:block;margin-bottom:4px;">1. Клуб и Игрок</label>
         <select id="h2h-team-1" class="date-input" style="width:100%;font-size:11px;padding:6px;margin-bottom:6px;"></select>
         <select id="h2h-player-1" class="date-input" style="width:100%;font-size:11px;padding:6px;"></select>
       </div>
       <div>
-        <label style="font-size:10px;color:var(--silver-dim);text-transform:uppercase;font-family:'Oswald';display:block;margin-bottom:4px;">2. Клуб и Игрок</label>
+        <label style="font-size:10px;color:var(--silver-dim);text-transform:uppercase;font-family:'Oswald',sans-serif;display:block;margin-bottom:4px;">2. Клуб и Игрок</label>
         <select id="h2h-team-2" class="date-input" style="width:100%;font-size:11px;padding:6px;margin-bottom:6px;"></select>
         <select id="h2h-player-2" class="date-input" style="width:100%;font-size:11px;padding:6px;"></select>
       </div>
@@ -1736,7 +1735,7 @@ tg?.expand();
 
 const API_BASE = "https://nhl-live-api.sergvolk504.workers.dev";
 
-// Официальные акцентные цвета 32 клубов NHL (LAK зафиксирован контрастным серебром #A2AAAD)
+// Официальные акцентные цвета 32 клубов NHL
 const TEAM_COLORS = {
   ANA: "#F47A38", BOS: "#FFB81C", BUF: "#003087", CGY: "#C8102E",
   CAR: "#CC0000", CHI: "#CF0A2C", COL: "#6F263D", CBJ: "#002654",
@@ -1783,7 +1782,6 @@ const goalieHeadshotCache = new Map();
 const h2hTeamCache = new Map();
 const datePicker = document.getElementById("date-picker");
 
-// Функция немедленной остановки всех плееров и звука
 function stopAllVideos() {
   const container = document.getElementById("detail-body");
   if (container) {
@@ -1799,7 +1797,6 @@ function stopAllVideos() {
   }
 }
 
-// Применение клубной темы оформления
 function applyTeamTheme(teamAbbr) {
   if (!teamAbbr || !TEAM_COLORS[teamAbbr]) {
     document.documentElement.style.setProperty("--accent", "#1f5fce");
@@ -1814,7 +1811,7 @@ function applyTeamTheme(teamAbbr) {
 function updateMyTeamButton() {
   const label = document.getElementById("my-team-label");
   if (myFavoriteTeam) {
-    label.innerHTML = `<img src="https://assets.nhle.com/mugs/nhl/default-team/${myFavoriteTeam}.png" alt="" onerror="this.style.display='none'"> ${myFavoriteTeam}`;
+    label.innerHTML = `<img src="https://assets.nhle.com/logos/nhl/svg/${myFavoriteTeam}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${myFavoriteTeam}_dark.svg';"> ${myFavoriteTeam}`;
     applyTeamTheme(myFavoriteTeam);
   } else {
     label.innerHTML = `<img src="https://assets.nhle.com/logos/nhl/svg/nhl_light.svg" alt="" style="width:18px;height:18px;"> Мой клуб`;
@@ -1939,6 +1936,8 @@ function openDetail() {
   document.getElementById("view-standings").style.display = "none";
   document.getElementById("view-players").style.display = "none";
   document.getElementById("view-transactions").style.display = "none";
+  const newsView = document.getElementById("view-news");
+  if (newsView) newsView.style.display = "none";
   document.getElementById("view-detail").style.display = "";
   document.getElementById("main-nav").style.display = "none";
   document.getElementById("detail-body").innerHTML = '<div class="loading">Загрузка...</div>';
@@ -1986,14 +1985,12 @@ function switchTab(tab) {
   stopAllVideos();
   const safeTab = normalizeInitialSection(tab);
 
-  // Переключение активного класса на кнопках
   document.getElementById("tab-schedule")?.classList.toggle("active", safeTab === "schedule");
   document.getElementById("tab-standings")?.classList.toggle("active", safeTab === "standings");
   document.getElementById("tab-players")?.classList.toggle("active", safeTab === "players");
   document.getElementById("tab-transactions")?.classList.toggle("active", safeTab === "transactions");
   document.getElementById("tab-news")?.classList.toggle("active", safeTab === "news");
 
-  // Переключение видимости разделов
   document.getElementById("view-schedule").style.display = safeTab === "schedule" ? "" : "none";
   document.getElementById("view-standings").style.display = safeTab === "standings" ? "" : "none";
   document.getElementById("view-players").style.display = safeTab === "players" ? "" : "none";
@@ -2068,7 +2065,6 @@ datePicker.addEventListener("change", event => {
   }
 });
 
-// Настройка модального окна выбора клуба
 document.getElementById("my-team-trigger").onclick = () => {
   renderTeamSelectorModal();
   document.getElementById("my-team-modal").style.display = "flex";
@@ -2083,7 +2079,7 @@ function renderTeamSelectorModal() {
 
   grid.innerHTML = teams.map(abbr => `
     <button class="pickem-btn ${myFavoriteTeam === abbr ? 'selected' : ''}" data-choose-team="${abbr}" style="padding:10px 4px;">
-      <img src="https://assets.nhle.com/mugs/nhl/default-team/${abbr}.png" alt="" style="width:28px;height:28px;object-fit:contain;" onerror="this.style.display='none'">
+      <img src="https://assets.nhle.com/logos/nhl/svg/${abbr}_light.svg" alt="" style="width:28px;height:28px;object-fit:contain;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${abbr}_dark.svg';">
       <span style="margin-top:4px;">${abbr}</span>
     </button>
   `).join("");
@@ -2162,7 +2158,7 @@ document.getElementById("season-select").addEventListener("change", event => {
     `;
   }
 });
-// Сортировка обычной турнирной таблицы
+
 document.querySelectorAll("#standings-table-regular .sortable").forEach(header => {
   header.onclick = () => {
     const key = header.dataset.sort;
@@ -2176,7 +2172,6 @@ document.querySelectorAll("#standings-table-regular .sortable").forEach(header =
   };
 });
 
-// Сортировка продвинутой таблицы контроля шайбы (Corsi / Fenwick / PDO)
 document.querySelectorAll("#standings-table-advanced .sortable").forEach(header => {
   header.onclick = () => {
     const key = header.dataset.advSort;
@@ -2239,7 +2234,6 @@ async function loadSchedule() {
       return;
     }
 
-    // Закрепление матча любимого клуба на самом верху списка
     if (myFavoriteTeam) {
       list = [...list].sort((a, b) => {
         const aFav = (getTeamAbbrev(a.awayTeam) === myFavoriteTeam || getTeamAbbrev(a.homeTeam) === myFavoriteTeam);
@@ -2307,7 +2301,7 @@ function renderGame(game) {
     <div class="card ${isPinned ? 'pinned' : ''}">
       <div class="game-row">
         <div class="team" data-team="${escapeHtml(awayAbbrev)}" data-name="${escapeHtml(away.name || awayAbbrev)}" data-logo="${escapeHtml(away.logo || "")}">
-          <img class="team-logo" src="${escapeHtml(away.logo || "")}" alt="" onerror="this.style.display='none'">
+          <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_dark.svg';">
           <div>
             <div class="abbr">${escapeHtml(awayAbbrev)}</div>
             ${renderTeamRecord(away)}
@@ -2324,7 +2318,7 @@ function renderGame(game) {
             <div class="abbr">${escapeHtml(homeAbbrev)}</div>
             ${renderTeamRecord(home)}
           </div>
-          <img class="team-logo" src="${escapeHtml(home.logo || "")}" alt="" onerror="this.style.display='none'">
+          <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_dark.svg';">
         </div>
       </div>
     </div>
@@ -2453,7 +2447,6 @@ async function loadStandings() {
       }
     } catch (_) {}
 
-    // Если архив по дате не ответил, делаем аварийный запрос на актуальную таблицу
     if (!data || (!data.standings && !Array.isArray(data))) {
       try {
         const fallbackResp = await fetch(`${API_BASE}/api/standings`);
@@ -2470,7 +2463,6 @@ async function loadStandings() {
 
     const rawStandings = Array.isArray(data) ? data : (data.standings || []);
 
-    // Подтягиваем спецбригады в фоновом режиме (таблица не падает, если они недоступны)
     let specialTeams = [];
     try {
       const spResp = await fetch(specialTeamsUrl);
@@ -2530,7 +2522,6 @@ function renderTeamRow(team, rank) {
   const sf = team.shotsForPerGame !== undefined && team.shotsForPerGame !== null ? Number(team.shotsForPerGame).toFixed(1) : "—";
   const sa = team.shotsAgainstPerGame !== undefined && team.shotsAgainstPerGame !== null ? Number(team.shotsAgainstPerGame).toFixed(1) : "—";
 
-  // Значки выхода в плей-офф
   let clinchHtml = "";
   if (team.clinchIndicator) {
     const ci = String(team.clinchIndicator).toLowerCase();
@@ -2618,7 +2609,6 @@ function renderStandings() {
   });
 }
 
-// Загрузка и рендеринг продвинутой таблицы контроля шайбы
 async function loadAdvancedStandings() {
   const body = document.getElementById("advanced-standings-body");
   body.innerHTML = '<div class="loading">Загрузка продвинутой статистики...</div>';
@@ -2633,7 +2623,6 @@ async function loadAdvancedStandings() {
     currentAdvancedTeamsData = data.teams || [];
 
     if (!currentAdvancedTeamsData.length && currentStandingsData.length) {
-      // Автономный расчет на основе данных таблицы, если эндпоинт пуст
       currentAdvancedTeamsData = currentStandingsData.map(t => {
         const ab = getTeamAbbrev(t);
         const sf = Number(t.shotsForPerGame || 30.5);
@@ -2693,7 +2682,7 @@ function renderAdvancedStandings() {
 
   body.querySelectorAll(".standings-row").forEach(row => {
     row.addEventListener("click", () => {
-      openTeamDetail(row.dataset.team, row.dataset.team, `https://assets.nhle.com/mugs/nhl/default-team/${row.dataset.team}.png`);
+      openTeamDetail(row.dataset.team, row.dataset.team, `https://assets.nhle.com/logos/nhl/svg/${row.dataset.team}_light.svg`);
     });
   });
 }
@@ -2771,7 +2760,6 @@ async function loadPlayoffBracket(playoffYear) {
   }
 }
 
-// Переключение кнопок Полевые / Вратари
 document.getElementById("leaders-skaters-btn").onclick = () => {
   leadersMode = "skaters";
   document.getElementById("leaders-skaters-btn").classList.add("active");
@@ -2795,7 +2783,6 @@ document.getElementById("leaders-goalies-btn").onclick = () => {
   }
 };
 
-// Клик по категориям полевых игроков
 document.querySelectorAll("#skater-categories button").forEach(button => {
   button.onclick = () => {
     document.querySelectorAll("#skater-categories button").forEach(item => item.classList.remove("active"));
@@ -2806,7 +2793,6 @@ document.querySelectorAll("#skater-categories button").forEach(button => {
   };
 });
 
-// Клик по категориям вратарей
 document.querySelectorAll("#goalie-categories button").forEach(button => {
   button.onclick = () => {
     document.querySelectorAll("#goalie-categories button").forEach(item => item.classList.remove("active"));
@@ -2828,7 +2814,6 @@ document.querySelectorAll("#goalie-categories button").forEach(button => {
   };
 });
 
-// Загрузка полевых игроков
 async function loadPlayers() {
   const body = document.getElementById("players-body");
   body.innerHTML = '<div class="loading">Загрузка лидеров...</div>';
@@ -2988,9 +2973,7 @@ async function loadGoalieCards() {
     body.innerHTML = `<div class="empty">Не удалось загрузить статистику вратарей<br><small>${escapeHtml(error.message || "Ошибка")}</small></div>`;
   }
 }
-// ==========================================
-// 5. ДУЭЛЬНОЕ СРАВНЕНИЕ ИГРОКОВ (КЛУБ -> ИГРОК)
-// ==========================================
+
 document.getElementById("open-h2h-btn").onclick = () => {
   openH2HModal();
 };
@@ -3080,7 +3063,7 @@ function renderH2HComparison() {
       <div class="h2h-bar-row">
         <div class="h2h-bar-labels">
           <span style="font-weight:700;color:#ffffff;font-size:13px;">${escapeHtml(v1)}</span>
-          <span style="color:var(--silver-dim);text-transform:uppercase;font-family:'Oswald';">${escapeHtml(label)}</span>
+          <span style="color:var(--silver-dim);text-transform:uppercase;font-family:'Oswald',sans-serif;">${escapeHtml(label)}</span>
           <span style="font-weight:700;color:#ffffff;font-size:13px;">${escapeHtml(v2)}</span>
         </div>
         <div class="h2h-bar-track">
@@ -3098,13 +3081,13 @@ function renderH2HComparison() {
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding:10px 0;border-bottom:1px solid var(--border);">
       <div style="text-align:center;width:45%;">
         <img src="${escapeHtml(getHeadshot(p1))}" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #3a86ff;background:var(--surface-2);" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
-        <div style="font-family:'Oswald';font-weight:700;font-size:13px;margin-top:4px;color:#fff;">${escapeHtml(p1Name)}</div>
+        <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:13px;margin-top:4px;color:#fff;">${escapeHtml(p1Name)}</div>
         <div style="font-size:11px;color:var(--silver-dim);">${escapeHtml(t1)}</div>
       </div>
-      <div style="font-family:'Oswald';font-weight:700;color:var(--silver-dim);">VS</div>
+      <div style="font-family:'Oswald',sans-serif;font-weight:700;color:var(--silver-dim);">VS</div>
       <div style="text-align:center;width:45%;">
         <img src="${escapeHtml(getHeadshot(p2))}" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #2ecc71;background:var(--surface-2);" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
-        <div style="font-family:'Oswald';font-weight:700;font-size:13px;margin-top:4px;color:#fff;">${escapeHtml(p2Name)}</div>
+        <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:13px;margin-top:4px;color:#fff;">${escapeHtml(p2Name)}</div>
         <div style="font-size:11px;color:var(--silver-dim);">${escapeHtml(t2)}</div>
       </div>
     </div>
@@ -3137,7 +3120,6 @@ async function hydrateGoalieHeadshots(players) {
   }));
 }
 
-// Восстановленная функция статистики команд матча
 function renderTeamGameStats(rightRail, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
   const stats = rightRail?.teamGameStats || [];
   let html = '<div class="section-title">Статистика команд</div>';
@@ -3147,12 +3129,12 @@ function renderTeamGameStats(rightRail, awayAbbrev, homeAbbrev, awayLogo, homeLo
     <div class="card" style="padding:0;">
       <div class="teamstat-header-flex">
         <div class="teamstat-side-flex">
-          <img class="team-logo" src="${escapeHtml(awayLogo)}" alt="" onerror="this.style.display='none'">
+          <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_dark.svg';">
           <span>${escapeHtml(awayAbbrev)}</span>
         </div>
         <div class="teamstat-side-flex right">
           <span>${escapeHtml(homeAbbrev)}</span>
-          <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="" onerror="this.style.display='none'">
+          <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_dark.svg';">
         </div>
       </div>
   `;
@@ -3188,7 +3170,7 @@ function renderTeamGameStats(rightRail, awayAbbrev, homeAbbrev, awayLogo, homeLo
   html += '</div>';
   return html;
 }
-// Вспомогательная нормализация состава команды (решение ошибки normalizeTeamDataset)
+
 function normalizeTeamDataset(data) {
   if (!data || typeof data !== "object") return { skaters: [], goalies: [] };
   const skaters = data.skaters || data.skatersStats || data.players || data.forwards || [];
@@ -3198,7 +3180,7 @@ function normalizeTeamDataset(data) {
     goalies: Array.isArray(goalies) ? goalies : []
   };
 }
-// Восстановленная функция вывода состава команды
+
 function buildTeamTablesBlock() {
   const container = document.getElementById("team-tables-container");
   if (!container) return;
@@ -3552,9 +3534,7 @@ function renderGameGoalieStats(team, teamAbbrev) {
   html += '</tbody></table></div>';
   return html;
 }
-/* ======================================================= */
-/* === НАЧАЛО: ФИЧА 1 (ТРИ ЗВЕЗДЫ МАТЧА) ================= */
-/* ======================================================= */
+
 function renderThreeStarsBlock(stars) {
   if (!Array.isArray(stars) || !stars.length) return "";
   const titles = ["1-я звезда", "2-я звезда", "3-я звезда"];
@@ -3564,7 +3544,6 @@ function renderThreeStarsBlock(stars) {
     <div class="section-title">Три звезды матча</div>
     <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;margin-bottom:14px;">
       ${stars.map((s, idx) => {
-        // Правильное извлечение имени: учитываем объект { default: "Name" } от NHL API
         const rawName = s.name || s.playerName || `${nameStr(s.firstName)} ${nameStr(s.lastName)}`.trim();
         const fullName = nameStr(rawName) || "Игрок";
 
@@ -3572,7 +3551,6 @@ function renderThreeStarsBlock(stars) {
         const headshot = s.headshot || (pId ? `https://assets.nhle.com/mugs/nhl/latest/${pId}.png` : "");
         const team = s.teamAbbrev?.default || s.teamAbbrev || "";
         
-        // Универсальный вывод очков или показателей вратаря
         let statText = "";
         if (s.goals !== undefined || s.assists !== undefined || s.points !== undefined) {
           const g = Number(s.goals || 0);
@@ -3609,10 +3587,7 @@ function renderThreeStarsBlock(stars) {
     </div>
   `;
 }
-/* ======================================================= */
-/* === КОНЕЦ: ФИЧА 1 (ТРИ ЗВЕЗДЫ МАТЧА) ================== */
-/* ======================================================= */
-// Загрузка YouTube-видеообзора
+
 async function fetchYouTubeHighlight(away, home, date) {
   try {
     const res = await fetch(`${API_BASE}/api/game-youtube-recap?away=${encodeURIComponent(away)}&home=${encodeURIComponent(home)}&date=${encodeURIComponent(date)}`);
@@ -3637,19 +3612,18 @@ function buildVideoRecapBlock(videoId) {
   `;
 }
 
-// Открытие экрана завершенного или идущего матча
 async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
   openDetail();
   const body = document.getElementById("detail-body");
 
   let html = `
     <div class="detail-head-game">
-      <img class="team-logo" src="${escapeHtml(awayLogo)}" alt="" onerror="this.style.display='none'">
+      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_dark.svg';">
       <div>
         <div class="title">${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
         <div class="subtitle">Статистика и обзор матча</div>
       </div>
-      <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="" onerror="this.style.display='none'">
+      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_dark.svg';">
     </div>
     <div id="video-recap-slot"></div>
   `;
@@ -3670,13 +3644,11 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
     const gameDate = score?.gameDate || "";
     const slot = document.getElementById("video-recap-slot");
     
-    // Определяем статус матча
     const isLiveGame = score?.gameState === "LIVE" || score?.gameState === "CRIT";
     const isFinishedGame = isCompletedGame(score) || score?.gameState === "FINAL" || score?.gameState === "OFF";
 
     if (slot) {
       if (isLiveGame) {
-        // Матч идет прямо сейчас — поиск видео заблокирован
         slot.innerHTML = `
           <div class="card" style="text-align:center;padding:14px;background:var(--surface-2);margin-bottom:14px;border:1px solid rgba(46,204,113,0.3);">
             <div style="font-family:'Oswald',sans-serif;font-size:13px;color:#2ecc71;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">
@@ -3688,7 +3660,6 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
           </div>
         `;
       } else if (isFinishedGame) {
-        // Матч завершен — ищем видео, а пока ищется — вешаем плашку ожидания
         slot.innerHTML = `
           <div class="card" style="text-align:center;padding:14px;background:var(--surface-2);margin-bottom:14px;">
             <div style="font-family:'Oswald',sans-serif;font-size:13px;color:var(--silver);font-weight:700;text-transform:uppercase;">
@@ -3708,16 +3679,15 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
           });
         }
       } else {
-        // Предстоящий матч (FUT, PRE) — ничего не показываем
         slot.innerHTML = "";
       }
     }
-/* === НАЧАЛО: ВСТАВКА ТРЁХ ЗВЁЗД В КАРТОЧКУ === */
+
     const threeStars = score?.summary?.threeStars || score?.threeStars || [];
     if (Array.isArray(threeStars) && threeStars.length > 0) {
       html += renderThreeStarsBlock(threeStars);
     }
-/* === КОНЕЦ: ВСТАВКА ТРЁХ ЗВЁЗД В КАРТОЧКУ === */
+
     html += '<div class="section-title">Голы</div>';
 
     const scoring = score?.summary?.scoring || [];
@@ -3786,7 +3756,6 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
   }
 }
 
-// Загрузка последних 10 матчей между клубами (ТОЛЬКО регулярка и плей-офф)
 async function loadMatchupHistory(awayAbbrev, homeAbbrev) {
   const away = String(awayAbbrev || "").toUpperCase();
   const home = String(homeAbbrev || "").toUpperCase();
@@ -3946,12 +3915,12 @@ async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, h
 
   body.innerHTML = `
     <div class="detail-head-game">
-      <img class="team-logo" src="${escapeHtml(awayLogo)}" alt="" onerror="this.style.display='none'">
+      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_dark.svg';">
       <div>
         <div class="title">${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
         <div class="subtitle">ПРЕДМАТЧЕВОЕ ПРЕВЬЮ</div>
       </div>
-      <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="" onerror="this.style.display='none'">
+      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_dark.svg';">
     </div>
     <div class="loading">Загрузка предматчевой аналитики, вратарей и травм...</div>
   `;
@@ -3971,12 +3940,12 @@ async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, h
   } catch (err) {
     body.innerHTML = `
       <div class="detail-head-game">
-        <img class="team-logo" src="${escapeHtml(awayLogo)}" alt="" onerror="this.style.display='none'">
+        <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_dark.svg';">
         <div>
           <div class="title">${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
           <div class="subtitle">Предстоящий матч</div>
         </div>
-        <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="" onerror="this.style.display='none'">
+        <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_dark.svg';">
       </div>
       <div class="section-title">Последние 10 матчей между клубами</div>
       <div class="card" style="padding:0;" id="pregame-h2h-box"><div class="loading">Загрузка очных встреч...</div></div>
@@ -3993,10 +3962,7 @@ function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLog
   const body = document.getElementById("detail-body");
   const away = data.awayTeam || {};
   const home = data.homeTeam || {};
-  const probables = data.probableGoalies || {};
   const injuries = data.injuries || { away: [], home: [] };
-  const topScorers = data.topScorers || { away: [], home: [] };
-  const goalies = data.clubGoalies || { away: [], home: [] };
   const preStats = data.preGameStats || [];
   const seasonSeries = data.seasonSeries || [];
 
@@ -4009,12 +3975,12 @@ function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLog
 
   let html = `
     <div class="detail-head-game">
-      <img class="team-logo" src="${escapeHtml(away.logo || awayLogo)}" alt="" onerror="this.style.display='none'">
+      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(away.abbrev || awayAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(away.abbrev || awayAbbrev)}_dark.svg';">
       <div>
         <div class="title">${escapeHtml(away.abbrev || awayAbbrev)} — ${escapeHtml(home.abbrev || homeAbbrev)}</div>
         <div class="subtitle" style="color:#2ecc71;font-weight:600;">НАЧАЛО: ${escapeHtml(startTime)}</div>
       </div>
-      <img class="team-logo" src="${escapeHtml(home.logo || homeLogo)}" alt="" onerror="this.style.display='none'">
+      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(home.abbrev || homeAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(home.abbrev || homeAbbrev)}_dark.svg';">
     </div>
 
     <!-- PICK'EM ГОЛОСОВАНИЕ ЧЕРЕЗ СЕРВЕР -->
@@ -4034,13 +4000,6 @@ function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLog
           <span class="pickem-pct" id="pct-home">...</span>
         </button>
       </div>
-    </div>
-
-    <!-- ВЕРОЯТНЫЕ ВРАТАРИ -->
-    <div class="section-title">Вероятные стартовые вратари</div>
-    <div class="pregame-probables-grid">
-      ${renderPregameGoalieCard(probables.away, away.abbrev || awayAbbrev)}
-      ${renderPregameGoalieCard(probables.home, home.abbrev || homeAbbrev)}
     </div>
 
     <!-- СРАВНЕНИЕ ПОКАЗАТЕЛЕЙ КОМАНД -->
@@ -4117,56 +4076,12 @@ function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLog
     <div class="section-title">Список травмированных (Injuries)</div>
     <div class="pregame-injuries-grid">
       <div class="injury-team-col">
-        <h4><img src="${escapeHtml(away.logo || '')}" alt="" onerror="this.style.display='none'"> ${escapeHtml(away.abbrev || awayAbbrev)}</h4>
+        <h4><img src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(away.abbrev || awayAbbrev)}_light.svg" alt="" onerror="this.style.display='none'"> ${escapeHtml(away.abbrev || awayAbbrev)}</h4>
         ${renderPregameInjuryList(injuries.away)}
       </div>
       <div class="injury-team-col">
-        <h4><img src="${escapeHtml(home.logo || '')}" alt="" onerror="this.style.display='none'"> ${escapeHtml(home.abbrev || homeAbbrev)}</h4>
+        <h4><img src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(home.abbrev || homeAbbrev)}_light.svg" alt="" onerror="this.style.display='none'"> ${escapeHtml(home.abbrev || homeAbbrev)}</h4>
         ${renderPregameInjuryList(injuries.home)}
-      </div>
-    </div>
-
-    <!-- ТОП БОМБАРДИРОВ -->
-    <div class="section-title">Топ бомбардиров клубов перед матчем</div>
-    <div class="pregame-injuries-grid">
-      <div>
-        <div style="font-size:11px;color:var(--silver-dim);margin-bottom:4px;text-transform:uppercase;font-family:'Oswald';">${escapeHtml(away.abbrev || awayAbbrev)}</div>
-        <div class="card" style="padding:6px 10px;">
-          ${renderPregameMiniScorers(topScorers.away)}
-        </div>
-      </div>
-      <div>
-        <div style="font-size:11px;color:var(--silver-dim);margin-bottom:4px;text-transform:uppercase;font-family:'Oswald';">${escapeHtml(home.abbrev || homeAbbrev)}</div>
-        <div class="card" style="padding:6px 10px;">
-          ${renderPregameMiniScorers(topScorers.home)}
-        </div>
-      </div>
-    </div>
-
-    <!-- ВРАТАРИ КЛУБОВ -->
-    <div class="section-title">Статистика вратарей клубов</div>
-    <div class="card" style="padding:0;">
-      <div class="table-scroll">
-        <table class="stat-table">
-          <thead>
-            <tr>
-              <th class="goalie-sticky-col1">Goalie</th>
-              <th class="goalie-sticky-col2">Team</th>
-              <th>GP</th>
-              <th>W</th>
-              <th>L</th>
-              <th>SV</th>
-              <th>SV%</th>
-              <th>GAA</th>
-              <th>SO</th>
-              <th>TOI (Min)</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${renderPregameGoalieRows(goalies.away, away.abbrev || awayAbbrev)}
-            ${renderPregameGoalieRows(goalies.home, home.abbrev || homeAbbrev)}
-          </tbody>
-        </table>
       </div>
     </div>
 
@@ -4182,7 +4097,6 @@ function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLog
 
   body.innerHTML = html;
 
-  // Инициализация живого голосования Pick'em
   async function updateVoteUI(method = "GET", pick = null) {
     try {
       const opts = method === "POST" ? {
@@ -4204,7 +4118,7 @@ function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLog
   body.querySelectorAll(".pickem-btn").forEach(btn => {
     btn.onclick = async () => {
       const choice = btn.dataset.pick;
-      if (localStorage.getItem(pickKey)) return; // можно голосовать 1 раз
+      if (localStorage.getItem(pickKey)) return;
       localStorage.setItem(pickKey, choice);
       body.querySelectorAll(".pickem-btn").forEach(b => b.classList.remove("selected"));
       btn.classList.add("selected");
@@ -4218,36 +4132,6 @@ function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLog
       container.innerHTML = renderMatchupHistory(h2hGames, away.abbrev || awayAbbrev, home.abbrev || homeAbbrev);
     }
   });
-}
-
-function renderPregameGoalieCard(goalie, teamAbbrev) {
-  if (!goalie) {
-    return `
-      <div class="pregame-goalie-box">
-        <div class="pregame-goalie-avatar">
-          <img src="https://assets.nhle.com/mugs/nhl/default-player.png" alt="">
-        </div>
-        <div class="pregame-goalie-name">Не объявлен</div>
-        <div class="pregame-goalie-sub">${escapeHtml(teamAbbrev)}</div>
-        <span class="pregame-status-badge badge-unannounced">Ожидается</span>
-      </div>
-    `;
-  }
-
-  const badgeClass = goalie.confirmed ? "badge-confirmed" : (goalie.statusRaw ? "badge-probable" : "badge-unannounced");
-  const badgeText = goalie.confirmed ? "✓ Подтвержден" : (goalie.status || "Вероятен");
-
-  return `
-    <div class="pregame-goalie-box">
-      <div class="pregame-goalie-avatar">
-        <img src="${escapeHtml(goalie.headshot || 'https://assets.nhle.com/mugs/nhl/default-player.png')}" alt="" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
-        ${goalie.jersey ? `<span class="pregame-goalie-num">#${escapeHtml(goalie.jersey)}</span>` : ''}
-      </div>
-      <div class="pregame-goalie-name">${escapeHtml(formatShortName(goalie.name))}</div>
-      <div class="pregame-goalie-sub">${escapeHtml(teamAbbrev)} · Вратарь</div>
-      <span class="pregame-status-badge ${badgeClass}">${escapeHtml(badgeText)}</span>
-    </div>
-  `;
 }
 
 function renderPregameInjuryList(list) {
@@ -4273,57 +4157,6 @@ function renderPregameInjuryList(list) {
   }).join("");
 }
 
-function renderPregameMiniScorers(skaters) {
-  if (!Array.isArray(skaters) || !skaters.length) {
-    return '<div class="empty" style="font-size:11px;">Нет данных</div>';
-  }
-
-  return skaters.map(s => {
-    const shortName = formatShortName(s.name, s.firstName, s.lastName);
-    const pos = s.position ? `(${s.position})` : '';
-    const diffSign = s.plusMinus > 0 ? `+${s.plusMinus}` : `${s.plusMinus}`;
-    const diffColor = s.plusMinus >= 0 ? '#2ecc71' : '#e74c3c';
-
-    return `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;">
-        <div style="font-family:'Oswald',sans-serif;font-weight:600;color:var(--silver);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          ${escapeHtml(shortName)} <small style="color:var(--silver-dim);font-weight:normal;">${escapeHtml(pos)}</small>
-        </div>
-        <div style="font-family:'Roboto Mono',monospace;font-size:12px;white-space:nowrap;display:flex;gap:6px;align-items:center;">
-          <span style="color:var(--silver);">${s.goals}+${s.assists}=<strong style="color:#ffffff !important;">${s.points}</strong></span>
-          <span style="color:${diffColor};font-size:11px;">(${diffSign})</span>
-        </div>
-      </div>
-    `;
-  }).join("");
-}
-
-function renderPregameGoalieRows(goalies, teamAbbrev) {
-  if (!Array.isArray(goalies) || !goalies.length) return '';
-
-  return goalies.map(g => {
-    const sv = typeof g.savePctg === "number" ? g.savePctg.toFixed(3) : val(g.savePctg);
-    const gaa = typeof g.gaa === "number" ? g.gaa.toFixed(2) : val(g.gaa);
-    const toiMinutes = Math.round(Number(g.timeOnIce) || 0);
-
-    return `
-      <tr>
-        <td class="goalie-sticky-col1">${escapeHtml(formatShortName(g.name, g.firstName, g.lastName))}</td>
-        <td class="goalie-sticky-col2">${escapeHtml(teamAbbrev)}</td>
-        <td class="num">${val(g.gamesPlayed)}</td>
-        <td class="num">${val(g.wins)}</td>
-        <td class="num">${val(g.losses)}</td>
-        <td class="num" style="color:#ffffff !important;font-weight:700;">${val(g.saves, 0)}</td>
-        <td class="num" style="color:#ffffff !important;font-weight:700;">${escapeHtml(sv)}</td>
-        <td class="num">${escapeHtml(gaa)}</td>
-        <td class="num">${val(g.shutouts, 0)}</td>
-        <td class="num">${toiMinutes}</td>
-      </tr>
-    `;
-  }).join("");
-}
-
-// Открытие информации о команде с ведомостью Salary Cap
 async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
   const abbreviation = getTeamAbbrev(teamAbbrev);
   const name = getTeamName(teamName) || abbreviation;
@@ -4340,7 +4173,8 @@ async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
     const params = new URLSearchParams();
     if (seasonId) params.set("season", seasonId);
     const query = params.toString() ? `?${params}` : "";
-const rosterRes = await fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(abbreviation)}${query}`, {
+
+    const rosterRes = await fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(abbreviation)}${query}`, {
       cache: "no-store",
       headers: { Accept: "application/json" }
     });
@@ -4368,7 +4202,7 @@ function renderTeamTabsAndTables(teamAbbrev, teamName, teamLogo) {
 
   body.innerHTML = `
     <div class="detail-head">
-      <img class="team-logo" src="${escapeHtml(teamLogo)}" alt="" onerror="this.style.visibility='hidden'">
+      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(teamAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(teamAbbrev)}_dark.svg';">
       <div>
         <div class="title">${escapeHtml(teamName || teamAbbrev)}</div>
         <div class="subtitle">${escapeHtml(teamAbbrev)}</div>
@@ -4520,9 +4354,8 @@ async function openTeamScheduleTab(teamAbbrev) {
       const d = getGameDateValue(g);
       const dStr = d ? new Date(d).toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) : "";
 
-     const isWin = isFin && ((away === teamAbbrev && aScore > hScore) || (home === teamAbbrev && hScore > aScore));
+      const isWin = isFin && ((away === teamAbbrev && aScore > hScore) || (home === teamAbbrev && hScore > aScore));
       
-      // Распознавание типа завершения матча: овертайм (OT) или буллиты (SO)
       const lastPeriod = String(
         g.gameOutcome?.lastPeriodType || 
         g.periodDescriptor?.periodType || 
@@ -4547,9 +4380,9 @@ async function openTeamScheduleTab(teamAbbrev) {
 
       html += `
         <div class="h2h-game-row">
-          <div style="font-family:'Roboto Mono';font-size:11px;color:var(--silver-dim);width:45px;">${escapeHtml(dStr)}</div>
+          <div style="font-family:'Roboto Mono',monospace;font-size:11px;color:var(--silver-dim);width:45px;">${escapeHtml(dStr)}</div>
           <div class="h2h-team-cell left" style="display:flex;align-items:center;gap:6px;">
-            <img src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(away)}_light.svg" style="width:18px;height:18px;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(away)}_dark.svg'">
+            <img src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(away)}_light.svg" style="width:18px;height:18px;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(away)}_dark.svg';">
             <span>${escapeHtml(away)}</span>
           </div>
           <div class="h2h-center-cell">
@@ -4557,9 +4390,9 @@ async function openTeamScheduleTab(teamAbbrev) {
           </div>
           <div class="h2h-team-cell right" style="display:flex;align-items:center;justify-content:flex-end;gap:6px;">
             <span>${escapeHtml(home)}</span>
-            <img src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(home)}_light.svg" style="width:18px;height:18px;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(home)}_dark.svg'">
+            <img src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(home)}_light.svg" style="width:18px;height:18px;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(home)}_dark.svg';">
           </div>
-          <div style="width:24px;text-align:right;font-family:'Oswald';">${resBadge}</div>
+          <div style="width:24px;text-align:right;font-family:'Oswald',sans-serif;">${resBadge}</div>
         </div>
       `;
     });
@@ -4569,7 +4402,7 @@ async function openTeamScheduleTab(teamAbbrev) {
     container.innerHTML = '<div class="empty">Не удалось загрузить календарь матчей команды</div>';
   }
 }
-// Вспомогательная функция отрисовки строк карьеры игрока (решение ошибки renderCareerRow)
+
 function renderCareerRow(season, position) {
   const seasonName = String(season.season || "").replace(/^(\d{4})(\d{4})$/, "$1-$2");
   const teamName = season.teamName?.default || season.teamAbbrev || "—";
@@ -4602,7 +4435,7 @@ function renderCareerRow(season, position) {
 
   return `${html}</tr>`;
 }
-// Карточка игрока
+
 async function openPlayerDetail(playerId) {
   openDetail();
   const body = document.getElementById("detail-body");
@@ -4634,7 +4467,7 @@ async function openPlayerDetail(playerId) {
             ${escapeHtml(player.teamAbbrev || "")} · №${escapeHtml(val(player.sweaterNumber))} · ${escapeHtml(position)}
           </div>
         </div>
-        <img class="team-logo" src="${escapeHtml(player.teamLogo || "")}" alt="" style="margin-left:auto" onerror="this.style.display='none'">
+        <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(player.teamAbbrev || "")}_light.svg" alt="" style="margin-left:auto" onerror="this.style.display='none'">
       </div>
 
       <div class="section-title">Личные данные</div>
@@ -4643,7 +4476,7 @@ async function openPlayerDetail(playerId) {
         <div><div class="label">Место рождения</div><div class="value">${escapeHtml(birthPlace || "—")}</div></div>
         <div><div class="label">Рост / Вес</div><div class="value">${player.heightInCentimeters ? `${player.heightInCentimeters} см` : "—"} / ${player.weightInKilograms ? `${player.weightInKilograms} кг` : "—"}</div></div>
         <div><div class="label">Хват</div><div class="value">${escapeHtml(val(player.shootsCatches))}</div></div>
-                <div style="grid-column:1/-1;"><div class="label">Драфт</div><div class="value">${escapeHtml(draftText)}</div></div>
+        <div style="grid-column:1/-1;"><div class="label">Драфт</div><div class="value">${escapeHtml(draftText)}</div></div>
       </div>
     `;
 
@@ -4734,9 +4567,7 @@ async function openPlayerDetail(playerId) {
   }
 }
 
-// =======================================================
-// === 1. ЗАГРУЗКА ТРАНСФЕРОВ ===========================
-// =======================================================
+// 1. ЗАГРУЗКА ТРАНСФЕРОВ
 async function loadTransactions() {
   const container = document.getElementById("transactions-list");
   container.innerHTML = '<div class="loading">Загрузка свежих трансферов...</div>';
@@ -4765,13 +4596,10 @@ async function loadTransactions() {
   }
 }
 
-// =======================================================
-// === 2. НАДЕЖНЫЙ ПЕРЕХОД ПО ССЫЛКЕ В TELEGRAM =========
-// =======================================================
+// 2. НАДЕЖНЫЙ ПЕРЕХОД ПО ССЫЛКЕ В TELEGRAM
 window.openPostInTelegram = function(url) {
   if (!url) return;
   try {
-    // Если приложение открыто внутри Telegram, используем специальный метод Telegram
     if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openTelegramLink) {
       window.Telegram.WebApp.openTelegramLink(url);
       return;
@@ -4779,13 +4607,10 @@ window.openPostInTelegram = function(url) {
   } catch (e) {
     console.error("Ошибка открытия ссылки в Telegram:", e);
   }
-  // Если сайт открыт в обычном браузере на компьютере
   window.open(url, "_blank");
 };
 
-// =======================================================
-// === 3. ЗАГРУЗКА И ВЫВОД НОВОСТЕЙ КАНАЛА ==============
-// =======================================================
+// 3. ЗАГРУЗКА И ВЫВОД НОВОСТЕЙ КАНАЛА
 async function loadNews() {
   const container = document.getElementById("news-feed-container");
   if (!container) return;
@@ -4812,7 +4637,6 @@ async function loadNews() {
     }
 
     container.innerHTML = list.map(item => {
-      // Клик по картинке также открывает пост в Telegram
       const imgHtml = item.photo_id 
         ? `<img src="${API_BASE}/api/news/photo/${escapeHtml(item.photo_id)}" 
                 alt="" 
@@ -4829,14 +4653,12 @@ async function loadNews() {
             <span class="news-tg-tag">✈ Telegram</span>
           </div>
 
-          <!-- Заголовок оформлен как ссылка с переходом в канал -->
           <a class="news-title-link" 
              href="${escapeHtml(item.link)}" 
              onclick="event.preventDefault(); openPostInTelegram('${escapeHtml(item.link)}');">
             ${escapeHtml(item.title)}
           </a>
 
-          <!-- Кнопка перехода к полному посту -->
           <button class="news-read-btn" type="button" onclick="openPostInTelegram('${escapeHtml(item.link)}')">
             Читать полностью в канале ↗
           </button>
@@ -4847,77 +4669,7 @@ async function loadNews() {
     container.innerHTML = '<div class="empty">Не удалось загрузить ленту новостей</div>';
   }
 }
-// =======================================================
-// === ЗАГРУЗКА НОВОСТЕЙ ИЗ TELEGRAM ====================
-// =======================================================
-function openPostInTelegram(url) {
-  if (window.Telegram?.WebApp?.openTelegramLink) {
-    window.Telegram.WebApp.openTelegramLink(url);
-  } else {
-    window.open(url, "_blank");
-  }
-}
 
-async function loadNews() {
-  const container = document.getElementById("news-feed-container");
-  container.innerHTML = '<div class="loading">Загрузка свежих новостей...</div>';
-
-  try {
-    const res = await fetch(`${API_BASE}/api/news`);
-    const data = await res.json();
-    const list = data.news || [];
-
-    if (!list.length) {
-      container.innerHTML = `
-        <div class="card" style="text-align:center;padding:28px 14px;">
-          <div style="font-size:30px;margin-bottom:10px;">📢</div>
-          <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;margin-bottom:6px;text-transform:uppercase;">
-            В канале пока нет новостей
-          </div>
-          <div style="font-size:12px;color:var(--silver-dim);line-height:1.4;">
-            Опубликуйте пост с фотографией и заголовком в вашем канале — он мгновенно появится в этом разделе.
-          </div>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = list.map(item => {
-      // Клик по картинке также открывает пост в Telegram
-      const imgHtml = item.photo_id 
-        ? `<img src="${API_BASE}/api/news/photo/${escapeHtml(item.photo_id)}" 
-                alt="" 
-                loading="lazy" 
-                onclick="openPostInTelegram('${escapeHtml(item.link)}')">` 
-        : "";
-
-      return `
-        <div class="news-card">
-          ${imgHtml}
-          
-          <div class="news-meta">
-            <span>📅 ${escapeHtml(item.date)}</span>
-            <span class="news-tg-tag">✈ Telegram</span>
-          </div>
-
-          <!-- Заголовок оформлен как ссылка с переходом в канал -->
-          <a class="news-title-link" 
-             href="${escapeHtml(item.link)}" 
-             onclick="event.preventDefault(); openPostInTelegram('${escapeHtml(item.link)}');">
-            ${escapeHtml(item.title)}
-          </a>
-
-          <!-- Кнопка перехода к полному посту -->
-          <button class="news-read-btn" onclick="openPostInTelegram('${escapeHtml(item.link)}')">
-            Читать полностью в канале ↗
-          </button>
-        </div>
-      `;
-    }).join("");
-  } catch (err) {
-    container.innerHTML = '<div class="empty">Не удалось загрузить ленту новостей</div>';
-  }
-}
 async function loadSpotlight() {
   const games = document.getElementById("games");
   try {
@@ -4953,10 +4705,6 @@ async function loadSpotlight() {
   } catch (_) {}
 }
 
-// ==========================================
-// 8. СТАРТОВАЯ ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
-// ==========================================
-// Надежный запуск приложения, защищенный от любых сбоев сети
 function initApp() {
   try {
     buildSeasonOptions();
@@ -4974,7 +4722,6 @@ function initApp() {
   const rawSection = params.get("section") || "schedule";
   const safeSection = normalizeInitialSection(rawSection);
 
-  // Всегда открываем вкладку без задержек
   switchTab(safeSection);
 
   if (rawSection === "goalies") {
@@ -4984,7 +4731,6 @@ function initApp() {
   }
 }
 
-// Запускаем инициализацию сразу после загрузки DOM
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initApp);
 } else {
