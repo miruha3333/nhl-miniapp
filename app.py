@@ -44,7 +44,7 @@ _cache: dict[str, tuple[float, Any]] = {}
 _votes_store: dict[str, dict[str, int]] = {}
 
 # =======================================================
-# === НАЧАЛО: ХРАНИЛИЩЕ НОВОСТЕЙ TELEGRAM ===============
+# === ХРАНИЛИЩЕ НОВОСТЕЙ КАНАЛА =========================
 # =======================================================
 import json as py_json
 
@@ -67,9 +67,6 @@ def save_news_to_disk(news_list: list[dict]):
         pass
 
 _news_store: list[dict] = load_saved_news()
-# =======================================================
-# === КОНЕЦ: ХРАНИЛИЩЕ НОВОСТЕЙ TELEGRAM ================
-# =======================================================
 
 app = FastAPI(title="NHL Mini App")
 
@@ -696,6 +693,39 @@ async def get_news_photo(file_id: str):
 # === КОНЕЦ: API ЛЕНТЫ НОВОСТЕЙ =========================
 # =======================================================
 
+# =======================================================
+# === ЭНДПОИНТЫ НОВОСТЕЙ TELEGRAM =======================
+# =======================================================
+@app.get("/api/news")
+async def get_news():
+    """Возвращает список сохраненных постов из Telegram-канала."""
+    return {"news": _news_store}
+
+@app.get("/api/news/photo/{file_id}")
+async def get_news_photo(file_id: str):
+    """Безопасно отдает фото из Telegram без раскрытия токена бота."""
+    if not BOT_TOKEN or not file_id:
+        return JSONResponse({"error": "No token or file_id"}, status_code=404)
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            file_info_resp = await client.get(f"{TELEGRAM_API}/getFile?file_id={file_id}")
+            if file_info_resp.status_code != 200:
+                return JSONResponse({"error": "Failed to get file info"}, status_code=404)
+            
+            file_path = file_info_resp.json().get("result", {}).get("file_path")
+            if not file_path:
+                return JSONResponse({"error": "File path not found"}, status_code=404)
+
+            img_resp = await client.get(f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}")
+            from fastapi.responses import Response
+            return Response(
+                content=img_resp.content, 
+                media_type=img_resp.headers.get("content-type", "image/jpeg"),
+                headers={"Cache-Control": "public, max-age=86400"}
+            )
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+        
 # Базовые NHL эндпоинты
 @app.get("/api/seasons-list")
 async def seasons_list():
@@ -1010,21 +1040,18 @@ async def pregame(
 # Telegram Webhook
 @app.post("/webhook")
 async def telegram_webhook(update: dict):
-    # === Обработка новых постов из Telegram-канала ===
+    # 1. Приём нового поста из твоего Telegram-канала
     channel_post = update.get("channel_post")
     if channel_post:
         chat = channel_post.get("chat", {})
         channel_username = chat.get("username", "")
         message_id = channel_post.get("message_id")
         
-        # Получаем текст поста или подпись к фотографии
         raw_text = channel_post.get("text") or channel_post.get("caption") or ""
         lines = [line.strip() for line in raw_text.split("\n") if line.strip()]
         
-        # Извлекаем строго Заголовок (первую строчку)
         if lines:
             title = lines[0]
-            # Защита: если заголовок написан без отступа сплошным текстом длиннее 120 символов
             if len(title) > 120 and "." in title[:120]:
                 title = title[:title[:120].rfind(".") + 1]
             elif len(title) > 120:
@@ -1032,20 +1059,17 @@ async def telegram_webhook(update: dict):
         else:
             title = "⚡ Читайте новую публикацию в Telegram-канале"
 
-        # Прямая ссылка на конкретный пост в канале
         if channel_username:
             post_link = f"https://t.me/{channel_username}/{message_id}"
         else:
             clean_id = str(chat.get("id", "")).replace("-100", "")
             post_link = f"https://t.me/c/{clean_id}/{message_id}"
 
-        # Проверяем наличие фото (берём в наилучшем разрешении)
         photo_id = ""
         photos = channel_post.get("photo", [])
         if isinstance(photos, list) and photos:
             photo_id = photos[-1].get("file_id", "")
 
-        # Форматируем дату (МСК)
         post_ts = channel_post.get("date", time.time())
         date_str = time.strftime("%d.%m в %H:%M", time.localtime(post_ts + 3 * 3600))
 
@@ -1058,12 +1082,16 @@ async def telegram_webhook(update: dict):
             "timestamp": post_ts
         }
 
-        # Добавляем в начало списка и сохраняем
         global _news_store
         _news_store = [n for n in _news_store if n.get("id") != message_id]
         _news_store.insert(0, news_item)
         _news_store = _news_store[:30]
         save_news_to_disk(_news_store)
+        return {"ok": True}
+
+    # 2. Обработка личных сообщений боту
+    message = update.get("message")
+    if not message:
         return {"ok": True}
 
     # === Обработка личных команд боту (/start и др.) ===
