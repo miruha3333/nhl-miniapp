@@ -44,7 +44,7 @@ _cache: dict[str, tuple[float, Any]] = {}
 _votes_store: dict[str, dict[str, int]] = {}
 
 # =======================================================
-# === ХРАНИЛИЩЕ НОВОСТЕЙ КАНАЛА =========================
+# === ХРАНИЛИЩЕ НОВОСТЕЙ TELEGRAM-КАНАЛА ===============
 # =======================================================
 import json as py_json
 
@@ -210,7 +210,7 @@ async def schedule(date: str):
             "losses": row.get("losses", 0),
             "otLosses": row.get("otLosses", 0),
             "points": row.get("points", 0),
-            "clinchIndicator": row.get("clinchIndicator"),  # 'x', 'y', 'p'
+            "clinchIndicator": row.get("clinchIndicator"),
         }
 
     game_week = schedule_data.get("gameWeek", [])
@@ -291,7 +291,7 @@ async def team_special_teams(season: str | None = None):
     return {"season": target_season, "teams": teams}
 
 
-# 4. Лидеры полевых игроков (прямая сортировка: GWG, PIM, HIT, BLK, SOG, ATOI)
+# 4. Лидеры полевых игроков
 @app.get("/api/skater-leaders-ext")
 @app.get("/api/leaders/{category}")
 async def skater_leaders_ext(
@@ -425,7 +425,7 @@ async def skater_leaders_ext(
     }
 
 
-# 5. Лидеры вратарей (QS, SV, SA, W, L, SV%, GAA, SO)
+# 5. Лидеры вратарей
 @app.get("/api/goalie-leaders")
 async def goalie_leaders(limit: int = 100, season: str | None = None):
     limit = max(1, min(limit, 100))
@@ -492,7 +492,7 @@ async def goalie_leaders(limit: int = 100, season: str | None = None):
     return {"season": target_season, "goalies": goalies}
 
 
-# 6. Продвинутая статистика команд (SAT/Corsi%, USAT/Fenwick%, PDO, Zone Starts)
+# 6. Продвинутая статистика команд
 @app.get("/api/advanced-team-stats")
 async def advanced_team_stats(season: str | None = None):
     target_season = season or current_season_id()
@@ -655,55 +655,20 @@ async def transactions():
         })
 
     return {"transactions": result}
-# =======================================================
-# === НАЧАЛО: API ЛЕНТЫ НОВОСТЕЙ ========================
-# =======================================================
-@app.get("/api/news")
-async def get_news():
-    """Возвращает список последних 30 новостей из Telegram-канала."""
-    return {"news": _news_store}
 
-@app.get("/api/news/photo/{file_id}")
-async def get_news_photo(file_id: str):
-    """Безопасно проксирует фото из Telegram, не раскрывая BOT_TOKEN клиенту."""
-    if not BOT_TOKEN or not file_id:
-        return JSONResponse({"error": "No token or file_id"}, status_code=404)
-    
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            # 1. Запрашиваем путь к файлу у Telegram
-            file_info_resp = await client.get(f"{TELEGRAM_API}/getFile?file_id={file_id}")
-            if file_info_resp.status_code != 200:
-                return JSONResponse({"error": "Failed to get file info"}, status_code=404)
-            
-            file_path = file_info_resp.json().get("result", {}).get("file_path")
-            if not file_path:
-                return JSONResponse({"error": "File path not found"}, status_code=404)
-
-            # 2. Скачиваем байты фото и отдаем браузеру
-            img_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
-            img_resp = await client.get(img_url)
-            content_type = img_resp.headers.get("content-type", "image/jpeg")
-            
-            from fastapi.responses import Response
-            return Response(content=img_resp.content, media_type=content_type, headers={"Cache-Control": "public, max-age=86400"})
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
-# =======================================================
-# === КОНЕЦ: API ЛЕНТЫ НОВОСТЕЙ =========================
-# =======================================================
 
 # =======================================================
-# === ЭНДПОИНТЫ НОВОСТЕЙ TELEGRAM =======================
+# === ЭНДПОИНТЫ НОВОСТЕЙ TELEGRAM-КАНАЛА ===============
 # =======================================================
 @app.get("/api/news")
 async def get_news():
     """Возвращает список сохраненных постов из Telegram-канала."""
     return {"news": _news_store}
 
+
 @app.get("/api/news/photo/{file_id}")
 async def get_news_photo(file_id: str):
-    """Безопасно отдает фото из Telegram без раскрытия токена бота."""
+    """Безопасно проксирует фото из Telegram без раскрытия BOT_TOKEN клиенту."""
     if not BOT_TOKEN or not file_id:
         return JSONResponse({"error": "No token or file_id"}, status_code=404)
     try:
@@ -711,21 +676,23 @@ async def get_news_photo(file_id: str):
             file_info_resp = await client.get(f"{TELEGRAM_API}/getFile?file_id={file_id}")
             if file_info_resp.status_code != 200:
                 return JSONResponse({"error": "Failed to get file info"}, status_code=404)
-            
+
             file_path = file_info_resp.json().get("result", {}).get("file_path")
             if not file_path:
                 return JSONResponse({"error": "File path not found"}, status_code=404)
 
             img_resp = await client.get(f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}")
             from fastapi.responses import Response
+
             return Response(
-                content=img_resp.content, 
+                content=img_resp.content,
                 media_type=img_resp.headers.get("content-type", "image/jpeg"),
-                headers={"Cache-Control": "public, max-age=86400"}
+                headers={"Cache-Control": "public, max-age=86400"},
             )
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
-        
+
+
 # Базовые NHL эндпоинты
 @app.get("/api/seasons-list")
 async def seasons_list():
@@ -855,11 +822,11 @@ async def pregame(
     rail_task = fetch_with_cache(f"rightrail:{game_id}", f"{NHL_BASE}/gamecenter/{game_id}/right-rail", CACHE_TTL["rightrail"])
     landing_task = fetch_with_cache(f"landing:{game_id}", f"{NHL_BASE}/gamecenter/{game_id}/landing", CACHE_TTL["score"])
     standings_task = fetch_with_cache("standings", f"{NHL_BASE}/standings/now", CACHE_TTL["standings"])
-    injuries_task = fetch_espn_injuries()
+    injuries_task = get_injuries()
     summary_task = fetch_with_cache(
         f"team-summary:{current_season}",
         f"{NHL_STATS_BASE}/team/summary?isAggregate=false&isGame=false&cayenneExp=gameTypeId=2%20and%20seasonId={current_season}",
-        CACHE_TTL["standings"]
+        CACHE_TTL["standings"],
     )
 
     rail_data, landing_data, standings_data, injuries_data, summary_data = await asyncio.gather(
@@ -884,8 +851,6 @@ async def pregame(
     home_abbr = normalize_team_abbr(home or home_team_obj.get("abbrev") or home_team_obj.get("teamAbbrev"))
 
     game_date = date or landing_data.get("gameDate") or ""
-    espn_events = await fetch_espn_scoreboard(game_date)
-    probable_goalies = extract_probable_goalies(espn_events, away_abbr, home_abbr)
 
     roster_tasks = []
     if away_abbr:
@@ -974,10 +939,10 @@ async def pregame(
     if isinstance(season_series, dict):
         season_series = season_series.get("games") or [season_series]
 
-    away_skaters = away_roster.get("regular", {}).get("skaters", [])
-    home_skaters = home_roster.get("regular", {}).get("skaters", [])
-    away_goalies = away_roster.get("regular", {}).get("goalies", [])
-    home_goalies = home_roster.get("regular", {}).get("goalies", [])
+    away_skaters = away_roster.get("skaters", [])
+    home_skaters = home_roster.get("skaters", [])
+    away_goalies = away_roster.get("goalies", [])
+    home_goalies = home_roster.get("goalies", [])
 
     return {
         "gameId": game_id,
@@ -986,7 +951,7 @@ async def pregame(
         "awayTeam": {
             "abbrev": away_abbr,
             "name": away_team_obj.get("name") or away_team_obj.get("placeName", {}).get("default") or away_abbr,
-            "logo": away_team_obj.get("logo") or f"https://assets.nhle.com/mugs/nhl/default-team/{away_abbr}.png",
+            "logo": away_team_obj.get("logo") or f"https://assets.nhle.com/logos/nhl/svg/{away_abbr}_light.svg",
             "record": {
                 "wins": away_st.get("wins", 0),
                 "losses": away_st.get("losses", 0),
@@ -1004,7 +969,7 @@ async def pregame(
         "homeTeam": {
             "abbrev": home_abbr,
             "name": home_team_obj.get("name") or home_team_obj.get("placeName", {}).get("default") or home_abbr,
-            "logo": home_team_obj.get("logo") or f"https://assets.nhle.com/mugs/nhl/default-team/{home_abbr}.png",
+            "logo": home_team_obj.get("logo") or f"https://assets.nhle.com/logos/nhl/svg/{home_abbr}_light.svg",
             "record": {
                 "wins": home_st.get("wins", 0),
                 "losses": home_st.get("losses", 0),
@@ -1020,18 +985,9 @@ async def pregame(
             "streakCount": home_streak_count,
         },
         "preGameStats": pregame_stats,
-        "probableGoalies": probable_goalies,
         "injuries": {
             "away": injuries_data.get(away_abbr, []),
             "home": injuries_data.get(home_abbr, []),
-        },
-        "topScorers": {
-            "away": extract_top_scorers(away_skaters, limit=3),
-            "home": extract_top_scorers(home_skaters, limit=3),
-        },
-        "clubGoalies": {
-            "away": extract_club_goalies(away_goalies),
-            "home": extract_club_goalies(home_goalies),
         },
         "seasonSeries": season_series,
     }
@@ -1046,10 +1002,10 @@ async def telegram_webhook(update: dict):
         chat = channel_post.get("chat", {})
         channel_username = chat.get("username", "")
         message_id = channel_post.get("message_id")
-        
+
         raw_text = channel_post.get("text") or channel_post.get("caption") or ""
         lines = [line.strip() for line in raw_text.split("\n") if line.strip()]
-        
+
         if lines:
             title = lines[0]
             if len(title) > 120 and "." in title[:120]:
@@ -1079,7 +1035,7 @@ async def telegram_webhook(update: dict):
             "link": post_link,
             "photo_id": photo_id,
             "date": date_str,
-            "timestamp": post_ts
+            "timestamp": post_ts,
         }
 
         global _news_store
@@ -1089,12 +1045,7 @@ async def telegram_webhook(update: dict):
         save_news_to_disk(_news_store)
         return {"ok": True}
 
-    # 2. Обработка личных сообщений боту
-    message = update.get("message")
-    if not message:
-        return {"ok": True}
-
-    # === Обработка личных команд боту (/start и др.) ===
+    # 2. Обработка личных команд боту (/start и др.)
     message = update.get("message")
     if not message:
         return {"ok": True}
@@ -1149,8 +1100,13 @@ if STATIC_DIR.is_dir():
 
 @app.get("/")
 async def index():
+    no_cache_headers = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    }
     if STATIC_INDEX.is_file():
-        return FileResponse(str(STATIC_INDEX), media_type="text/html")
+        return FileResponse(str(STATIC_INDEX), media_type="text/html", headers=no_cache_headers)
     if ROOT_INDEX.is_file():
-        return FileResponse(str(ROOT_INDEX), media_type="text/html")
+        return FileResponse(str(ROOT_INDEX), media_type="text/html", headers=no_cache_headers)
     return {"detail": "index.html not found"}
