@@ -3450,16 +3450,28 @@ function renderThreeStarsBlock(stars) {
     <div class="section-title">Три звезды матча</div>
     <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;margin-bottom:14px;">
       ${stars.map((s, idx) => {
-        const name = `${nameStr(s.firstName)} ${nameStr(s.lastName)}`.trim() || s.name || "Игрок";
+        // Правильное извлечение имени: учитываем объект { default: "Name" } от NHL API
+        const rawName = s.name || s.playerName || `${nameStr(s.firstName)} ${nameStr(s.lastName)}`.trim();
+        const fullName = nameStr(rawName) || "Игрок";
+
         const pId = s.playerId || s.id;
         const headshot = s.headshot || (pId ? `https://assets.nhle.com/mugs/nhl/latest/${pId}.png` : "");
         const team = s.teamAbbrev?.default || s.teamAbbrev || "";
         
+        // Универсальный вывод очков или показателей вратаря
         let statText = "";
-        if (s.goals !== undefined) {
-          statText = `${s.goals} Г, ${s.assists || 0} П`;
-        } else if (s.savePctg !== undefined) {
-          statText = `${(Number(s.savePctg) * 100).toFixed(1)}% ОБ`;
+        if (s.goals !== undefined || s.assists !== undefined || s.points !== undefined) {
+          const g = Number(s.goals || 0);
+          const a = Number(s.assists || 0);
+          statText = `${g} Г, ${a} П`;
+        } else if (s.savePctg !== undefined || s.savePercentage !== undefined || s.saves !== undefined) {
+          const svPct = Number(s.savePctg ?? s.savePercentage ?? 0);
+          const sv = s.saves !== undefined ? `${s.saves} сейвов` : "";
+          if (svPct > 0) {
+            statText = `${(svPct <= 1 ? svPct * 100 : svPct).toFixed(1)}% ОБ`;
+          } else if (sv) {
+            statText = sv;
+          }
         }
 
         return `
@@ -3471,7 +3483,7 @@ function renderThreeStarsBlock(stars) {
                  style="width:48px;height:48px;border-radius:50%;object-fit:cover;background:var(--surface-2);border:1px solid var(--border);" 
                  onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
             <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:12px;margin-top:6px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;">
-              ${escapeHtml(name)}
+              ${escapeHtml(fullName)}
             </div>
             <div style="font-size:10px;color:var(--silver-dim);margin-top:2px;">
               ${escapeHtml(team)} · ${escapeHtml(s.position || "")}
