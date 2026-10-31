@@ -2330,33 +2330,38 @@ async function loadStandings() {
       ? `${API_BASE}/api/team-special-teams?season=${encodeURIComponent(specialTeamsSeason)}`
       : `${API_BASE}/api/team-special-teams`;
 
-    const [response, specialResponse] = await Promise.all([
-      fetch(standingsUrl),
-      fetch(specialTeamsUrl)
-    ]);
+    // Безопасная загрузка: таблица загружается даже при сбое спецбригад
+    const standingsPromise = fetch(standingsUrl).then(r => r.ok ? r.json() : null).catch(() => null);
+    const specialPromise = fetch(specialTeamsUrl).then(r => r.ok ? r.json() : null).catch(() => null);
 
-    const data = await response.json();
-    let specialData = {};
-    try { specialData = await specialResponse.json(); } catch (_) {}
+    const [data, specialData] = await Promise.all([standingsPromise, specialPromise]);
 
+    if (!data || (!data.standings && !Array.isArray(data))) {
+      body.innerHTML = '<div class="empty">Таблица за выбранный период формируется лигой</div>';
+      return;
+    }
+
+    const rawStandings = Array.isArray(data) ? data : (data.standings || []);
     const specialMap = new Map();
     const specialTeams = Array.isArray(specialData?.teams) ? specialData.teams : [];
+
     specialTeams.forEach(row => {
       let abbrev = row?.teamAbbrev ?? row?.teamAbbrevs ?? row?.rawTricode ?? row?.triCode ?? row?.team;
       if (Array.isArray(abbrev)) abbrev = abbrev[0];
-      if (abbrev && typeof abbrev === "object") abbrev = abbrev.default ?? abbrev.abbrev ?? abbrev.triCode ?? "";
-      if (!abbrev) return;
-      specialMap.set(String(abbrev).toUpperCase(), row);
+      if (abbrev && typeof abbrev === "object") abbrev = abbrev.default ?? abbrev.abbrev ?? "";
+      if (abbrev) specialMap.set(String(abbrev).toUpperCase(), row);
     });
 
-    currentStandingsData = (data.standings || []).map(team => {
+    currentStandingsData = rawStandings.map(team => {
       let abbrev = team.teamAbbrev || team.abbrev || team.rawTricode || team.triCode || team.team;
       if (Array.isArray(abbrev)) abbrev = abbrev[0];
-      if (abbrev && typeof abbrev === "object") abbrev = abbrev.default ?? abbrev.abbrev ?? abbrev.triCode ?? "";
+      if (abbrev && typeof abbrev === "object") abbrev = abbrev.default ?? abbrev.abbrev ?? "";
+      const normAbbr = normalizeTeamAbbr ? normalizeTeamAbbr(abbrev) : String(abbrev || "").toUpperCase();
 
-      const special = specialMap.get(String(abbrev || "").toUpperCase());
+      const special = specialMap.get(normAbbr) || specialMap.get(String(abbrev || "").toUpperCase());
       return {
         ...team,
+        teamAbbrev: normAbbr || abbrev,
         powerPlayPctg: special?.powerPlayPctg ?? special?.powerPlayPct ?? team.powerPlayPctg,
         penaltyKillPctg: special?.penaltyKillPctg ?? special?.penaltyKillPct ?? team.penaltyKillPctg,
         faceoffWinPct: special?.faceoffWinPct ?? team.faceoffWinPct,
@@ -2528,9 +2533,17 @@ function renderAdvancedStandings() {
     <div class="standings-row" data-team="${escapeHtml(t.teamAbbrev)}">
       <div class="num sticky-col sticky-col-1">${idx + 1}</div>
       <div class="sticky-col sticky-col-2">
-        <img class="team-logo" src="https://assets.nhle.com/mugs/nhl/default-team/${escapeHtml(t.teamAbbrev)}.png" alt="" onerror="this.style.visibility='hidden'">
+        <img class="team-logo" 
+             src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(t.teamAbbrev)}_light.svg" 
+             alt="" 
+             onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(t.teamAbbrev)}_dark.svg';">
       </div>
-      <div class="name sticky-col sticky-col-3">${escapeHtml(t.teamAbbrev)}</div>
+      <div class="name sticky-col sticky-col-3" style="display:flex;align-items:center;gap:6px;">
+        <img src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(t.teamAbbrev)}_light.svg" 
+             style="width:16px;height:16px;object-fit:contain;" 
+             onerror="this.style.display='none'">
+        <span>${escapeHtml(t.teamAbbrev)}</span>
+      </div>
       <div class="num" style="color:${t.satPct >= 50 ? '#2ecc71' : '#ff4d4d'};font-weight:700;">${t.satPct}%</div>
       <div class="num" style="color:#ffffff;">${t.usatPct}%</div>
       <div class="num" style="color:#ffffff;">${t.pdo}</div>
@@ -4132,7 +4145,7 @@ function renderTeamTabsAndTables(teamAbbrev, teamName, teamLogo) {
     <div id="team-tables-container"></div>
   `;
 
-  document.getElementById("btn-team-reg").onclick = () => {
+  document.getElementById("btn-team-reg").onclick = async () => {
     currentTeamType = "regular";
     document.getElementById("btn-team-reg").classList.add("active");
     document.getElementById("btn-team-po").classList.remove("active");
@@ -4140,12 +4153,24 @@ function renderTeamTabsAndTables(teamAbbrev, teamName, teamLogo) {
     buildTeamTablesBlock();
   };
 
-  document.getElementById("btn-team-po").onclick = () => {
+  document.getElementById("btn-team-po").onclick = async () => {
     currentTeamType = "playoff";
     document.getElementById("btn-team-po").classList.add("active");
     document.getElementById("btn-team-reg").classList.remove("active");
     document.getElementById("btn-team-schedule").classList.remove("active");
-    buildTeamTablesBlock();
+
+    const container = document.getElementById("team-tables-container");
+    container.innerHTML = '<div class="loading">Загрузка статистики плей-офф...</div>';
+
+    try {
+      const seasonId = seasonIdFromEndDate(selectedSeasonEndDate) || "now";
+      const res = await fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(teamAbbrev)}?season=${seasonId}&gameType=3`);
+      const poData = await res.json();
+      currentTeamPlayoffData = poData?.data || poData;
+      buildTeamPlayoffTablesBlock();
+    } catch (_) {
+      container.innerHTML = '<div class="empty">Команда не выступала в плей-офф в этом сезоне</div>';
+    }
   };
 
   document.getElementById("btn-team-schedule").onclick = async () => {
@@ -4158,8 +4183,131 @@ function renderTeamTabsAndTables(teamAbbrev, teamName, teamLogo) {
   buildTeamTablesBlock();
 }
 
-async function openTeamльнайРасписание(teamAbbrev) {
-  await openTeamScheduleTab(teamAbbrev);
+let currentTeamPlayoffData = null;
+
+function buildTeamPlayoffTablesBlock() {
+  const container = document.getElementById("team-tables-container");
+  if (!container) return;
+  const dataset = normalizeTeamDataset(currentTeamPlayoffData);
+  const skaters = Array.isArray(dataset.skaters) ? dataset.skaters : [];
+  const goalies = Array.isArray(dataset.goalies) ? dataset.goalies : [];
+
+  if (!skaters.length && !goalies.length) {
+    container.innerHTML = '<div class="empty">Клуб не участвовал в плей-офф в выбранном сезоне</div>';
+    return;
+  }
+
+  let html = '<div class="section-title">Полевые игроки (Плей-офф)</div>';
+  html += `
+    <div class="table-scroll">
+      <table class="stat-table">
+        <thead>
+          <tr>
+            <th>Игрок</th><th>И</th><th>Г</th><th>П</th><th>О</th><th>+/-</th><th>Штр</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${skaters.map(p => `
+            <tr class="clickable-row" data-player-id="${escapeHtml(getPlayerId(p))}">
+              <td>${escapeHtml(`${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim() || "Игрок")}</td>
+              <td class="num">${val(p.gamesPlayed, 0)}</td>
+              <td class="num">${val(p.goals, 0)}</td>
+              <td class="num">${val(p.assists, 0)}</td>
+              <td class="num" style="color:#ffffff !important;font-weight:700;">${val(p.points, 0)}</td>
+              <td class="num">${val(p.plusMinus, 0)}</td>
+              <td class="num">${val(p.penaltyMinutes ?? p.pim, 0)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  if (goalies.length) {
+    html += '<div class="section-title">Вратари (Плей-офф)</div>';
+    html += `
+      <div class="table-scroll">
+        <table class="stat-table">
+          <thead>
+            <tr><th>Игрок</th><th>И</th><th>В</th><th>П</th><th>%ОБ</th><th>ГКИ</th></tr>
+          </thead>
+          <tbody>
+            ${goalies.map(p => {
+              const sv = p.savePercentage ?? p.savePctg;
+              const gaa = p.goalsAgainstAverage ?? p.gaa;
+              return `
+                <tr class="clickable-row" data-player-id="${escapeHtml(getPlayerId(p))}">
+                  <td>${escapeHtml(`${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim() || "Вратарь")}</td>
+                  <td class="num">${val(p.gamesPlayed, 0)}</td>
+                  <td class="num">${val(p.wins, 0)}</td>
+                  <td class="num">${val(p.losses, 0)}</td>
+                  <td class="num" style="color:#ffffff !important;font-weight:700;">${typeof sv === "number" ? sv.toFixed(3) : val(sv)}</td>
+                  <td class="num">${typeof gaa === "number" ? gaa.toFixed(2) : val(gaa)}</td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+  container.innerHTML = html;
+  container.querySelectorAll(".clickable-row").forEach(r => {
+    r.onclick = () => r.dataset.playerId && openPlayerDetail(r.dataset.playerId);
+  });
+}
+
+async function openTeamScheduleTab(teamAbbrev) {
+  const container = document.getElementById("team-tables-container");
+  container.innerHTML = '<div class="loading">Загрузка расписания матчей команды...</div>';
+
+  try {
+    const seasonId = seasonIdFromEndDate(selectedSeasonEndDate) || "now";
+    const res = await fetch(`${API_BASE}/api/team-schedule/${encodeURIComponent(teamAbbrev)}?season=${seasonId}`);
+    const data = await res.json();
+    const games = getScheduleGames(data);
+
+    if (!games.length) {
+      container.innerHTML = '<div class="empty">Матчи не найдены</div>';
+      return;
+    }
+
+    let html = '<div class="section-title">Календарь матчей команды</div><div class="card" style="padding:0;">';
+    games.forEach(g => {
+      const away = getGameTeamAbbrev(g.awayTeam);
+      const home = getGameTeamAbbrev(g.homeTeam);
+      const aScore = getGameScore(g, "away");
+      const hScore = getGameScore(g, "home");
+      const isFin = isCompletedGame(g);
+      const d = getGameDateValue(g);
+      const dStr = d ? new Date(d).toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) : "";
+
+      const isWin = isFin && ((away === teamAbbrev && aScore > hScore) || (home === teamAbbrev && hScore > aScore));
+      const resBadge = isFin ? (isWin ? '<span style="color:#2ecc71;font-weight:700;">В</span>' : '<span style="color:#e74c3c;font-weight:700;">П</span>') : '—';
+
+      html += `
+        <div class="h2h-game-row">
+          <div style="font-family:'Roboto Mono';font-size:11px;color:var(--silver-dim);width:45px;">${escapeHtml(dStr)}</div>
+          <div class="h2h-team-cell left" style="display:flex;align-items:center;gap:6px;">
+            <img src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(away)}_light.svg" style="width:18px;height:18px;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(away)}_dark.svg'">
+            <span>${escapeHtml(away)}</span>
+          </div>
+          <div class="h2h-center-cell">
+            <span class="h2h-score-val">${isFin ? `${aScore} : ${hScore}` : 'vs'}</span>
+          </div>
+          <div class="h2h-team-cell right" style="display:flex;align-items:center;justify-content:flex-end;gap:6px;">
+            <span>${escapeHtml(home)}</span>
+            <img src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(home)}_light.svg" style="width:18px;height:18px;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(home)}_dark.svg'">
+          </div>
+          <div style="width:24px;text-align:right;font-family:'Oswald';">${resBadge}</div>
+        </div>
+      `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = '<div class="empty">Не удалось загрузить календарь матчей команды</div>';
+  }
 }
 // Вспомогательная функция отрисовки строк карьеры игрока (решение ошибки renderCareerRow)
 function renderCareerRow(season, position) {
@@ -4229,7 +4377,7 @@ async function openPlayerDetail(playerId) {
         <img class="team-logo" src="${escapeHtml(player.teamLogo || "")}" alt="" style="margin-left:auto" onerror="this.style.display='none'">
       </div>
 
-      <div class="section-title">Личные данные и контракт</div>
+      <div class="section-title">Личные данные</div>
       <div class="bio-grid">
         <div><div class="label">Дата рождения</div><div class="value">${escapeHtml(val(player.birthDate))}</div></div>
         <div><div class="label">Место рождения</div><div class="value">${escapeHtml(birthPlace || "—")}</div></div>
