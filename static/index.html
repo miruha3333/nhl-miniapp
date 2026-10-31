@@ -2396,6 +2396,7 @@ async function loadStandings() {
 
     renderStandings();
   } catch (error) {
+    console.error("Standings loading error:", error);
     body.innerHTML = '<div class="empty">Не удалось загрузить таблицу</div>';
   }
 }
@@ -2430,7 +2431,10 @@ function renderTeamRow(team, rank) {
     <div class="standings-row" data-team="${escapeHtml(abbreviation)}" data-name="${escapeHtml(teamName)}" data-logo="${escapeHtml(logo)}">
       <div class="num sticky-col sticky-col-1">${rank}</div>
       <div class="sticky-col sticky-col-2">
-        <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(t.teamAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(t.teamAbbrev)}_dark.svg';">
+        <img class="team-logo" 
+             src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(abbreviation)}_light.svg" 
+             alt="" 
+             onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(abbreviation)}_dark.svg';">
       </div>
       <div class="name sticky-col sticky-col-3">
         ${escapeHtml(abbreviation)} ${clinchHtml}
