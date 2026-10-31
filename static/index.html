@@ -2321,20 +2321,33 @@ async function loadStandings() {
   body.innerHTML = '<div class="loading">Загрузка таблицы...</div>';
 
   try {
-    const standingsUrl = selectedSeasonEndDate
-      ? `${API_BASE}/api/standings-by-date/${encodeURIComponent(selectedSeasonEndDate)}`
-      : `${API_BASE}/api/standings`;
+    let standingsUrl = `${API_BASE}/api/standings`;
+    if (selectedSeasonEndDate && selectedSeasonEndDate.trim() !== "") {
+      standingsUrl = `${API_BASE}/api/standings-by-date/${encodeURIComponent(selectedSeasonEndDate)}`;
+    }
 
     const specialTeamsSeason = seasonIdFromEndDate(selectedSeasonEndDate);
     const specialTeamsUrl = specialTeamsSeason
       ? `${API_BASE}/api/team-special-teams?season=${encodeURIComponent(specialTeamsSeason)}`
       : `${API_BASE}/api/team-special-teams`;
 
-    // Безопасная загрузка: таблица загружается даже при сбое спецбригад
-    const standingsPromise = fetch(standingsUrl).then(r => r.ok ? r.json() : null).catch(() => null);
-    const specialPromise = fetch(specialTeamsUrl).then(r => r.ok ? r.json() : null).catch(() => null);
+    let data = null;
+    try {
+      const resp = await fetch(standingsUrl);
+      if (resp.ok) {
+        data = await resp.json();
+      }
+    } catch (_) {}
 
-    const [data, specialData] = await Promise.all([standingsPromise, specialPromise]);
+    // Если архив по дате не ответил, делаем аварийный запрос на актуальную таблицу
+    if (!data || (!data.standings && !Array.isArray(data))) {
+      try {
+        const fallbackResp = await fetch(`${API_BASE}/api/standings`);
+        if (fallbackResp.ok) {
+          data = await fallbackResp.json();
+        }
+      } catch (_) {}
+    }
 
     if (!data || (!data.standings && !Array.isArray(data))) {
       body.innerHTML = '<div class="empty">Таблица за выбранный период формируется лигой</div>';
@@ -2342,9 +2355,18 @@ async function loadStandings() {
     }
 
     const rawStandings = Array.isArray(data) ? data : (data.standings || []);
-    const specialMap = new Map();
-    const specialTeams = Array.isArray(specialData?.teams) ? specialData.teams : [];
 
+    // Подтягиваем спецбригады в фоновом режиме (таблица не падает, если они недоступны)
+    let specialTeams = [];
+    try {
+      const spResp = await fetch(specialTeamsUrl);
+      if (spResp.ok) {
+        const spJson = await spResp.json();
+        specialTeams = Array.isArray(spJson?.teams) ? spJson.teams : [];
+      }
+    } catch (_) {}
+
+    const specialMap = new Map();
     specialTeams.forEach(row => {
       let abbrev = row?.teamAbbrev ?? row?.teamAbbrevs ?? row?.rawTricode ?? row?.triCode ?? row?.team;
       if (Array.isArray(abbrev)) abbrev = abbrev[0];
@@ -2353,15 +2375,16 @@ async function loadStandings() {
     });
 
     currentStandingsData = rawStandings.map(team => {
-      let abbrev = team.teamAbbrev || team.abbrev || team.rawTricode || team.triCode || team.team;
-      if (Array.isArray(abbrev)) abbrev = abbrev[0];
-      if (abbrev && typeof abbrev === "object") abbrev = abbrev.default ?? abbrev.abbrev ?? "";
-      const normAbbr = normalizeTeamAbbr ? normalizeTeamAbbr(abbrev) : String(abbrev || "").toUpperCase();
+      let rawAbbr = team.teamAbbrev || team.abbrev || team.rawTricode || team.triCode || team.team;
+      if (Array.isArray(rawAbbr)) rawAbbr = rawAbbr[0];
+      if (rawAbbr && typeof rawAbbr === "object") rawAbbr = rawAbbr.default ?? rawAbbr.abbrev ?? "";
+      
+      const abbrevStr = String(rawAbbr || "").toUpperCase();
+      const special = specialMap.get(abbrevStr);
 
-      const special = specialMap.get(normAbbr) || specialMap.get(String(abbrev || "").toUpperCase());
       return {
         ...team,
-        teamAbbrev: normAbbr || abbrev,
+        teamAbbrev: abbrevStr,
         powerPlayPctg: special?.powerPlayPctg ?? special?.powerPlayPct ?? team.powerPlayPctg,
         penaltyKillPctg: special?.penaltyKillPctg ?? special?.penaltyKillPct ?? team.penaltyKillPctg,
         faceoffWinPct: special?.faceoffWinPct ?? team.faceoffWinPct,
