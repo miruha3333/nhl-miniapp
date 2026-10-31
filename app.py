@@ -663,8 +663,13 @@ async def player(player_id: str):
 @app.get("/api/roster-stats/{team}")
 async def roster_stats(team: str, season: str | None = None):
     team_upper = normalize_team_abbr(team)
-    target_season = season or current_season_id()
-    return await fetch_with_cache(f"club-stats:{team_upper}:{target_season}", f"{NHL_BASE}/club-stats/{team_upper}/{target_season}", CACHE_TTL["roster"])
+    if not season or season == "now":
+        target_url = f"{NHL_BASE}/club-stats/{team_upper}/now"
+        cache_key = f"club-stats:{team_upper}:now"
+    else:
+        target_url = f"{NHL_BASE}/club-stats/{team_upper}/{season}/2"
+        cache_key = f"club-stats:{team_upper}:{season}:2"
+    return await fetch_with_cache(cache_key, target_url, CACHE_TTL["roster"])
 
 
 @app.get("/api/boxscore/{game_id}")
