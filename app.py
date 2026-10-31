@@ -1017,19 +1017,25 @@ async def telegram_webhook(update: dict):
         channel_username = chat.get("username", "")
         message_id = channel_post.get("message_id")
         
-        # Получаем текст (для обычных постов) или подпись к фото (caption)
+        # Получаем текст поста или подпись к фотографии
         raw_text = channel_post.get("text") or channel_post.get("caption") or ""
-        
-        # Первая строчка поста — заголовок, остальное — описание
         lines = [line.strip() for line in raw_text.split("\n") if line.strip()]
-        title = lines[0] if lines else "Новость канала"
-        short_desc = lines[1] if len(lines) > 1 else (raw_text[:140] + "..." if len(raw_text) > 140 else raw_text)
+        
+        # Извлекаем строго Заголовок (первую строчку)
+        if lines:
+            title = lines[0]
+            # Защита: если заголовок написан без отступа сплошным текстом длиннее 120 символов
+            if len(title) > 120 and "." in title[:120]:
+                title = title[:title[:120].rfind(".") + 1]
+            elif len(title) > 120:
+                title = title[:117] + "..."
+        else:
+            title = "⚡ Читайте новую публикацию в Telegram-канале"
 
-        # Ссылка на пост в Telegram
+        # Прямая ссылка на конкретный пост в канале
         if channel_username:
             post_link = f"https://t.me/{channel_username}/{message_id}"
         else:
-            # Для закрытых каналов
             clean_id = str(chat.get("id", "")).replace("-100", "")
             post_link = f"https://t.me/c/{clean_id}/{message_id}"
 
@@ -1046,7 +1052,6 @@ async def telegram_webhook(update: dict):
         news_item = {
             "id": message_id,
             "title": title,
-            "desc": short_desc,
             "link": post_link,
             "photo_id": photo_id,
             "date": date_str,
