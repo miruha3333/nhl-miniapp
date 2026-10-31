@@ -3676,13 +3676,49 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
     const pbp = pbpResponse ? await pbpResponse.json() : null;
 
     const gameDate = score?.gameDate || "";
-    if (gameDate && awayAbbrev && homeAbbrev) {
-      fetchYouTubeHighlight(awayAbbrev, homeAbbrev, gameDate).then(vid => {
-        const slot = document.getElementById("video-recap-slot");
-        if (slot && vid) {
-          slot.innerHTML = buildVideoRecapBlock(vid);
+    const slot = document.getElementById("video-recap-slot");
+    
+    // Определяем статус матча
+    const isLiveGame = score?.gameState === "LIVE" || score?.gameState === "CRIT";
+    const isFinishedGame = isCompletedGame(score) || score?.gameState === "FINAL" || score?.gameState === "OFF";
+
+    if (slot) {
+      if (isLiveGame) {
+        // Матч идет прямо сейчас — поиск видео заблокирован
+        slot.innerHTML = `
+          <div class="card" style="text-align:center;padding:14px;background:var(--surface-2);margin-bottom:14px;border:1px solid rgba(46,204,113,0.3);">
+            <div style="font-family:'Oswald',sans-serif;font-size:13px;color:#2ecc71;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">
+              🔴 Матч в прямом эфире
+            </div>
+            <div style="font-size:11px;color:var(--silver-dim);margin-top:4px;">
+              Видеообзор встречи формируется лигой и появится здесь после финальной сирены.
+            </div>
+          </div>
+        `;
+      } else if (isFinishedGame) {
+        // Матч завершен — ищем видео, а пока ищется — вешаем плашку ожидания
+        slot.innerHTML = `
+          <div class="card" style="text-align:center;padding:14px;background:var(--surface-2);margin-bottom:14px;">
+            <div style="font-family:'Oswald',sans-serif;font-size:13px;color:var(--silver);font-weight:700;text-transform:uppercase;">
+              ⏳ Видеообзор готовится
+            </div>
+            <div style="font-size:11px;color:var(--silver-dim);margin-top:4px;">
+              Официальный хайлайт монтируется лигой и появится здесь в течение 30-40 минут после окончания игры.
+            </div>
+          </div>
+        `;
+
+        if (gameDate && awayAbbrev && homeAbbrev) {
+          fetchYouTubeHighlight(awayAbbrev, homeAbbrev, gameDate).then(vid => {
+            if (vid) {
+              slot.innerHTML = buildVideoRecapBlock(vid);
+            }
+          });
         }
-      });
+      } else {
+        // Предстоящий матч (FUT, PRE) — ничего не показываем
+        slot.innerHTML = "";
+      }
     }
 /* === НАЧАЛО: ВСТАВКА ТРЁХ ЗВЁЗД В КАРТОЧКУ === */
     const threeStars = score?.summary?.threeStars || score?.threeStars || [];
