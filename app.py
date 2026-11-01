@@ -1086,25 +1086,43 @@ async def telegram_webhook(request: Request):
             ],
         }
 
-        async with httpx.AsyncClient(timeout=12) as client:
-            await client.post(
-                f"{TELEGRAM_API}/sendMessage",
-                json={
-                    "chat_id": chat_id,
-                    "text": (
-                        "🏒 <b>NHL LIVE</b>\n\n"
-                        "Всё главное об NHL — в одном приложении прямо в Telegram:\n\n"
-                        "📅 <b>Матчи</b> — счёт live, голы, звёзды и видеообзоры\n"
-                        "📊 <b>Таблица</b> — общая, по дивизионам и продвинутая статистика\n"
-                        "🏆 <b>Лидеры</b> — гонка бомбардиров и вратарей\n"
-                        "🔄 <b>Трансферы</b> — переходы и травмы лиги\n"
-                        "📢 <b>Новости</b> — свежие инсайды нашего канала\n\n"
-                        "Выбери нужный раздел кнопками ниже:"
-                    ),
-                    "parse_mode": "HTML",
-                    "reply_markup": keyboard,
-                },
-            )
+        # Отправляем сообщение и настраиваем кнопку меню внизу экрана
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                # 1. Отправляем текст с инлайн-кнопками под ним
+                await client.post(
+                    f"{TELEGRAM_API}/sendMessage",
+                    json={
+                        "chat_id": chat_id,
+                        "text": (
+                            "🏒 <b>NHL LIVE</b>\n\n"
+                            "Всё главное об NHL — в одном приложении прямо в Telegram:\n\n"
+                            "📅 <b>Матчи</b> — счёт live, голы, звёзды и видеообзоры\n"
+                            "📊 <b>Таблица</b> — общая, по дивизионам и продвинутая статистика\n"
+                            "🏆 <b>Лидеры</b> — гонка бомбардиров и вратарей\n"
+                            "🔄 <b>Трансферы</b> — переходы и травмы лиги\n"
+                            "📢 <b>Новости</b> — свежие инсайды нашего канала\n\n"
+                            "Выбери нужный раздел кнопками ниже:"
+                        ),
+                        "parse_mode": "HTML",
+                        "reply_markup": keyboard,
+                    },
+                )
+
+                # 2. Устанавливаем кнопку запуска в левом нижнем углу чата (Menu Button)
+                await client.post(
+                    f"{TELEGRAM_API}/setChatMenuButton",
+                    json={
+                        "chat_id": chat_id,
+                        "menu_button": {
+                            "type": "web_app",
+                            "text": "🏒 NHL LIVE",
+                            "web_app": {"url": WEBAPP_URL}
+                        }
+                    }
+                )
+        except Exception:
+            pass
 
     return {"ok": True}
 
