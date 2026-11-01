@@ -340,45 +340,56 @@ select.date-input option {
   -webkit-overflow-scrolling:touch;
 }
 
-/* Стандартная таблица с расширенными столбцами спецбригад */
+/* Стандартная таблица: шапка и строки строго с одинаковыми колонками */
 .standings-table {
-  display:grid;
-  grid-template-columns: 24px 30px 110px repeat(8, 36px) 68px 68px 58px 54px 54px;
-  min-width:820px;
-  align-items:center;
+  min-width: 820px;
 }
 
-/* Продвинутая таблица контроля шайбы */
+.standings-head,
+.standings-row {
+  display: grid;
+  grid-template-columns: 26px 32px 105px repeat(8, 38px) 65px 65px 55px 50px 50px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.standings-row {
+  cursor: pointer;
+}
+
+.standings-row:active {
+  background: var(--surface-2) !important;
+}
+
+/* Продвинутая таблица */
 .advanced-standings-table {
-  display:grid;
-  grid-template-columns: 24px 30px 110px 80px 80px 70px 75px 65px 65px;
-  min-width:580px;
-  align-items:center;
+  min-width: 580px;
+}
+
+.advanced-standings-table .standings-head,
+.advanced-standings-table .standings-row {
+  display: grid;
+  grid-template-columns: 26px 32px 105px 80px 80px 70px 75px 65px 65px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
 }
 
 .sticky-col {
-  position:sticky;
-  z-index:2;
-  background:var(--surface);
+  position: sticky;
+  z-index: 2;
+  background: var(--surface);
 }
 
-.sticky-col-1 { left:0; }
-.sticky-col-2 { left:24px; }
-.sticky-col-3 { left:54px; }
-
-.standings-head,
-.standings-row,
-.group-header-row {
-  display:contents;
-}
+.sticky-col-1 { left: 0; }
+.sticky-col-2 { left: 26px; }
+.sticky-col-3 { left: 58px; }
 
 .standings-head > div,
 .standings-row > div {
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:10px 2px;
-  border-bottom:1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 2px;
 }
 
 .standings-head > div {
@@ -2531,22 +2542,22 @@ async function loadStandings() {
     console.error("Standings loading error:", error);
     body.innerHTML = '<div class="empty">Не удалось загрузить таблицу</div>';
   }
-}function renderTeamRow(team, rank) {
+}
+  function renderTeamRow(team, rank) {
   const abbreviation = getTeamAbbrev(team.teamAbbrev || team.abbrev || team.team);
   const teamName = getTeamName(team.teamName || team.name) || abbreviation;
   const logo = getTeamLogo(team.teamLogo || team.logo);
 
   const goalFor = Number(team.goalFor ?? 0);
   const goalAgainst = Number(team.goalAgainst ?? 0);
-  const difference = Number(team.goalDifferential ?? goalFor - goalAgainst);
+  const difference = Number(team.goalDifferential ?? (goalFor - goalAgainst));
 
   const pp = formatPctCell(team.powerPlayPctg);
   const pk = formatPctCell(team.penaltyKillPctg);
   const fo = formatPctCell(team.faceoffWinPct);
-  const sf = team.shotsForPerGame !== undefined && team.shotsForPerGame !== null ? Number(team.shotsForPerGame).toFixed(1) : "—";
-  const sa = team.shotsAgainstPerGame !== undefined && team.shotsAgainstPerGame !== null ? Number(team.shotsAgainstPerGame).toFixed(1) : "—";
+  const sf = (team.shotsForPerGame !== undefined && team.shotsForPerGame !== null) ? Number(team.shotsForPerGame).toFixed(1) : "—";
+  const sa = (team.shotsAgainstPerGame !== undefined && team.shotsAgainstPerGame !== null) ? Number(team.shotsAgainstPerGame).toFixed(1) : "—";
 
-  // Значки выхода в плей-офф
   let clinchHtml = "";
   if (team.clinchIndicator) {
     const ci = String(team.clinchIndicator).toLowerCase();
@@ -2557,30 +2568,22 @@ async function loadStandings() {
     }
   }
 
-  // Получаем безопасный логотип (с поддержкой исторических клубов)
   const logoSrc = typeof getSafeTeamLogoUrl === "function" 
     ? getSafeTeamLogoUrl(abbreviation, logo) 
     : `https://assets.nhle.com/logos/nhl/svg/${escapeHtml(abbreviation)}_light.svg`;
 
   return `
     <div class="standings-row" data-team="${escapeHtml(abbreviation)}" data-name="${escapeHtml(teamName)}" data-logo="${escapeHtml(logoSrc)}">
-      <!-- 1. Номер места -->
       <div class="num sticky-col sticky-col-1">${rank}</div>
-      
-      <!-- 2. Логотип клуба -->
       <div class="sticky-col sticky-col-2">
         <img class="team-logo" 
              src="${escapeHtml(logoSrc)}" 
              alt="" 
              onerror="this.onerror=null; this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(abbreviation)}_dark.svg';">
       </div>
-      
-      <!-- 3. Название клуба и статус плей-офф -->
       <div class="name sticky-col sticky-col-3">
         ${escapeHtml(abbreviation)} ${clinchHtml}
       </div>
-
-      <!-- 4-11. Основные показатели -->
       <div class="num" style="color:#ffffff;">${team.gamesPlayed ?? 0}</div>
       <div class="num" style="color:#ffffff;">${team.wins ?? 0}</div>
       <div class="num" style="color:#ffffff;">${team.otLosses ?? 0}</div>
@@ -2591,8 +2594,6 @@ async function loadStandings() {
         ${difference > 0 ? "+" : ""}${difference}
       </div>
       <div class="pts" style="color:#ffffff !important;font-weight:700;">${team.points ?? 0}</div>
-
-      <!-- 12-16. Спецбригады и броски -->
       <div class="num special-team-pct" style="color:#ffffff !important;">${pp}</div>
       <div class="num special-team-pct" style="color:#ffffff !important;">${pk}</div>
       <div class="num" style="color:#ffffff;">${fo}</div>
