@@ -996,9 +996,18 @@ async def pregame(
     }
 
 
-# Telegram Webhook
-@app.post("/webhook")
-async def telegram_webhook(update: dict):
+# Telegram Webhook (принимает и POST от Telegram, и GET от браузера для проверки)
+@app.api_route("/webhook", methods=["GET", "POST"])
+async def telegram_webhook(request: Request):
+    # Если ты просто открыл ссылку в браузере — показываем, что сервер живой
+    if request.method == "GET":
+        return {"status": "ok", "message": "Webhook is active and listening!"}
+
+    try:
+        update = await request.json()
+    except Exception:
+        return {"ok": True}
+
     # 1. Приём нового поста из Telegram-канала
     channel_post = update.get("channel_post")
     if channel_post:
