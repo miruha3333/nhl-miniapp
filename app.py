@@ -1056,7 +1056,7 @@ async def telegram_webhook(update: dict):
     chat_id = message["chat"]["id"]
     text = message.get("text", "")
 
-    if text in ("/start", "/matches", "/standings", "/leaders", "/news", "/donate", "/help"):
+    if text.startswith("/start") or text in ("/matches", "/standings", "/leaders", "/news", "/donate", "/help"):
         DONATE_URL = "https://t.me/xokkey9"
 
         keyboard = {
