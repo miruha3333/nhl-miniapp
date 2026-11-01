@@ -4041,6 +4041,39 @@ async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, h
   }
 }
 
+// Вспомогательная функция для отрисовки карточки вратаря
+function renderProbableGoalieCard(goalie, teamAbbrev) {
+  if (!goalie || !goalie.name || goalie.name === "Не объявлен") {
+    return `
+      <div class="pregame-goalie-box">
+        <div class="pregame-goalie-avatar">
+          <img src="https://assets.nhle.com/mugs/nhl/default-player.png" alt="">
+        </div>
+        <div class="pregame-goalie-name">Не объявлен</div>
+        <div class="pregame-goalie-sub">${escapeHtml(teamAbbrev)}</div>
+        <span class="pregame-status-badge badge-unannounced">Ожидается</span>
+      </div>
+    `;
+  }
+
+  const isConfirmed = goalie.confirmed || String(goalie.status || "").toLowerCase().includes("подтвержд");
+  const badgeClass = isConfirmed ? "badge-confirmed" : "badge-probable";
+  const statusText = isConfirmed ? "Подтверждён" : "Вероятен";
+  const headshot = goalie.headshot || "https://assets.nhle.com/mugs/nhl/default-player.png";
+
+  return `
+    <div class="pregame-goalie-box">
+      <div class="pregame-goalie-avatar">
+        <img src="${escapeHtml(headshot)}" alt="" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
+        ${goalie.jersey ? `<span class="pregame-goalie-num">#${escapeHtml(goalie.jersey)}</span>` : ""}
+      </div>
+      <div class="pregame-goalie-name">${escapeHtml(goalie.name)}</div>
+      <div class="pregame-goalie-sub">${escapeHtml(teamAbbrev)}</div>
+      <span class="pregame-status-badge ${badgeClass}">${statusText}</span>
+    </div>
+  `;
+}
+
 function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
   const body = document.getElementById("detail-body");
   const away = data.awayTeam || {};
@@ -4048,13 +4081,11 @@ function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLog
   const injuries = data.injuries || { away: [], home: [] };
   const preStats = data.preGameStats || [];
   const seasonSeries = data.seasonSeries || [];
+  const probables = data.probableGoalies || { away: null, home: null };
 
   const startTime = data.startTimeUTC
     ? new Date(data.startTimeUTC).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) + " (МСК)"
     : "Время уточняется";
-
-  const pickKey = `nhl_pickem_${data.gameId}`;
-  const userPick = localStorage.getItem(pickKey) || "";
 
   let html = `
     <div class="detail-head-game">
@@ -4066,23 +4097,11 @@ function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLog
       <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(home.abbrev || homeAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(home.abbrev || homeAbbrev)}_dark.svg';">
     </div>
 
-    <!-- PICK'EM ГОЛОСОВАНИЕ ЧЕРЕЗ СЕРВЕР -->
-    <div class="pickem-container" id="pickem-widget-box">
-      <div class="pickem-title">🗳️ Прогноз болельщиков: кто победит?</div>
-      <div class="pickem-buttons">
-        <button class="pickem-btn ${userPick === 'away' ? 'selected' : ''}" data-pick="away">
-          <span>${escapeHtml(away.abbrev || awayAbbrev)}</span>
-          <span class="pickem-pct" id="pct-away">...</span>
-        </button>
-        <button class="pickem-btn ${userPick === 'tie' ? 'selected' : ''}" data-pick="tie">
-          <span>ОТ / Буллиты</span>
-          <span class="pickem-pct" id="pct-tie">...</span>
-        </button>
-        <button class="pickem-btn ${userPick === 'home' ? 'selected' : ''}" data-pick="home">
-          <span>${escapeHtml(home.abbrev || homeAbbrev)}</span>
-          <span class="pickem-pct" id="pct-home">...</span>
-        </button>
-      </div>
+    <!-- БЛОК: СТАРТОВЫЕ ГОЛКИПЕРЫ -->
+    <div class="section-title">Стартовые голкиперы</div>
+    <div class="pregame-probables-grid">
+      ${renderProbableGoalieCard(probables.away, away.abbrev || awayAbbrev)}
+      ${renderProbableGoalieCard(probables.home, home.abbrev || homeAbbrev)}
     </div>
 
     <!-- СРАВНЕНИЕ ПОКАЗАТЕЛЕЙ КОМАНД -->
@@ -4179,35 +4198,6 @@ function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLog
   `;
 
   body.innerHTML = html;
-
-  async function updateVoteUI(method = "GET", pick = null) {
-    try {
-      const opts = method === "POST" ? {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pick })
-      } : {};
-      const res = await fetch(`${API_BASE}/api/vote/${data.gameId}`, opts);
-      const vData = await res.json();
-      
-      document.getElementById("pct-away").textContent = `${vData.awayPct}%`;
-      document.getElementById("pct-tie").textContent = `${vData.tiePct}%`;
-      document.getElementById("pct-home").textContent = `${vData.homePct}%`;
-    } catch (_) {}
-  }
-
-  updateVoteUI("GET");
-
-  body.querySelectorAll(".pickem-btn").forEach(btn => {
-    btn.onclick = async () => {
-      const choice = btn.dataset.pick;
-      if (localStorage.getItem(pickKey)) return;
-      localStorage.setItem(pickKey, choice);
-      body.querySelectorAll(".pickem-btn").forEach(b => b.classList.remove("selected"));
-      btn.classList.add("selected");
-      await updateVoteUI("POST", choice);
-    };
-  });
 
   loadMatchupHistory(away.abbrev || awayAbbrev, home.abbrev || homeAbbrev).then(h2hGames => {
     const container = document.getElementById("pregame-h2h-container");
