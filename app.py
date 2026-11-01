@@ -1075,6 +1075,87 @@ async def telegram_webhook(update: dict):
             ],
         }
 
+        # Telegram Webhook
+@app.post("/webhook")
+async def telegram_webhook(update: dict):
+    # 1. Приём нового поста из Telegram-канала
+    channel_post = update.get("channel_post")
+    if channel_post:
+        chat = channel_post.get("chat", {})
+        channel_username = chat.get("username", "")
+        message_id = channel_post.get("message_id")
+
+        raw_text = channel_post.get("text") or channel_post.get("caption") or ""
+        lines = [line.strip() for line in raw_text.split("\n") if line.strip()]
+
+        if lines:
+            title = lines[0]
+            if len(title) > 120 and "." in title[:120]:
+                title = title[:title[:120].rfind(".") + 1]
+            elif len(title) > 120:
+                title = title[:117] + "..."
+        else:
+            title = "⚡ Читайте новую публикацию в Telegram-канале"
+
+        if channel_username:
+            post_link = f"https://t.me/{channel_username}/{message_id}"
+        else:
+            clean_id = str(chat.get("id", "")).replace("-100", "")
+            post_link = f"https://t.me/c/{clean_id}/{message_id}"
+
+        photo_id = ""
+        photos = channel_post.get("photo", [])
+        if isinstance(photos, list) and photos:
+            photo_id = photos[-1].get("file_id", "")
+
+        post_ts = channel_post.get("date", time.time())
+        date_str = time.strftime("%d.%m в %H:%M", time.localtime(post_ts + 3 * 3600))
+
+        news_item = {
+            "id": message_id,
+            "title": title,
+            "link": post_link,
+            "photo_id": photo_id,
+            "date": date_str,
+            "timestamp": post_ts,
+        }
+
+        global _news_store
+        _news_store = [n for n in _news_store if n.get("id") != message_id]
+        _news_store.insert(0, news_item)
+        _news_store = _news_store[:30]
+        save_news_to_disk(_news_store)
+        return {"ok": True}
+
+    # 2. Обработка команд боту в личных сообщениях
+    message = update.get("message")
+    if not message:
+        return {"ok": True}
+
+    chat_id = message["chat"]["id"]
+    text = message.get("text", "")
+
+    if text in ("/start", "/matches", "/standings", "/leaders", "/news", "/donate", "/help"):
+        DONATE_URL = "https://t.me/xokkey9"
+
+        keyboard = {
+            "inline_keyboard": [
+                [{"text": "🏒 ОТКРЫТЬ NHL LIVE", "web_app": {"url": WEBAPP_URL}}],
+                [
+                    {"text": "📅 Матчи", "web_app": {"url": f"{WEBAPP_URL}?section=matches"}},
+                    {"text": "📊 Таблица", "web_app": {"url": f"{WEBAPP_URL}?section=standings"}},
+                ],
+                [
+                    {"text": "🏆 Лидеры", "web_app": {"url": f"{WEBAPP_URL}?section=leaders"}},
+                    {"text": "🔄 Трансферы", "web_app": {"url": f"{WEBAPP_URL}?section=transactions"}},
+                ],
+                [
+                    {"text": "📢 Новости", "web_app": {"url": f"{WEBAPP_URL}?section=news"}},
+                    {"text": "☕ Поддержать проект", "url": DONATE_URL},
+                ],
+            ],
+        }
+
         async with httpx.AsyncClient(timeout=12) as client:
             await client.post(
                 f"{TELEGRAM_API}/sendMessage",
