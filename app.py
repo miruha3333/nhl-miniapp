@@ -50,6 +50,7 @@ import json as py_json
 
 NEWS_FILE = Path(__file__).resolve().parent / "news.json"
 
+
 def load_saved_news() -> list[dict]:
     if NEWS_FILE.is_file():
         try:
@@ -59,12 +60,14 @@ def load_saved_news() -> list[dict]:
             return []
     return []
 
+
 def save_news_to_disk(news_list: list[dict]):
     try:
         with open(NEWS_FILE, "w", encoding="utf-8") as f:
             py_json.dump(news_list[:30], f, ensure_ascii=False, indent=2)
     except Exception:
         pass
+
 
 _news_store: list[dict] = load_saved_news()
 
@@ -996,88 +999,6 @@ async def pregame(
 # Telegram Webhook
 @app.post("/webhook")
 async def telegram_webhook(update: dict):
-    # 1. Приём нового поста из твоего Telegram-канала
-    channel_post = update.get("channel_post")
-    if channel_post:
-        chat = channel_post.get("chat", {})
-        channel_username = chat.get("username", "")
-        message_id = channel_post.get("message_id")
-
-        raw_text = channel_post.get("text") or channel_post.get("caption") or ""
-        lines = [line.strip() for line in raw_text.split("\n") if line.strip()]
-
-        if lines:
-            title = lines[0]
-            if len(title) > 120 and "." in title[:120]:
-                title = title[:title[:120].rfind(".") + 1]
-            elif len(title) > 120:
-                title = title[:117] + "..."
-        else:
-            title = "⚡ Читайте новую публикацию в Telegram-канале"
-
-        if channel_username:
-            post_link = f"https://t.me/{channel_username}/{message_id}"
-        else:
-            clean_id = str(chat.get("id", "")).replace("-100", "")
-            post_link = f"https://t.me/c/{clean_id}/{message_id}"
-
-        photo_id = ""
-        photos = channel_post.get("photo", [])
-        if isinstance(photos, list) and photos:
-            photo_id = photos[-1].get("file_id", "")
-
-        post_ts = channel_post.get("date", time.time())
-        date_str = time.strftime("%d.%m в %H:%M", time.localtime(post_ts + 3 * 3600))
-
-        news_item = {
-            "id": message_id,
-            "title": title,
-            "link": post_link,
-            "photo_id": photo_id,
-            "date": date_str,
-            "timestamp": post_ts,
-        }
-
-        global _news_store
-        _news_store = [n for n in _news_store if n.get("id") != message_id]
-        _news_store.insert(0, news_item)
-        _news_store = _news_store[:30]
-        save_news_to_disk(_news_store)
-        return {"ok": True}
-
-    # 2. Обработка личных команд боту (/start и др.)
-    message = update.get("message")
-    if not message:
-        return {"ok": True}
-
-    chat_id = message["chat"]["id"]
-    text = message.get("text", "")
-
-    if text in ("/start", "/matches", "/standings", "/leaders", "/news", "/donate", "/help"):
-        # Ссылка на донат (замени на свою: CloudTips, Boosty, Tinkoff или сбор)
-        DONATE_URL = "https://t.me/xokkey9"  # <-- сюда можно вставить ссылку на донат или сбор
-
-        keyboard = {
-            "inline_keyboard": [
-                [{"text": "🏒 ОТКРЫТЬ NHL LIVE", "web_app": {"url": WEBAPP_URL}}],
-                [
-                    {"text": "📅 Матчи", "web_app": {"url": f"{WEBAPP_URL}?section=matches"}},
-                    {"text": "📊 Таблица", "web_app": {"url": f"{WEBAPP_URL}?section=standings"}},
-                ],
-                [
-                    {"text": "🏆 Лидеры", "web_app": {"url": f"{WEBAPP_URL}?section=leaders"}},
-                    {"text": "🔄 Трансферы", "web_app": {"url": f"{WEBAPP_URL}?section=transactions"}},
-                ],
-                [
-                    {"text": "📢 Новости", "web_app": {"url": f"{WEBAPP_URL}?section=news"}},
-                    {"text": "☕ Поддержать проект", "url": DONATE_URL},
-                ],
-            ],
-        }
-
-        # Telegram Webhook
-@app.post("/webhook")
-async def telegram_webhook(update: dict):
     # 1. Приём нового поста из Telegram-канала
     channel_post = update.get("channel_post")
     if channel_post:
@@ -1172,26 +1093,6 @@ async def telegram_webhook(update: dict):
                         "Выбери нужный раздел кнопками ниже:"
                     ),
                     "parse_mode": "HTML",
-                    "reply_markup": keyboard,
-                },
-            )
-
-    return {"ok": True}
-
-        async with httpx.AsyncClient(timeout=12) as client:
-            await client.post(
-                f"{TELEGRAM_API}/sendMessage",
-                json={
-                    "chat_id": chat_id,
-                    "text": (
-                        "🏒 NHL LIVE\n\n"
-                        "Всё главное по NHL — в одном месте.\n\n"
-                        "📅 Матчи, результаты и обзоры\n"
-                        "📊 Турнирная таблица\n"
-                        "🏆 Лидеры сезона\n"
-                        "🔄 Трансферы и травмы лиги\n\n"
-                        "Открой приложение и смотри NHL прямо в Telegram."
-                    ),
                     "reply_markup": keyboard,
                 },
             )
