@@ -4637,8 +4637,10 @@ async function loadNews() {
     }
 
     container.innerHTML = list.map(item => {
-      const imgHtml = item.photo_id 
-        ? `<img src="${API_BASE}/api/news/photo/${escapeHtml(item.photo_id)}" 
+      // Поддержка прямой ссылки на изображение или через фото-прокси
+      const imgSrc = item.image || (item.photo_id ? `${API_BASE}/api/news/photo/${escapeHtml(item.photo_id)}` : "");
+      const imgHtml = imgSrc 
+        ? `<img src="${escapeHtml(imgSrc)}" 
                 alt="" 
                 loading="lazy" 
                 onclick="openPostInTelegram('${escapeHtml(item.link)}')">` 
