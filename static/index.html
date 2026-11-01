@@ -3641,49 +3641,7 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
     const box = await boxResponse.json();
     const pbp = pbpResponse ? await pbpResponse.json() : null;
 
-    // === ВИДЕООБЗОР МАТЧА (РАБОЧИЙ БЛОК) ===
-    const gameDate = score?.gameDate || "";
-    const slot = document.getElementById("video-recap-slot");
-    const isLiveGame = score?.gameState === "LIVE" || score?.gameState === "CRIT";
-    const isFinishedGame = isCompletedGame(score) || score?.gameState === "FINAL" || score?.gameState === "OFF";
-
-    if (slot) {
-      if (isLiveGame) {
-        slot.innerHTML = `
-          <div class="card" style="text-align:center;padding:14px;background:var(--surface-2);margin-bottom:14px;border:1px solid rgba(46,204,113,0.3);">
-            <div style="font-family:'Oswald',sans-serif;font-size:13px;color:#2ecc71;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">
-              🔴 Матч в прямом эфире
-            </div>
-            <div style="font-size:11px;color:var(--silver-dim);margin-top:4px;">
-              Видеообзор встречи формируется лигой и появится здесь после финальной сирены.
-            </div>
-          </div>
-        `;
-      } else if (isFinishedGame) {
-        slot.innerHTML = `
-          <div class="card" style="text-align:center;padding:14px;background:var(--surface-2);margin-bottom:14px;">
-            <div style="font-family:'Oswald',sans-serif;font-size:13px;color:var(--silver);font-weight:700;text-transform:uppercase;">
-              ⏳ Видеообзор готовится
-            </div>
-            <div style="font-size:11px;color:var(--silver-dim);margin-top:4px;">
-              Официальный хайлайт монтируется лигой и появится здесь вскоре после завершения матча.
-            </div>
-          </div>
-        `;
-
-        if (gameDate && awayAbbrev && homeAbbrev) {
-          fetchYouTubeHighlight(awayAbbrev, homeAbbrev, gameDate).then(vid => {
-            const currentSlot = document.getElementById("video-recap-slot");
-            if (currentSlot && vid) {
-              currentSlot.innerHTML = buildVideoRecapBlock(vid);
-            }
-          });
-        }
-      } else {
-        slot.innerHTML = "";
-      }
-    }
-
+    
     const threeStars = score?.summary?.threeStars || score?.threeStars || [];
     if (Array.isArray(threeStars) && threeStars.length > 0) {
       html += renderThreeStarsBlock(threeStars);
@@ -3738,6 +3696,90 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
     body.innerHTML = html;
     initGameStatSorting();
 
+    // === ГАРАНТИРОВАННЫЙ ВИДЕООБЗОР (ОФИЦИАЛЬНЫЙ NHL + YOUTUBE) ===
+    const slot = document.getElementById("video-recap-slot");
+    const isLiveGame = score?.gameState === "LIVE" || score?.gameState === "CRIT";
+    const isFinishedGame = isCompletedGame(score) || score?.gameState === "FINAL" || score?.gameState === "OFF";
+
+    if (slot) {
+      if (isLiveGame) {
+        slot.innerHTML = `
+          <div class="card" style="text-align:center;padding:14px;background:var(--surface-2);margin-bottom:14px;border:1px solid rgba(46,204,113,0.3);">
+            <div style="font-family:'Oswald',sans-serif;font-size:13px;color:#2ecc71;font-weight:700;text-transform:uppercase;">
+              🔴 Матч в прямом эфире
+            </div>
+            <div style="font-size:11px;color:var(--silver-dim);margin-top:4px;">
+              Видеообзор встречи появится здесь вскоре после финальной сирены.
+            </div>
+          </div>
+        `;
+      } else if (isFinishedGame) {
+        // 1. Проверяем официальный видео-хайлайт прямо из протокола лиги
+        const officialSources = [
+          box?.gameVideo?.threeMinRecap,
+          box?.gameVideo?.condensedGame,
+          score?.threeMinRecap,
+          score?.condensedGame,
+          rail?.threeMinRecap,
+          rail?.gameVideo?.threeMinRecap
+        ];
+
+        let nhlVideoId = null;
+        for (const src of officialSources) {
+          if (!src) continue;
+          const match = String(src).match(/\d{10,14}/);
+          if (match) { nhlVideoId = match[0]; break; }
+        }
+
+        if (nhlVideoId) {
+          // Мгновенный официальный плеер NHL
+          slot.innerHTML = `
+            <div class="section-title">Официальный видеообзор матча (NHL)</div>
+            <div class="video-container">
+              <iframe 
+                src="https://players.brightcove.net/6415718365001/default_default/index.html?videoId=${nhlVideoId}" 
+                allowfullscreen 
+                allow="encrypted-media">
+              </iframe>
+            </div>
+          `;
+        } else {
+          // Если в протоколе видео ещё монтируется — включаем поиск YouTube
+          slot.innerHTML = `
+            <div class="card" style="text-align:center;padding:14px;background:var(--surface-2);margin-bottom:14px;">
+              <div style="font-family:'Oswald',sans-serif;font-size:13px;color:var(--silver);font-weight:700;text-transform:uppercase;">
+                ⏳ Поиск видеообзора...
+              </div>
+            </div>
+          `;
+
+          const gDate = score?.gameDate || "";
+          if (gDate && awayAbbrev && homeAbbrev) {
+            fetchYouTubeHighlight(awayAbbrev, homeAbbrev, gDate).then(vid => {
+              const currentSlot = document.getElementById("video-recap-slot");
+              if (!currentSlot) return;
+              if (vid) {
+                currentSlot.innerHTML = buildVideoRecapBlock(vid);
+              } else {
+                currentSlot.innerHTML = `
+                  <div class="card" style="text-align:center;padding:14px;background:var(--surface-2);margin-bottom:14px;">
+                    <div style="font-family:'Oswald',sans-serif;font-size:13px;color:var(--silver);font-weight:700;text-transform:uppercase;">
+                      ⏳ Видеообзор готовится
+                    </div>
+                    <div style="font-size:11px;color:var(--silver-dim);margin-top:4px;">
+                      Хайлайт появится здесь в течение 30-40 минут после окончания игры.
+                    </div>
+                  </div>
+                `;
+              }
+            });
+          }
+        }
+      } else {
+        slot.innerHTML = "";
+      }
+    }
+    
     const pbpBox = document.getElementById("pbp-ticker-box");
     if (pbpBox) {
       if (pbp && Array.isArray(pbp.plays) && pbp.plays.length) {
