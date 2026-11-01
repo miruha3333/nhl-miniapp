@@ -1053,10 +1053,13 @@ async def telegram_webhook(update: dict):
     chat_id = message["chat"]["id"]
     text = message.get("text", "")
 
-    if text in ("/start", "/matches", "/standings", "/leaders", "/goalies", "/players", "/transactions"):
+    if text in ("/start", "/matches", "/standings", "/leaders", "/news", "/donate", "/help"):
+        # Ссылка на донат (замени на свою: CloudTips, Boosty, Tinkoff или сбор)
+        DONATE_URL = "https://t.me/xokkey9"  # <-- сюда можно вставить ссылку на донат или сбор
+
         keyboard = {
             "inline_keyboard": [
-                [{"text": "🏒 ОТКРЫТЬ NHL", "web_app": {"url": WEBAPP_URL}}],
+                [{"text": "🏒 ОТКРЫТЬ NHL LIVE", "web_app": {"url": WEBAPP_URL}}],
                 [
                     {"text": "📅 Матчи", "web_app": {"url": f"{WEBAPP_URL}?section=matches"}},
                     {"text": "📊 Таблица", "web_app": {"url": f"{WEBAPP_URL}?section=standings"}},
@@ -1065,8 +1068,34 @@ async def telegram_webhook(update: dict):
                     {"text": "🏆 Лидеры", "web_app": {"url": f"{WEBAPP_URL}?section=leaders"}},
                     {"text": "🔄 Трансферы", "web_app": {"url": f"{WEBAPP_URL}?section=transactions"}},
                 ],
+                [
+                    {"text": "📢 Новости", "web_app": {"url": f"{WEBAPP_URL}?section=news"}},
+                    {"text": "☕ Поддержать проект", "url": DONATE_URL},
+                ],
             ],
         }
+
+        async with httpx.AsyncClient(timeout=12) as client:
+            await client.post(
+                f"{TELEGRAM_API}/sendMessage",
+                json={
+                    "chat_id": chat_id,
+                    "text": (
+                        "🏒 <b>NHL LIVE</b>\n\n"
+                        "Всё главное об NHL — в одном приложении прямо в Telegram:\n\n"
+                        "📅 <b>Матчи</b> — счёт live, голы, звёзды и видеообзоры\n"
+                        "📊 <b>Таблица</b> — общая, по дивизионам и продвинутая статистика\n"
+                        "🏆 <b>Лидеры</b> — гонка бомбардиров и вратарей\n"
+                        "🔄 <b>Трансферы</b> — переходы и травмы лиги\n"
+                        "📢 <b>Новости</b> — свежие инсайды нашего канала\n\n"
+                        "Выбери нужный раздел кнопками ниже:"
+                    ),
+                    "parse_mode": "HTML",
+                    "reply_markup": keyboard,
+                },
+            )
+
+    return {"ok": True}
 
         async with httpx.AsyncClient(timeout=12) as client:
             await client.post(
