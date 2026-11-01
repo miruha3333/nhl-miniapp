@@ -3641,9 +3641,9 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
     const box = await boxResponse.json();
     const pbp = pbpResponse ? await pbpResponse.json() : null;
 
+    // === ВИДЕООБЗОР МАТЧА (РАБОЧИЙ БЛОК) ===
     const gameDate = score?.gameDate || "";
     const slot = document.getElementById("video-recap-slot");
-    
     const isLiveGame = score?.gameState === "LIVE" || score?.gameState === "CRIT";
     const isFinishedGame = isCompletedGame(score) || score?.gameState === "FINAL" || score?.gameState === "OFF";
 
@@ -3666,15 +3666,16 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
               ⏳ Видеообзор готовится
             </div>
             <div style="font-size:11px;color:var(--silver-dim);margin-top:4px;">
-              Официальный хайлайт монтируется лигой и появится здесь в течение 30-40 минут после окончания игры.
+              Официальный хайлайт монтируется лигой и появится здесь вскоре после завершения матча.
             </div>
           </div>
         `;
 
         if (gameDate && awayAbbrev && homeAbbrev) {
           fetchYouTubeHighlight(awayAbbrev, homeAbbrev, gameDate).then(vid => {
-            if (vid) {
-              slot.innerHTML = buildVideoRecapBlock(vid);
+            const currentSlot = document.getElementById("video-recap-slot");
+            if (currentSlot && vid) {
+              currentSlot.innerHTML = buildVideoRecapBlock(vid);
             }
           });
         }
