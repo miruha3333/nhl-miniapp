@@ -1068,61 +1068,60 @@ async def telegram_webhook(request: Request):
     if text.startswith("/start") or text in ("/matches", "/standings", "/leaders", "/news", "/donate", "/help"):
         DONATE_URL = "https://t.me/xokkey9"
 
+        # Создаем надежные кнопки: верхняя открывает как WebApp, остальные дублируются ссылками
         keyboard = {
             "inline_keyboard": [
                 [{"text": "🏒 ОТКРЫТЬ NHL LIVE", "web_app": {"url": WEBAPP_URL}}],
                 [
-                    {"text": "📅 Матчи", "web_app": {"url": f"{WEBAPP_URL}?section=matches"}},
-                    {"text": "📊 Таблица", "web_app": {"url": f"{WEBAPP_URL}?section=standings"}},
+                    {"text": "📅 Матчи", "url": f"{WEBAPP_URL}?section=matches"},
+                    {"text": "📊 Таблица", "url": f"{WEBAPP_URL}?section=standings"},
                 ],
                 [
-                    {"text": "🏆 Лидеры", "web_app": {"url": f"{WEBAPP_URL}?section=leaders"}},
-                    {"text": "🔄 Трансферы", "web_app": {"url": f"{WEBAPP_URL}?section=transactions"}},
+                    {"text": "🏆 Лидеры", "url": f"{WEBAPP_URL}?section=leaders"},
+                    {"text": "🔄 Трансферы", "url": f"{WEBAPP_URL}?section=transactions"},
                 ],
                 [
-                    {"text": "📢 Новости", "web_app": {"url": f"{WEBAPP_URL}?section=news"}},
-                    {"text": "☕ Поддержать проект", "url": DONATE_URL},
+                    {"text": "📢 Новости", "url": f"{WEBAPP_URL}?section=news"},
+                    {"text": "☕ Поддержать", "url": DONATE_URL},
                 ],
             ],
         }
 
-        # Отправляем сообщение и настраиваем кнопку меню внизу экрана
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                # 1. Отправляем текст с инлайн-кнопками под ним
-                await client.post(
-                    f"{TELEGRAM_API}/sendMessage",
-                    json={
-                        "chat_id": chat_id,
-                        "text": (
-                            "🏒 <b>NHL LIVE</b>\n\n"
-                            "Всё главное об NHL — в одном приложении прямо в Telegram:\n\n"
-                            "📅 <b>Матчи</b> — счёт live, голы, звёзды и видеообзоры\n"
-                            "📊 <b>Таблица</b> — общая, по дивизионам и продвинутая статистика\n"
-                            "🏆 <b>Лидеры</b> — гонка бомбардиров и вратарей\n"
-                            "🔄 <b>Трансферы</b> — переходы и травмы лиги\n"
-                            "📢 <b>Новости</b> — свежие инсайды нашего канала\n\n"
-                            "Выбери нужный раздел кнопками ниже:"
-                        ),
-                        "parse_mode": "HTML",
-                        "reply_markup": keyboard,
-                    },
-                )
+        async with httpx.AsyncClient(timeout=10) as client:
+            # 1. Отправляем сообщение с кнопками
+            resp = await client.post(
+                f"{TELEGRAM_API}/sendMessage",
+                json={
+                    "chat_id": chat_id,
+                    "text": (
+                        "🏒 <b>NHL LIVE</b>\n\n"
+                        "Всё главное об NHL — в одном приложении прямо в Telegram:\n\n"
+                        "📅 <b>Матчи</b> — счёт live, голы, звёзды и видеообзоры\n"
+                        "📊 <b>Таблица</b> — общая, по дивизионам и статистика\n"
+                        "🏆 <b>Лидеры</b> — гонка бомбардиров и вратарей\n"
+                        "🔄 <b>Трансферы</b> — переходы и травмы лиги\n"
+                        "📢 <b>Новости</b> — свежие инсайды канала\n\n"
+                        "Нажмите кнопку ниже, чтобы запустить:"
+                    ),
+                    "parse_mode": "HTML",
+                    "reply_markup": keyboard,
+                },
+            )
+            # Выводим в логи хостинга ответ Telegram для проверки
+            print(f"[TG SEND] Статус: {resp.status_code}, Ответ: {resp.text}")
 
-                # 2. Устанавливаем кнопку запуска в левом нижнем углу чата (Menu Button)
-                await client.post(
-                    f"{TELEGRAM_API}/setChatMenuButton",
-                    json={
-                        "chat_id": chat_id,
-                        "menu_button": {
-                            "type": "web_app",
-                            "text": "🏒 NHL LIVE",
-                            "web_app": {"url": WEBAPP_URL}
-                        }
+            # 2. Устанавливаем кнопку меню в нижнем углу экрана
+            await client.post(
+                f"{TELEGRAM_API}/setChatMenuButton",
+                json={
+                    "chat_id": chat_id,
+                    "menu_button": {
+                        "type": "web_app",
+                        "text": "🏒 NHL LIVE",
+                        "web_app": {"url": WEBAPP_URL}
                     }
-                )
-        except Exception:
-            pass
+                }
+            )
 
     return {"ok": True}
 
