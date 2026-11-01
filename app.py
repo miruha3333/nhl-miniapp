@@ -754,7 +754,51 @@ async def right_rail(game_id: str):
 async def score(game_id: str):
     return await fetch_with_cache(f"score:{game_id}", f"{NHL_BASE}/gamecenter/{game_id}/landing", CACHE_TTL["score"])
 
+# === ФУНКЦИЯ ПОЛУЧЕНИЯ СТАРТОВЫХ ВРАТАРЕЙ ИЗ ESPN ===
+async def get_espn_probable_goalies(date_str: str, away_abbr: str, home_abbr: str):
+    clean_date = date_str.replace("-", "") if date_str else ""
+    url = f"{ESPN_BASE}/scoreboard?dates={clean_date}" if clean_date else f"{ESPN_BASE}/scoreboard"
+    data = await fetch_with_cache(f"espn:probables:{clean_date}", url, 300)
+    events = data.get("events", []) if isinstance(data, dict) else []
+    res = {"away": None, "home": None}
 
+    if not isinstance(events, list):
+        return res
+
+    for ev in events:
+        comps = ev.get("competitions", [])
+        for comp in comps:
+            competitors = comp.get("competitors", [])
+            matched = {}
+            for c in competitors:
+                raw_team = c.get("team", {}).get("abbreviation") or c.get("team", {}).get("displayName") or ""
+                matched[normalize_team_abbr(raw_team)] = c
+
+            if away_abbr in matched and home_abbr in matched:
+                for side, side_abbr in [("away", away_abbr), ("home", home_abbr)]:
+                    c = matched[side_abbr]
+                    probables = c.get("probables") or c.get("probableStartingGoalie") or []
+                    if not isinstance(probables, list):
+                        probables = [probables] if probables else []
+                    if probables:
+                        item = probables[0]
+                        athlete = item.get("athlete", {}) if isinstance(item, dict) else {}
+                        status_obj = item.get("status", {}) if isinstance(item, dict) else {}
+                        status_str = status_obj.get("name", "") if isinstance(status_obj, dict) else str(status_obj or "")
+                        confirmed = status_str.lower() == "confirmed" or item.get("confirmed") is True
+                        hs = athlete.get("headshot", "")
+                        if isinstance(hs, dict):
+                            hs = hs.get("href", "")
+
+                        res[side] = {
+                            "name": athlete.get("displayName") or athlete.get("name") or "Не объявлен",
+                            "jersey": athlete.get("jersey", ""),
+                            "confirmed": confirmed,
+                            "status": "Подтверждён" if confirmed else "Вероятен",
+                            "headshot": hs,
+                        }
+                return res
+    return res
 @app.get("/api/injuries")
 async def get_injuries():
     url = f"{ESPN_BASE}/injuries"
@@ -947,6 +991,8 @@ async def pregame(
     away_goalies = away_roster.get("goalies", [])
     home_goalies = home_roster.get("goalies", [])
 
+    probables = await get_espn_probable_goalies(game_date, away_abbr, home_abbr)
+
     return {
         "gameId": game_id,
         "gameDate": game_date,
@@ -988,6 +1034,7 @@ async def pregame(
             "streakCount": home_streak_count,
         },
         "preGameStats": pregame_stats,
+        "probableGoalies": probables,
         "injuries": {
             "away": injuries_data.get(away_abbr, []),
             "home": injuries_data.get(home_abbr, []),
