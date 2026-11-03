@@ -1113,7 +1113,7 @@ async def telegram_webhook(request: Request):
     text = message.get("text", "")
 
     if text.startswith("/start") or text in ("/matches", "/standings", "/leaders", "/news", "/donate", "/help"):
-        DONATE_URL = "https://t.me/xokkey9"
+        DONATE_URL = "https://t.me/tribute/app?startapp=dTl8"
 
         # Создаем надежные кнопки: верхняя открывает как WebApp, остальные дублируются ссылками
         keyboard = {
