@@ -858,13 +858,6 @@ select.date-input option {
   font-size:13px;
   letter-spacing:.04em;
   text-transform:uppercase;
-
-  /* Полный запрет копирования текста кнопки пальцем */
-  -webkit-touch-callout: none !important;
-  -webkit-user-select: none !important;
-  user-select: none !important;
-  touch-action: none !important;
-  cursor: grab;
 }
 
 .detail-head-game {
@@ -2082,120 +2075,14 @@ function switchTab(tab) {
   }
 }
 
-// ========================================================
-// === СИСТЕМА ПОШАГОВОЙ НАВИГАЦИИ (ПАМЯТЬ ПЕРЕХОДОВ) =====
-// ========================================================
-let navHistory = [];
-let isNavigatingBack = false;
-
-// Запоминает экран в цепочку переходов
-function pushScreenHistory(renderFunction) {
-  if (!isNavigatingBack) {
-    navHistory.push(renderFunction);
-  }
-}
-
-// Пошаговый возврат назад
-function handleGoBack() {
+document.getElementById("tab-schedule").onclick = () => switchTab("schedule");
+document.getElementById("tab-standings").onclick = () => switchTab("standings");
+document.getElementById("tab-players").onclick = () => switchTab("players");
+document.getElementById("tab-transactions").onclick = () => switchTab("transactions");
+document.getElementById("tab-news").onclick = () => switchTab("news");
+document.getElementById("back-btn").onclick = () => {
   stopAllVideos();
-
-  // Если в истории больше 1 экрана (например: Таблица -> Клуб -> Игрок)
-  if (navHistory.length > 1) {
-    navHistory.pop(); // Снимаем текущий экран (Игрок)
-    const prevScreen = navHistory[navHistory.length - 1]; // Получаем предыдущий экран (Клуб)
-    
-    isNavigatingBack = true;
-    try {
-      prevScreen();
-    } finally {
-      isNavigatingBack = false;
-    }
-  } else {
-    // Если вернулись в самое начало — открываем исходную вкладку
-    navHistory = [];
-    switchTab(lastMainTab);
-  }
-}
-
-// При клике на основные вкладки сбрасываем историю на начальную точку
-document.getElementById("tab-schedule").onclick = () => { navHistory = []; switchTab("schedule"); };
-document.getElementById("tab-standings").onclick = () => { navHistory = []; switchTab("standings"); };
-document.getElementById("tab-players").onclick = () => { navHistory = []; switchTab("players"); };
-document.getElementById("tab-transactions").onclick = () => { navHistory = []; switchTab("transactions"); };
-document.getElementById("tab-news").onclick = () => { navHistory = []; switchTab("news"); };
-
-// ========================================================
-// === ПЛАВАЮЩАЯ КНОПКА (ПЕРЕМЕЩЕНИЕ БЕЗ КОПИРОВАНИЯ) =====
-// ========================================================
-const backBtn = document.getElementById("back-btn");
-let isDragging = false;
-let startX = 0, startY = 0;
-let initialLeft = 0, initialTop = 0;
-let hasMoved = false;
-
-// Захват кнопки пальцем
-backBtn.addEventListener("pointerdown", (e) => {
-  isDragging = true;
-  hasMoved = false;
-  startX = e.clientX;
-  startY = e.clientY;
-
-  const rect = backBtn.getBoundingClientRect();
-  initialLeft = rect.left;
-  initialTop = rect.top;
-
-  try {
-    backBtn.setPointerCapture(e.pointerId);
-  } catch (_) {}
-});
-
-// Плавное следование за пальцем
-backBtn.addEventListener("pointermove", (e) => {
-  if (!isDragging) return;
-
-  const dx = e.clientX - startX;
-  const dy = e.clientY - startY;
-
-  // Если палец сдвинулся больше чем на 5 пикселей — это перетаскивание, а не клик
-  if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-    hasMoved = true;
-  }
-
-  if (hasMoved) {
-    let newX = initialLeft + dx;
-    let newY = initialTop + dy;
-
-    // Границы экрана, чтобы кнопка не улетала за край
-    const maxW = window.innerWidth - backBtn.offsetWidth - 10;
-    const maxH = window.innerHeight - backBtn.offsetHeight - 10;
-
-    newX = Math.max(10, Math.min(newX, maxW));
-    newY = Math.max(10, Math.min(newY, maxH));
-
-    backBtn.style.left = `${newX}px`;
-    backBtn.style.top = `${newY}px`;
-    backBtn.style.bottom = "auto";
-  }
-});
-
-// Отпускание пальца
-backBtn.addEventListener("pointerup", (e) => {
-  if (!isDragging) return;
-  isDragging = false;
-  try {
-    backBtn.releasePointerCapture(e.pointerId);
-  } catch (_) {}
-});
-
-// Клик назад срабатывает только если кнопку НЕ тащили по экрану
-backBtn.addEventListener("click", (e) => {
-  if (hasMoved) {
-    e.preventDefault();
-    e.stopPropagation();
-    return;
-  }
-  handleGoBack();
-});switchTab(lastMainTab);
+  switchTab(lastMainTab);
 };
 
 document.getElementById("prev-day").onclick = () => {
@@ -3766,7 +3653,6 @@ function buildVideoRecapBlock(videoId) {
 }
 
 async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
-  pushScreenHistory(() => openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo));
   openDetail();
   const body = document.getElementById("detail-body");
 
@@ -4107,7 +3993,6 @@ function renderPregameSeasonSeries(series, awayAbbrev, homeAbbrev) {
 }
 
 async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo, dateStr) {
-  pushScreenHistory(() => openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo, dateStr));
   openDetail();
   const body = document.getElementById("detail-body");
 
@@ -4350,7 +4235,6 @@ async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
   const name = getTeamName(teamName) || abbreviation;
   const logo = getTeamLogo(teamLogo);
 
-  pushScreenHistory(() => openTeamDetail(teamAbbrev, teamName, teamLogo));
   openDetail();
   if (!abbreviation) {
     document.getElementById("detail-body").innerHTML = '<div class="empty">Не удалось определить клуб</div>';
@@ -4626,7 +4510,6 @@ function renderCareerRow(season, position) {
 }
 
 async function openPlayerDetail(playerId) {
-  pushScreenHistory(() => openPlayerDetail(playerId));
   openDetail();
   const body = document.getElementById("detail-body");
 
