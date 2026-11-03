@@ -858,6 +858,9 @@ select.date-input option {
   font-size:13px;
   letter-spacing:.04em;
   text-transform:uppercase;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
 }
 
 .detail-head-game {
@@ -2080,7 +2083,59 @@ document.getElementById("tab-standings").onclick = () => switchTab("standings");
 document.getElementById("tab-players").onclick = () => switchTab("players");
 document.getElementById("tab-transactions").onclick = () => switchTab("transactions");
 document.getElementById("tab-news").onclick = () => switchTab("news");
-document.getElementById("back-btn").onclick = () => {
+// === ПЛАВАЮЩАЯ КНОПКА "НАЗАД" С ПЕРЕТАСКИВАНИЕМ ПАЛЬЦЕМ ===
+const backBtn = document.getElementById("back-btn");
+let isDragging = false;
+let startX, startY, initialLeft, initialTop;
+let dragThresholdPassed = false;
+
+backBtn.addEventListener("touchstart", (e) => {
+  const touch = e.touches[0];
+  isDragging = true;
+  dragThresholdPassed = false;
+  startX = touch.clientX;
+  startY = touch.clientY;
+  
+  const rect = backBtn.getBoundingClientRect();
+  initialLeft = rect.left;
+  initialTop = rect.top;
+}, { passive: true });
+
+window.addEventListener("touchmove", (e) => {
+  if (!isDragging) return;
+  const touch = e.touches[0];
+  const dx = touch.clientX - startX;
+  const dy = touch.clientY - startY;
+
+  // Если палец сдвинулся больше чем на 5px — это перетаскивание, а не клик
+  if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+    dragThresholdPassed = true;
+  }
+
+  let newX = initialLeft + dx;
+  let newY = initialTop + dy;
+
+  // Не даём кнопке улететь за границы экрана
+  const maxW = window.innerWidth - backBtn.offsetWidth - 10;
+  const maxH = window.innerHeight - backBtn.offsetHeight - 10;
+  newX = Math.max(10, Math.min(newX, maxW));
+  newY = Math.max(10, Math.min(newY, maxH));
+
+  backBtn.style.left = `${newX}px`;
+  backBtn.style.top = `${newY}px`;
+  backBtn.style.bottom = "auto";
+}, { passive: true });
+
+window.addEventListener("touchend", () => {
+  isDragging = false;
+});
+
+// Клик срабатывает только если кнопку не перетаскивали
+backBtn.onclick = (e) => {
+  if (dragThresholdPassed) {
+    e.preventDefault();
+    return;
+  }
   stopAllVideos();
   switchTab(lastMainTab);
 };
