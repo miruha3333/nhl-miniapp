@@ -1046,7 +1046,7 @@ async def pregame(
 # Telegram Webhook (принимает и POST от Telegram, и GET от браузера для проверки)
 @app.api_route("/webhook", methods=["GET", "POST"])
 async def telegram_webhook(request: Request):
-    # Если ты просто открыл ссылку в браузере — показываем, что сервер живой
+    # Если открыли ссылку в браузере — показываем, что сервер живой
     if request.method == "GET":
         return {"status": "ok", "message": "Webhook is active and listening!"}
 
@@ -1065,20 +1065,8 @@ async def telegram_webhook(request: Request):
         raw_text = channel_post.get("text") or channel_post.get("caption") or ""
         lines = [line.strip() for line in raw_text.split("\n") if line.strip()]
 
-        if lines:
-            title = lines[0]
-            if len(title) > 120 and "." in title[:120]:
-                title = title[:title[:120].rfind(".") + 1]
-            elif len(title) > 120:
-                title = title[:117] + "..."
-        else:
-            title = "⚡ Читайте новую публикацию в Telegram-канале"
-
-        if channel_username:
-            post_link = f"https://t.me/{channel_username}/{message_id}"
-        else:
-            clean_id = str(chat.get("id", "")).replace("-100", "")
-            post_link = f"https://t.me/c/{clean_id}/{message_id}"
+        title = lines[0][:117] + "..." if lines and len(lines[0]) > 120 else (lines[0] if lines else "⚡ Публикация в канале")
+        post_link = f"https://t.me/{channel_username}/{message_id}" if channel_username else f"https://t.me/c/{str(chat.get('id', '')).replace('-100', '')}/{message_id}"
 
         photo_id = ""
         photos = channel_post.get("photo", [])
@@ -1115,7 +1103,6 @@ async def telegram_webhook(request: Request):
     if text.startswith("/start") or text in ("/matches", "/standings", "/leaders", "/news", "/donate", "/help"):
         DONATE_URL = "https://t.me/tribute/app?startapp=dTl8"
 
-        # Исправленные ссылки со слэшем (/?section=...), чтобы Telegram их не блокировал
         keyboard = {
             "inline_keyboard": [
                 [{"text": "🏒 ОТКРЫТЬ NHL LIVE", "web_app": {"url": f"{WEBAPP_URL}/"}}],
