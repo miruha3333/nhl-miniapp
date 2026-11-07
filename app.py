@@ -17,7 +17,7 @@ NHL_STATS_BASE = "https://api.nhle.com/stats/rest/en"
 ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl"
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
-WEBAPP_URL = "https://nhl-miniapp.onrender.com"
+WEBAPP_URL = "https://nhl-miniapp-1.onrender.com/"
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 CACHE_TTL = {
