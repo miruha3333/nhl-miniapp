@@ -29,143 +29,153 @@
 }
 
 body {
-  margin:0;
-  padding-bottom:24px;
-  color:var(--silver);
-  background:var(--bg);
-  font-family:"Inter",sans-serif;
-  -webkit-font-smoothing:antialiased;
+  margin: 0;
+  padding-top: 54px; /* Компенсирует высоту зафиксированной шапки */
+  padding-bottom: 24px;
+  color: var(--silver);
+  background: var(--bg);
+  font-family: "Inter", sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
 input,
 select {
-  font:inherit;
+  font: inherit;
 }
 
+/* ШАПКА ВСЕГДА ЗАФИКСИРОВАНА НАВЕРХУ ЭКРАНА */
 header {
-  position:relative;
-  padding:14px 16px 12px;
-  border-bottom:2px solid var(--accent);
-  background:linear-gradient(180deg,#141414 0%,var(--bg) 100%);
-  display:grid;
-  grid-template-columns:auto 1fr auto;
-  align-items:center;
-  gap:8px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 54px;
+  z-index: 1000;
+  padding: 0 16px;
+  border-bottom: 2px solid var(--accent);
+  background: #141414;
+  display: grid;
+  grid-template-columns: 85px 1fr 85px;
+  align-items: center;
+  gap: 6px;
 }
 
 .header-left-slot {
-  min-width:76px;
-  display:flex;
-  align-items:center;
+  display: flex;
+  align-items: center;
 }
 
 .header-brand {
-  text-align:center;
-  display:flex;
-  justify-content:center;
-  align-items:center;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 header h1 {
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-  margin:0;
-  font-family:"Oswald",sans-serif;
-  font-size:22px;
-  font-weight:700;
-  letter-spacing:.06em;
-  text-transform:uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  font-family: "Oswald", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 header h1 .dot {
-  width:9px;
-  height:9px;
-  border-radius:50%;
-  background:var(--red);
-  box-shadow:0 0 8px var(--red);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 8px var(--red);
 }
 
 .header-back-btn {
-  display:inline-flex;
-  align-items:center;
-  gap:4px;
-  padding:6px 12px;
-  border:1px solid var(--accent);
-  border-radius:10px;
-  color:#fff;
-  background:var(--accent);
-  font-family:"Oswald",sans-serif;
-  font-size:12px;
-  letter-spacing:.04em;
-  text-transform:uppercase;
-  cursor:pointer;
-  white-space:nowrap;
-  box-shadow:0 0 8px var(--accent-glow);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  color: #fff;
+  background: var(--accent);
+  font-family: "Oswald", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 .my-team-btn {
-  display:flex;
-  align-items:center;
-  gap:6px;
-  padding:6px 12px;
-  border:1px solid var(--border);
-  border-radius:20px;
-  background:var(--surface);
-  color:var(--silver);
-  font-family:"Oswald",sans-serif;
-  font-size:12px;
-  letter-spacing:.04em;
-  cursor:pointer;
-  white-space:nowrap;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--silver);
+  font-family: "Oswald", sans-serif;
+  font-size: 12px;
+  letter-spacing: .04em;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .my-team-btn img {
-  width:20px;
-  height:20px;
-  object-fit:contain;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 
 nav {
-  position:sticky;
-  top:0;
-  z-index:10;
-  display:flex;
-  gap:6px;
-  padding:10px 10px 0;
-  background:var(--bg);
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
-  scrollbar-width:none;
+  position: sticky;
+  top: 54px;
+  z-index: 900;
+  display: flex;
+  gap: 6px;
+  padding: 10px 10px 0;
+  background: var(--bg);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
 nav::-webkit-scrollbar {
-  display:none;
+  display: none;
 }
 
 nav button {
-  flex:1 0 auto;
-  min-width:68px;
-  padding:10px 6px;
-  font-family:"Oswald",sans-serif;
-  font-size:12px;
-  letter-spacing:.03em;
-  text-transform:uppercase;
-  border:1px solid var(--border);
-  border-radius:10px;
-  color:var(--silver-dim);
-  background:var(--surface);
-  cursor:pointer;
-  white-space:nowrap;
+  flex: 1 0 auto;
+  min-width: 68px;
+  padding: 10px 6px;
+  font-family: "Oswald", sans-serif;
+  font-size: 12px;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--silver-dim);
+  background: var(--surface);
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 nav button.active {
-  border-color:var(--accent);
-  color:#fff;
-  background:var(--accent);
-  font-weight:700;
-  box-shadow:0 0 10px var(--accent-glow);
+  border-color: var(--accent);
+  color: #fff;
+  background: var(--accent);
+  font-weight: 700;
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 main {
@@ -2759,15 +2769,26 @@ async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, h
       <div class="card" style="padding:10px 14px;">
     `;
 
-    // Точная раскраска по правилам:
-    // Меньше = лучше для: "Пропущено за игру (GA/G)" и "Броски соперника по своим воротам (SA/G)"
-    // Больше = лучше для: Большинство (%PP), Меньшинство (%PK), Заброшено (GF/G), Броски сопернику (SF/G)
+    // Точная раскраска показателей:
+    // МЕНЬШЕ = ЛУЧШЕ (зеленый меньшему) ТОЛЬКО для:
+    // 1) "Пропущено за игру" (GA/G)
+    // 2) "Броски соперника по своим воротам" (SA/G)
+    //
+    // БОЛЬШЕ = ЛУЧШЕ (зеленый большему) ДЛЯ ВСЕХ ОСТАЛЬНЫХ:
+    // 1) "Заброшено за игру" (GF/G)
+    // 2) "Броски по воротам соперника" (SF/G)
+    // 3) "Большинство" (%PP)
+    // 4) "Меньшинство" (%PK)
     preStats.forEach(st => {
       const cat = String(st.category || '').toLowerCase();
       const label = String(st.label || '').toLowerCase();
       const isPct = cat.includes('pct');
-      
-      const lowerIsBetter = cat.includes('against') || cat.includes('ga') || label.includes('пропущено') || label.includes('по своим');
+
+      // Исключаем ошибочные совпадения по слову pergame
+      const isGoalsAgainst = cat === "goalsagainstpergame" || cat === "ga" || label.includes("пропущено") || label.includes("ga/g");
+      const isShotsAgainst = cat === "shotsagainstpergame" || cat === "sa" || label.includes("по своим") || label.includes("sa/g");
+
+      const lowerIsBetter = isGoalsAgainst || isShotsAgainst;
 
       const aNum = Number(st.awayValue ?? -999);
       const hNum = Number(st.homeValue ?? -999);
