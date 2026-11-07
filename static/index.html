@@ -1971,7 +1971,16 @@ async function loadDraft() {
   }
 }
 
-// Подгрузка фотографий и статистики в НХЛ (И, Ш, П, О, Штр)
+// Строгая нормализация для сравнения имен (убирает акценты, дефисы и приводит к одному виду)
+function normalizeCompareName(str) {
+  return String(str || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-zа-яё]/g, "");
+}
+
+// Подгрузка фотографий и статистики в НХЛ строго для совпавших хоккеистов
 async function hydrateDraftPicks(picks) {
   const toProcess = picks.slice(0, 35);
 
@@ -1988,13 +1997,20 @@ async function hydrateDraftPicks(picks) {
       try {
         let pId = p.playerId;
 
-        // Если в объекте драфта не было ID игрока — находим его через официальный сервис поиска NHL
+        // Если playerId не был передан — ищем в базе NHL, но ТРЕБУЕМ 100% точного совпадения имени и фамилии
         if (!pId) {
-          const sRes = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=1&q=${encodeURIComponent(fullName)}`);
+          const sRes = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=5&q=${encodeURIComponent(fullName)}`);
           if (sRes.ok) {
             const sData = await sRes.json();
-            if (Array.isArray(sData) && sData.length > 0 && sData[0].playerId) {
-              pId = sData[0].playerId;
+            const targetName = normalizeCompareName(fullName);
+
+            // Ищем игрока ТОЛЬКО с точно совпадающим именем и фамилией (исключаем чужих игроков вроде Brett Carson вместо Carson Carels)
+            const matched = Array.isArray(sData)
+              ? sData.find(item => normalizeCompareName(item.name) === targetName)
+              : null;
+
+            if (matched && matched.playerId) {
+              pId = matched.playerId;
             }
           }
         }
@@ -2011,7 +2027,7 @@ async function hydrateDraftPicks(picks) {
               if (p.positionCode === "G") {
                 statText = `${reg.gamesPlayed} ${reg.wins || 0}-${reg.losses || 0} ${reg.pim ?? reg.penaltyMinutes ?? 0}`;
               } else {
-                // Формат строго без букв: игры шайбы+передачи=очки штрафные минуты (например: 17 5+6=11 6)
+                // Игры Шайбы+Передачи=Очки Штраф (например: 17 5+6=11 6)
                 const g = Number(reg.goals) || 0;
                 const a = Number(reg.assists) || 0;
                 const pts = Number(reg.points) || (g + a);
@@ -2024,7 +2040,7 @@ async function hydrateDraftPicks(picks) {
           }
         }
 
-        info = { playerId: pId, headshot, statText };
+        info = { playerId: pId || "", headshot, statText };
         draftPlayerCache.set(fullName, info);
       } catch (_) {
         info = { playerId: p.playerId || "", headshot: "https://assets.nhle.com/mugs/nhl/default-player.png", statText: "—" };
@@ -2032,13 +2048,13 @@ async function hydrateDraftPicks(picks) {
       }
     }
 
-    // Обновляем фото игрока
+    // Обновляем фото игрока (только если найден реальный ID)
     const imgEl = document.getElementById(`draft-img-${pickNum}`);
     if (imgEl && info.headshot) {
       imgEl.src = info.headshot;
     }
 
-    // Обновляем статистику (Игры, шайбы, передачи, очки, штрафное время)
+    // Обновляем статистику
     const statEl = document.getElementById(`draft-stat-${pickNum}`);
     if (statEl) {
       statEl.textContent = info.statText;
@@ -2051,7 +2067,7 @@ async function hydrateDraftPicks(picks) {
       }
     }
 
-    // Привязываем клик к имени
+    // Привязываем клик только к настоящему профилю
     const linkEl = document.getElementById(`draft-link-${pickNum}`);
     if (linkEl && info.playerId) {
       linkEl.setAttribute("onclick", `openPlayerDetail('${info.playerId}')`);
@@ -3716,17 +3732,36 @@ function renderTeamRosterView() {
 async function findAndOpenPlayer(playerName) {
   const clean = playerName.trim();
   if (playerSearchCache.has(clean)) {
-    openPlayerDetail(playerSearchCache.get(clean));
-    return;
+    const cachedId = playerSearchCache.get(clean);
+    if (cachedId) {
+      openPlayerDetail(cachedId);
+      return;
+    }
   }
+
   try {
-    const res = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=1&q=${encodeURIComponent(clean)}`);
+    const res = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=5&q=${encodeURIComponent(clean)}`);
     const data = await res.json();
-    if (Array.isArray(data) && data.length > 0 && data[0].playerId) {
-      playerSearchCache.set(clean, data[0].playerId);
-      openPlayerDetail(data[0].playerId);
+    const targetName = typeof normalizeCompareName === "function" 
+      ? normalizeCompareName(clean) 
+      : clean.toLowerCase().replace(/[^a-z]/g, "");
+
+    // Строго проверяем, что найденный игрок — именно тот, на кого нажали, а не посторонний однофамилец
+    const matched = Array.isArray(data)
+      ? data.find(item => {
+          const itemName = typeof normalizeCompareName === "function" 
+            ? normalizeCompareName(item.name) 
+            : String(item.name || "").toLowerCase().replace(/[^a-z]/g, "");
+          return itemName === targetName;
+        })
+      : null;
+
+    if (matched && matched.playerId) {
+      playerSearchCache.set(clean, matched.playerId);
+      openPlayerDetail(matched.playerId);
     } else {
-      alert(`Профиль игрока ${clean} не найден в базе NHL`);
+      playerSearchCache.set(clean, null);
+      alert(`Хоккеист ${clean} ещё не дебютировал в НХЛ и не имеет карточки в официальной базе лиги.`);
     }
   } catch (_) {
     alert(`Не удалось открыть карточку игрока ${clean}`);
