@@ -713,6 +713,10 @@ async def seasons_list():
 async def playoff_bracket(year: str):
     return await fetch_with_cache(f"bracket:{year}", f"{NHL_BASE}/playoff-bracket/{year}", CACHE_TTL["standings"])
 
+@app.get("/api/draft/{year}")
+async def draft_picks(year: str, round: str = "all"):
+    url = f"{NHL_BASE}/draft/picks/{year}/{round}"
+    return await fetch_with_cache(f"draft:{year}:{round}", url, CACHE_TTL.get("standings", 21600))
 
 @app.get("/api/matchup/{game_id}")
 async def matchup(game_id: str):
