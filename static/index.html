@@ -1371,10 +1371,8 @@ const tg = window.Telegram?.WebApp;
 tg?.ready();
 tg?.expand();
 
-// Автоматически берет домен текущего хостинга (Render), а при локальном тесте переключает на Worker
-const API_BASE = window.location.origin.includes("onrender.com")
-  ? window.location.origin
-  : "https://nhl-live-api.sergvolk504.workers.dev";
+// Запросы идут напрямую к рабочему Cloudflare Worker
+const API_BASE = "https://nhl-live-api.sergvolk504.workers.dev";
 
 const TEAM_COLORS = {
   ANA: "#F47A38", BOS: "#FFB81C", BUF: "#003087", CGY: "#C8102E",
@@ -1391,6 +1389,7 @@ let currentTeamFullData = null;
 let currentTeamType = "regular";
 let currentTeamSortKey = "points";
 let currentTeamSortAsc = false;
+let currentTeamPlayoffData = null;
 
 let currentStandingsData = [];
 let currentAdvancedTeamsData = [];
@@ -2318,6 +2317,166 @@ async function openPlayerDetail(playerId) {
     body.innerHTML = html;
   } catch (error) {
     body.innerHTML = '<div class="empty">Не удалось загрузить карточку игрока</div>';
+  }
+}
+
+async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
+  openDetail();
+  const body = document.getElementById("detail-body");
+
+  body.innerHTML = `
+    <div class="detail-head-game">
+      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_light.svg" alt="">
+      <div>
+        <div class="title">${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
+        <div class="subtitle">Статистика и обзор матча</div>
+      </div>
+      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_light.svg" alt="">
+    </div>
+    <div class="loading">Загрузка данных матча...</div>
+  `;
+
+  try {
+    const [scoreRes, railRes] = await Promise.all([
+      fetch(`${API_BASE}/api/score/${encodeURIComponent(gameId)}`),
+      fetch(`${API_BASE}/api/right-rail/${encodeURIComponent(gameId)}`).catch(() => null)
+    ]);
+    const score = await scoreRes.json();
+    const rail = railRes ? await railRes.json() : null;
+
+    let html = `
+      <div class="detail-head-game">
+        <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_light.svg" alt="">
+        <div>
+          <div class="title">${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
+          <div class="subtitle">${score.gameState === "OFF" || score.gameState === "FINAL" ? "Матч завершён" : "Матч"}</div>
+        </div>
+        <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_light.svg" alt="">
+      </div>
+    `;
+
+    const scoring = score?.summary?.scoring || [];
+    if (scoring.length) {
+      html += '<div class="section-title">Голы</div>';
+      scoring.forEach(period => {
+        (period.goals || []).forEach(goal => {
+          const scorer = `${nameStr(goal.firstName)} ${nameStr(goal.lastName)}`.trim();
+          html += `
+            <div class="goal-row">
+              <div class="time">${escapeHtml(val(goal.timeInPeriod))}</div>
+              <div class="desc"><div class="scorer">${escapeHtml(scorer)} (${escapeHtml(goal.teamAbbrev?.default || goal.teamAbbrev || "")})</div></div>
+              <div class="scoreline">${escapeHtml(val(goal.awayScore))} : ${escapeHtml(val(goal.homeScore))}</div>
+            </div>
+          `;
+        });
+      });
+    }
+
+    body.innerHTML = html;
+  } catch (e) {
+    body.innerHTML = '<div class="empty">Не удалось загрузить детали матча</div>';
+  }
+}
+
+async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo, dateStr) {
+  openDetail();
+  const body = document.getElementById("detail-body");
+
+  body.innerHTML = `
+    <div class="detail-head-game">
+      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_light.svg" alt="">
+      <div>
+        <div class="title">${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
+        <div class="subtitle">ПРЕДМАТЧЕВОЕ ПРЕВЬЮ</div>
+      </div>
+      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_light.svg" alt="">
+    </div>
+    <div class="loading">Загрузка предматчевой аналитики...</div>
+  `;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/pregame/${encodeURIComponent(gameId)}?date=${dateStr}&away=${awayAbbrev}&home=${homeAbbrev}`);
+    const data = await res.json();
+    const probables = data.probableGoalies || { away: null, home: null };
+
+    body.innerHTML = `
+      <div class="detail-head-game">
+        <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_light.svg" alt="">
+        <div>
+          <div class="title">${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
+          <div class="subtitle" style="color:#2ecc71;">НАЧАЛО: ${data.startTimeUTC ? new Date(data.startTimeUTC).toLocaleTimeString("ru-RU", {hour:"2-digit", minute:"2-digit"}) + " (МСК)" : "Скоро"}</div>
+        </div>
+        <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_light.svg" alt="">
+      </div>
+
+      <div class="section-title">Стартовые голкиперы</div>
+      <div class="pregame-probables-grid">
+        <div class="pregame-goalie-box">
+          <div class="pregame-goalie-avatar"><img src="${probables.away?.headshot || 'https://assets.nhle.com/mugs/nhl/default-player.png'}"></div>
+          <div class="pregame-goalie-name">${escapeHtml(probables.away?.name || "Не объявлен")}</div>
+          <div class="pregame-goalie-sub">${escapeHtml(awayAbbrev)}</div>
+        </div>
+        <div class="pregame-goalie-box">
+          <div class="pregame-goalie-avatar"><img src="${probables.home?.headshot || 'https://assets.nhle.com/mugs/nhl/default-player.png'}"></div>
+          <div class="pregame-goalie-name">${escapeHtml(probables.home?.name || "Не объявлен")}</div>
+          <div class="pregame-goalie-sub">${escapeHtml(homeAbbrev)}</div>
+        </div>
+      </div>
+    `;
+  } catch (err) {
+    body.innerHTML = '<div class="empty">Не удалось загрузить превью матча</div>';
+  }
+}
+
+async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
+  openDetail();
+  const body = document.getElementById("detail-body");
+
+  body.innerHTML = `
+    <div class="detail-head">
+      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(teamAbbrev)}_light.svg" alt="">
+      <div>
+        <div class="title">${escapeHtml(teamName || teamAbbrev)}</div>
+        <div class="subtitle">${escapeHtml(teamAbbrev)}</div>
+      </div>
+    </div>
+    <div class="loading">Загрузка состава команды...</div>
+  `;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(teamAbbrev)}`);
+    const data = await res.json();
+    const skaters = data.skaters || [];
+
+    body.innerHTML = `
+      <div class="detail-head">
+        <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(teamAbbrev)}_light.svg" alt="">
+        <div>
+          <div class="title">${escapeHtml(teamName || teamAbbrev)}</div>
+          <div class="subtitle">${escapeHtml(teamAbbrev)}</div>
+        </div>
+      </div>
+      <div class="section-title">Полевые игроки</div>
+      <div class="table-scroll">
+        <table class="stat-table">
+          <thead><tr><th>Игрок</th><th>И</th><th>Г</th><th>П</th><th>О</th><th>+/-</th></tr></thead>
+          <tbody>
+            ${skaters.map(p => `
+              <tr class="clickable-row" onclick="openPlayerDetail('${getPlayerId(p)}')">
+                <td>${escapeHtml(`${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim())}</td>
+                <td class="num">${val(p.gamesPlayed, 0)}</td>
+                <td class="num">${val(p.goals, 0)}</td>
+                <td class="num">${val(p.assists, 0)}</td>
+                <td class="num" style="color:#ffffff !important;font-weight:700;">${val(p.points, 0)}</td>
+                <td class="num">${val(p.plusMinus, 0)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch (e) {
+    body.innerHTML = '<div class="empty">Не удалось загрузить состав</div>';
   }
 }
 
