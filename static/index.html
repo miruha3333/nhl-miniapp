@@ -1863,7 +1863,7 @@ async function loadDraft() {
 
   const year = currentDraftYear;
 
-  // 1. Для недавних сезонов запрашиваем раунды 1..7 параллельно
+  // 1. Запрос к NHL API через раунды 1..7 (подходит для 2021-2025)
   try {
     const rounds = [1, 2, 3, 4, 5, 6, 7];
     const results = await Promise.all(
@@ -1882,9 +1882,9 @@ async function loadDraft() {
     }
   } catch (_) {}
 
-  // 2. Официальная архивная база NHL Stats REST API (содержит драфты с 1963 года, включая 2020)
+  // 2. Официальная архивная база NHL Stats REST API (содержит драфты с 1963 по 2020 год)
   try {
-    const res = await fetch(`https://api.nhle.com/stats/rest/en/draft?cayenneExp=draftYear=${year}&start=0&limit=300`);
+    const res = await fetch(`https://api.nhle.com/stats/rest/en/draft?cayenneExp=draftYear=${year}&limit=300`);
     if (res.ok) {
       const data = await res.json();
       const rows = Array.isArray(data?.data) ? data.data : [];
@@ -3298,6 +3298,9 @@ async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
     <div id="team-tables-container"><div class="loading">Загрузка состава команды...</div></div>
   `;
 
+  // Получаем выбранный в таблице сезон
+  const targetSeason = seasonIdFromEndDate(selectedSeasonEndDate) || "now";
+
   safeOn("btn-team-reg", "click", () => {
     currentTeamType = "regular";
     document.getElementById("btn-team-reg")?.classList.add("active");
@@ -3313,16 +3316,16 @@ async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
     const container = document.getElementById("team-tables-container");
     if (container) container.innerHTML = '<div class="loading">Загрузка статистики плей-офф...</div>';
     try {
-      const res = await fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(teamAbbrev)}?gameType=3`);
+      const res = await fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(teamAbbrev)}?season=${targetSeason}&gameType=3`);
       currentTeamPlayoffData = await res.json();
       renderTeamRosterView();
     } catch (_) {
-      if (container) container.innerHTML = '<div class="empty">Клуб не выступал в плей-офф</div>';
+      if (container) container.innerHTML = '<div class="empty">Клуб не выступал в плей-офф в этом сезоне</div>';
     }
   });
 
   try {
-    const res = await fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(teamAbbrev)}`);
+    const res = await fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(teamAbbrev)}?season=${targetSeason}&gameType=2`);
     currentTeamFullData = await res.json();
     currentTeamSortKey = "points";
     currentTeamSortAsc = false;
