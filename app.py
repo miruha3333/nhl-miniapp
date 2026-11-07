@@ -17,7 +17,8 @@ NHL_STATS_BASE = "https://api.nhle.com/stats/rest/en"
 ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl"
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
-WEBAPP_URL = "https://nhl-miniapp-1.onrender.com/"
+# Убираем возможный слэш на конце, чтобы ссылки формировались чисто
+WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://nhl-miniapp-1.onrender.com").rstrip("/")
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 CACHE_TTL = {
@@ -346,7 +347,9 @@ async def skater_leaders_ext(
     }
 
     url = f"{NHL_STATS_BASE}/skater/{endpoint}?{httpx.QueryParams(params)}"
-    data = await fetch_with_cache(f"skaters-exact-v30:{target_season}:{category}:{safe_limit}", url, CACHE_TTL["leaders"])
+    # Исправлено: subgroup добавлен в ключ кэша!
+    cache_key = f"skaters-exact-v31:{target_season}:{category}:{safe_limit}:{subgroup or 'all'}"
+    data = await fetch_with_cache(cache_key, url, CACHE_TTL["leaders"])
     rows = data.get("data", []) if isinstance(data, dict) else []
 
     skaters = []
@@ -713,10 +716,12 @@ async def seasons_list():
 async def playoff_bracket(year: str):
     return await fetch_with_cache(f"bracket:{year}", f"{NHL_BASE}/playoff-bracket/{year}", CACHE_TTL["standings"])
 
+
 @app.get("/api/draft/{year}")
-async def draft_picks(year: str, round: str = "all"):
-    url = f"{NHL_BASE}/draft/picks/{year}/{round}"
-    return await fetch_with_cache(f"draft:{year}:{round}", url, CACHE_TTL.get("standings", 21600))
+async def draft_picks(year: str, draft_round: str = "all"):
+    url = f"{NHL_BASE}/draft/picks/{year}/{draft_round}"
+    return await fetch_with_cache(f"draft:{year}:{draft_round}", url, CACHE_TTL.get("standings", 21600))
+
 
 @app.get("/api/matchup/{game_id}")
 async def matchup(game_id: str):
@@ -765,7 +770,7 @@ async def right_rail(game_id: str):
 async def score(game_id: str):
     return await fetch_with_cache(f"score:{game_id}", f"{NHL_BASE}/gamecenter/{game_id}/landing", CACHE_TTL["score"])
 
-# === ФУНКЦИЯ ПОЛУЧЕНИЯ СТАРТОВЫХ ВРАТАРЕЙ ИЗ ESPN ===
+
 async def get_espn_probable_goalies(date_str: str, away_abbr: str, home_abbr: str):
     clean_date = date_str.replace("-", "") if date_str else ""
     url = f"{ESPN_BASE}/scoreboard?dates={clean_date}" if clean_date else f"{ESPN_BASE}/scoreboard"
@@ -810,6 +815,8 @@ async def get_espn_probable_goalies(date_str: str, away_abbr: str, home_abbr: st
                         }
                 return res
     return res
+
+
 @app.get("/api/injuries")
 async def get_injuries():
     url = f"{ESPN_BASE}/injuries"
@@ -997,11 +1004,6 @@ async def pregame(
     if isinstance(season_series, dict):
         season_series = season_series.get("games") or [season_series]
 
-    away_skaters = away_roster.get("skaters", [])
-    home_skaters = home_roster.get("skaters", [])
-    away_goalies = away_roster.get("goalies", [])
-    home_goalies = home_roster.get("goalies", [])
-
     probables = await get_espn_probable_goalies(game_date, away_abbr, home_abbr)
 
     return {
@@ -1054,10 +1056,9 @@ async def pregame(
     }
 
 
-# Telegram Webhook (принимает и POST от Telegram, и GET от браузера для проверки)
+# Telegram Webhook
 @app.api_route("/webhook", methods=["GET", "POST"])
 async def telegram_webhook(request: Request):
-    # Если открыли ссылку в браузере — показываем, что сервер живой
     if request.method == "GET":
         return {"status": "ok", "message": "Webhook is active and listening!"}
 
@@ -1066,7 +1067,6 @@ async def telegram_webhook(request: Request):
     except Exception:
         return {"ok": True}
 
-    # 1. Приём нового поста из Telegram-канала
     channel_post = update.get("channel_post")
     if channel_post:
         chat = channel_post.get("chat", {})
@@ -1103,7 +1103,6 @@ async def telegram_webhook(request: Request):
         save_news_to_disk(_news_store)
         return {"ok": True}
 
-    # 2. Обработка команд боту в личных сообщениях
     message = update.get("message")
     if not message:
         return {"ok": True}
@@ -1114,19 +1113,20 @@ async def telegram_webhook(request: Request):
     if text.startswith("/start") or text in ("/matches", "/standings", "/leaders", "/news", "/donate", "/help"):
         DONATE_URL = "https://t.me/tribute/app?startapp=dTl8"
 
+        # Добавлен параметр ?v=2 для принудительного сброса старого кэша Telegram на всех кнопках
         keyboard = {
             "inline_keyboard": [
-                [{"text": "🏒 ОТКРЫТЬ NHL LIVE", "web_app": {"url": f"{WEBAPP_URL}/"}}],
+                [{"text": "🏒 ОТКРЫТЬ NHL LIVE", "web_app": {"url": f"{WEBAPP_URL}/?v=2"}}],
                 [
-                    {"text": "📅 Матчи", "web_app": {"url": f"{WEBAPP_URL}/?section=matches"}},
-                    {"text": "📊 Таблица", "web_app": {"url": f"{WEBAPP_URL}/?section=standings"}},
+                    {"text": "📅 Матчи", "web_app": {"url": f"{WEBAPP_URL}/?v=2&section=matches"}},
+                    {"text": "📊 Таблица", "web_app": {"url": f"{WEBAPP_URL}/?v=2&section=standings"}},
                 ],
                 [
-                    {"text": "🏆 Лидеры", "web_app": {"url": f"{WEBAPP_URL}/?section=leaders"}},
-                    {"text": "🔄 Трансферы", "web_app": {"url": f"{WEBAPP_URL}/?section=transactions"}},
+                    {"text": "🏆 Лидеры", "web_app": {"url": f"{WEBAPP_URL}/?v=2&section=leaders"}},
+                    {"text": "🔄 Трансферы", "web_app": {"url": f"{WEBAPP_URL}/?v=2&section=transactions"}},
                 ],
                 [
-                    {"text": "📢 Новости", "web_app": {"url": f"{WEBAPP_URL}/?section=news"}},
+                    {"text": "📢 Новости", "web_app": {"url": f"{WEBAPP_URL}/?v=2&section=news"}},
                     {"text": "☕ Поддержать проект", "url": DONATE_URL},
                 ],
             ],
@@ -1175,8 +1175,9 @@ async def index():
         "Pragma": "no-cache",
         "Expires": "0",
     }
-    if STATIC_INDEX.is_file():
-        return FileResponse(str(STATIC_INDEX), media_type="text/html", headers=no_cache_headers)
+    # Исправлен приоритет: сначала проверяем новый корневой index.html!
     if ROOT_INDEX.is_file():
         return FileResponse(str(ROOT_INDEX), media_type="text/html", headers=no_cache_headers)
+    if STATIC_INDEX.is_file():
+        return FileResponse(str(STATIC_INDEX), media_type="text/html", headers=no_cache_headers)
     return {"detail": "index.html not found"}
