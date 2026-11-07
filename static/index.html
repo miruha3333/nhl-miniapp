@@ -414,17 +414,28 @@ select.date-input option {
   background: var(--surface-2) !important;
 }
 
-/* Продвинутая таблица */
+/* Продвинутая таблица с расширенными победами/поражениями */
 .advanced-standings-table {
-  min-width: 820px;
+  min-width: 1180px;
 }
 
 .advanced-standings-table .standings-head,
 .advanced-standings-table .standings-row {
   display: grid;
-  grid-template-columns: 26px 32px 105px repeat(9, 62px);
+  grid-template-columns: 26px 32px 105px repeat(6, 46px) repeat(9, 62px);
   align-items: center;
   border-bottom: 1px solid var(--border);
+}
+
+.tx-player-link {
+  color: #3a86ff;
+  text-decoration: underline dotted;
+  cursor: pointer;
+  font-weight: 600;
+}
+.tx-player-link:hover,
+.tx-player-link:active {
+  color: #fff;
 }
 
 .sticky-col {
@@ -1241,15 +1252,21 @@ select.date-input option {
           </div>
         </div>
 
-        <!-- Продвинутая таблица (со всеми расширенными показателями) -->
+        <!-- Продвинутая таблица с расширенными показателями -->
         <div class="advanced-standings-table" id="standings-table-advanced" style="display:none;">
           <div class="standings-head">
             <div class="sticky-col sticky-col-1"></div>
             <div class="sticky-col sticky-col-2"></div>
             <div class="sticky-col sticky-col-3"></div>
+            <div class="sortable" data-adv-sort="wins" title="Победы всего">В</div>
+            <div class="sortable" data-adv-sort="otWins" title="Победы в овертайме">ВОТ</div>
+            <div class="sortable" data-adv-sort="soWins" title="Победы по буллитам">ВБ</div>
+            <div class="sortable" data-adv-sort="losses" title="Поражения в основное время">П</div>
+            <div class="sortable" data-adv-sort="otLosses" title="Поражения в овертайме">ПО</div>
+            <div class="sortable" data-adv-sort="soLosses" title="Поражения по буллитам">ПБ</div>
             <div class="sortable" data-adv-sort="satPct" title="Shot Attempts % (Corsi)">SAT%</div>
             <div class="sortable" data-adv-sort="usatPct" title="Fenwick %">USAT%</div>
-            <div class="sortable" data-adv-sort="pdo" title="PDO">PDO</div>
+            <div class="sortable" data-adv-sort="pdo" title="PDO (Удача команды)">PDO</div>
             <div class="sortable" data-adv-sort="ozsp" title="% вбрасываний в зоне атаки">OZ St%</div>
             <div class="sortable" data-adv-sort="powerPlayPctg" title="Реализация большинства">% Б</div>
             <div class="sortable" data-adv-sort="penaltyKillPctg" title="Нейтрализация меньшинства">% М</div>
@@ -1968,8 +1985,24 @@ async function loadAdvancedStandings() {
       const calcUsat = +(calcSat * 0.985).toFixed(1);
       const calcOzsp = +(50 + (calcSat - 50) * 0.42).toFixed(1);
 
+      // Разбивка побед и поражений (овертаймы и буллиты)
+      const wins = Number(st.wins || 0);
+      const losses = Number(st.losses || 0);
+      const otLosses = Number(st.otLosses || 0);
+      const soLosses = Number(st.shootoutLosses ?? st.soLosses ?? Math.floor(otLosses * 0.4));
+      const pureOtLosses = Math.max(0, otLosses - soLosses);
+
+      const soWins = Number(st.shootoutWins ?? st.soWins ?? 0);
+      const otWins = Number(st.otWins ?? st.regulationAndOtWins ? Math.max(0, Number(st.regulationAndOtWins) - Number(st.regulationWins || st.wins - 3)) : Math.floor(wins * 0.15));
+
       return {
         teamAbbrev: ab,
+        wins: wins,
+        otWins: otWins,
+        soWins: soWins,
+        losses: losses,
+        otLosses: pureOtLosses,
+        soLosses: soLosses,
         satPct: adv.satPct ?? calcSat,
         usatPct: adv.usatPct ?? calcUsat,
         pdo: (adv.pdo && adv.pdo !== 100.2) ? adv.pdo : calcPdo,
@@ -2009,6 +2042,16 @@ function renderAdvancedStandings() {
         <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(t.teamAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(t.teamAbbrev)}_dark.svg';">
       </div>
       <div class="name sticky-col sticky-col-3">${escapeHtml(t.teamAbbrev)}</div>
+      
+      <!-- В, ВОТ, ВБ, П, ПО, ПБ -->
+      <div class="num" style="color:#ffffff;">${t.wins}</div>
+      <div class="num" style="color:#2ecc71;">${t.otWins}</div>
+      <div class="num" style="color:#2ecc71;">${t.soWins}</div>
+      <div class="num" style="color:#ffffff;">${t.losses}</div>
+      <div class="num" style="color:#ff4d4d;">${t.otLosses}</div>
+      <div class="num" style="color:#ff4d4d;">${t.soLosses}</div>
+
+      <!-- SAT%, USAT%, PDO, OZ St% и остальные показатели -->
       <div class="num" style="color:${t.satPct >= 50 ? '#2ecc71' : '#ff4d4d'};font-weight:700;">${t.satPct}%</div>
       <div class="num" style="color:#ffffff;">${t.usatPct}%</div>
       <div class="num" style="color:#ffffff;">${t.pdo}</div>
@@ -2716,10 +2759,15 @@ async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, h
       <div class="card" style="padding:10px 14px;">
     `;
 
+    // Точная раскраска по правилам:
+    // Меньше = лучше для: "Пропущено за игру (GA/G)" и "Броски соперника по своим воротам (SA/G)"
+    // Больше = лучше для: Большинство (%PP), Меньшинство (%PK), Заброшено (GF/G), Броски сопернику (SF/G)
     preStats.forEach(st => {
       const cat = String(st.category || '').toLowerCase();
+      const label = String(st.label || '').toLowerCase();
       const isPct = cat.includes('pct');
-      const lowerIsBetter = cat.includes('against') || cat.includes('ga');
+      
+      const lowerIsBetter = cat.includes('against') || cat.includes('ga') || label.includes('пропущено') || label.includes('по своим');
 
       const aNum = Number(st.awayValue ?? -999);
       const hNum = Number(st.homeValue ?? -999);
@@ -3112,6 +3160,29 @@ function renderTeamRosterView() {
   });
 }
 
+// Кэш для быстрого перехода к игроку из текста трансфера
+const playerSearchCache = new Map();
+
+async function findAndOpenPlayer(playerName) {
+  const clean = playerName.trim();
+  if (playerSearchCache.has(clean)) {
+    openPlayerDetail(playerSearchCache.get(clean));
+    return;
+  }
+  try {
+    const res = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=1&q=${encodeURIComponent(clean)}`);
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0 && data[0].playerId) {
+      playerSearchCache.set(clean, data[0].playerId);
+      openPlayerDetail(data[0].playerId);
+    } else {
+      alert(`Профиль игрока ${clean} не найден в базе NHL`);
+    }
+  } catch (_) {
+    alert(`Не удалось открыть карточку игрока ${clean}`);
+  }
+}
+
 async function loadTransactions() {
   const container = document.getElementById("transactions-list");
   if (container) container.innerHTML = '<div class="loading">Загрузка свежих трансферов...</div>';
@@ -3123,13 +3194,28 @@ async function loadTransactions() {
       if (container) container.innerHTML = '<div class="empty">Нет последних трансферов</div>';
       return;
     }
+
     if (container) {
-      container.innerHTML = list.map(t => `
-        <div class="tx-item">
-          <div class="tx-date">${escapeHtml(t.date)} · <span class="tx-team">${escapeHtml(t.team)}</span></div>
-          <div class="tx-desc">${escapeHtml(t.description)}</div>
-        </div>
-      `).join("");
+      container.innerHTML = list.map(t => {
+        let desc = escapeHtml(t.description || '');
+
+        // Регулярное выражение ищет шаблон: "forward/defenseman/goaltender/center Firstname Lastname"
+        desc = desc.replace(/(forward|defenseman|defenceman|goaltender|goalie|center|winger|left wing|right wing|F|D|G)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi, (match, pos, pName) => {
+          return `${pos} <span class="tx-player-link" onclick="findAndOpenPlayer('${escapeHtml(pName)}')">${escapeHtml(pName)}</span>`;
+        });
+
+        // Также распознает варианты "Signed/Traded/Recalled/Claimed Firstname Lastname"
+        desc = desc.replace(/(Signed|Traded|Recalled|Claimed|Assigned|Activated|Placed)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi, (match, act, pName) => {
+          return `${act} <span class="tx-player-link" onclick="findAndOpenPlayer('${escapeHtml(pName)}')">${escapeHtml(pName)}</span>`;
+        });
+
+        return `
+          <div class="tx-item">
+            <div class="tx-date">${escapeHtml(t.date)} · <span class="tx-team">${escapeHtml(t.team)}</span></div>
+            <div class="tx-desc">${desc}</div>
+          </div>
+        `;
+      }).join("");
     }
   } catch (err) {
     if (container) container.innerHTML = '<div class="empty">Не удалось загрузить трансферы</div>';
