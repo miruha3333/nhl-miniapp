@@ -1995,18 +1995,23 @@ async function hydrateDraftPicks(picks) {
 
     if (!info) {
       try {
-        let pId = p.playerId;
+        // 1. Сначала берём готовый playerId прямо из объекта драфта (если передан API)
+        let pId = p.playerId || p.id || p.csPlayerId || "";
 
-        // Если playerId не был передан — ищем в базе NHL, но ТРЕБУЕМ 100% точного совпадения имени и фамилии
+        // 2. Если ID в драфте отсутствовал — запрашиваем поиск по фамилии и имени
         if (!pId) {
-          const sRes = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=5&q=${encodeURIComponent(fullName)}`);
+          // Ищем сначала по полной фамилии (наиболее надёжно для O'Brien, McQueen и т.д.)
+          const sRes = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=10&q=${encodeURIComponent(last || fullName)}`);
           if (sRes.ok) {
             const sData = await sRes.json();
-            const targetName = normalizeCompareName(fullName);
+            const targetNorm = normalizeCompareName(fullName);
 
-            // Ищем игрока ТОЛЬКО с точно совпадающим именем и фамилией (исключаем чужих игроков вроде Brett Carson вместо Carson Carels)
             const matched = Array.isArray(sData)
-              ? sData.find(item => normalizeCompareName(item.name) === targetName)
+              ? sData.find(item => {
+                  const itemNorm = normalizeCompareName(item.name);
+                  // Точное совпадение либо совпадение фамилии и первой буквы имени
+                  return itemNorm === targetNorm || (itemNorm.includes(normalizeCompareName(last)) && itemNorm.includes(normalizeCompareName(first)));
+                })
               : null;
 
             if (matched && matched.playerId) {
@@ -2022,12 +2027,14 @@ async function hydrateDraftPicks(picks) {
           const pRes = await fetch(`${API_BASE}/api/player/${pId}`);
           if (pRes.ok) {
             const pData = await pRes.json();
+            if (pData?.headshot) {
+              headshot = pData.headshot;
+            }
             const reg = pData?.careerTotals?.regularSeason;
             if (reg && (Number(reg.gamesPlayed) || 0) > 0) {
               if (p.positionCode === "G") {
                 statText = `${reg.gamesPlayed} ${reg.wins || 0}-${reg.losses || 0} ${reg.pim ?? reg.penaltyMinutes ?? 0}`;
               } else {
-                // Игры Шайбы+Передачи=Очки Штраф (например: 17 5+6=11 6)
                 const g = Number(reg.goals) || 0;
                 const a = Number(reg.assists) || 0;
                 const pts = Number(reg.points) || (g + a);
@@ -2048,7 +2055,7 @@ async function hydrateDraftPicks(picks) {
       }
     }
 
-    // Обновляем фото игрока (только если найден реальный ID)
+    // Обновляем фото игрока в карточке
     const imgEl = document.getElementById(`draft-img-${pickNum}`);
     if (imgEl && info.headshot) {
       imgEl.src = info.headshot;
@@ -2067,7 +2074,7 @@ async function hydrateDraftPicks(picks) {
       }
     }
 
-    // Привязываем клик только к настоящему профилю
+    // Делаем имя кликабельным
     const linkEl = document.getElementById(`draft-link-${pickNum}`);
     if (linkEl && info.playerId) {
       linkEl.setAttribute("onclick", `openPlayerDetail('${info.playerId}')`);
@@ -3740,19 +3747,21 @@ async function findAndOpenPlayer(playerName) {
   }
 
   try {
-    const res = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=5&q=${encodeURIComponent(clean)}`);
-    const data = await res.json();
-    const targetName = typeof normalizeCompareName === "function" 
-      ? normalizeCompareName(clean) 
-      : clean.toLowerCase().replace(/[^a-z]/g, "");
+    const parts = clean.split(/\s+/);
+    const lastName = parts.length > 1 ? parts[parts.length - 1] : clean;
+    const firstName = parts.length > 1 ? parts[0] : "";
 
-    // Строго проверяем, что найденный игрок — именно тот, на кого нажали, а не посторонний однофамилец
+    // Ищем в базе NHL сначала по фамилии для точного совпадения сложных фамилий (McQueen, O'Brien и др.)
+    const res = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=10&q=${encodeURIComponent(lastName)}`);
+    const data = await res.json();
+    const targetNorm = normalizeCompareName(clean);
+    const lastNorm = normalizeCompareName(lastName);
+    const firstNorm = normalizeCompareName(firstName);
+
     const matched = Array.isArray(data)
       ? data.find(item => {
-          const itemName = typeof normalizeCompareName === "function" 
-            ? normalizeCompareName(item.name) 
-            : String(item.name || "").toLowerCase().replace(/[^a-z]/g, "");
-          return itemName === targetName;
+          const itemNorm = normalizeCompareName(item.name);
+          return itemNorm === targetNorm || (itemNorm.includes(lastNorm) && itemNorm.includes(firstNorm));
         })
       : null;
 
@@ -3761,7 +3770,7 @@ async function findAndOpenPlayer(playerName) {
       openPlayerDetail(matched.playerId);
     } else {
       playerSearchCache.set(clean, null);
-      alert(`Хоккеист ${clean} ещё не дебютировал в НХЛ и не имеет карточки в официальной базе лиги.`);
+      alert(`Хоккеист ${clean} ещё не зарегистрирован в официальной базе лиги.`);
     }
   } catch (_) {
     alert(`Не удалось открыть карточку игрока ${clean}`);
