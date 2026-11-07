@@ -44,24 +44,35 @@ select {
 }
 
 header {
-  padding:16px 16px 12px;
+  position:relative;
+  padding:14px 16px 12px;
   border-bottom:2px solid var(--accent);
   background:linear-gradient(180deg,#141414 0%,var(--bg) 100%);
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:8px;
+}
+
+.header-left-slot {
+  min-width:76px;
   display:flex;
   align-items:center;
-  justify-content:space-between;
-  gap:10px;
 }
 
 .header-brand {
-  min-width:0;
+  text-align:center;
+  display:flex;
+  justify-content:center;
+  align-items:center;
 }
 
 header h1 {
-  display:flex;
+  display:inline-flex;
   align-items:center;
+  justify-content:center;
   gap:8px;
-  margin:0 0 2px;
+  margin:0;
   font-family:"Oswald",sans-serif;
   font-size:22px;
   font-weight:700;
@@ -77,93 +88,38 @@ header h1 .dot {
   box-shadow:0 0 8px var(--red);
 }
 
-header .sub {
-  color:var(--silver-dim);
-  font-size:11px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.my-team-btn {
-  display:flex;
+.header-back-btn {
+  display:inline-flex;
   align-items:center;
-  gap:6px;
-  padding:6px 12px;
-  border:1px solid var(--border);
-  border-radius:20px;
-  background:var(--surface);
-  color:var(--silver);
+  gap:4px;
+  padding:6px 10px;
+  border:1px solid var(--accent);
+  border-radius:10px;
+  color:#fff;
+  background:var(--accent);
   font-family:"Oswald",sans-serif;
   font-size:12px;
   letter-spacing:.04em;
-  cursor:pointer;
-  white-space:nowrap;
-}
-.my-team-btn img {
-  width:20px;
-  height:20px;
-  object-fit:contain;
-}
-
-nav {
-  position:sticky;
-  top:0;
-  z-index:10;
-  display:flex;
-  gap:6px;
-  padding:10px 10px 0;
-  background:var(--bg);
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
-  scrollbar-width:none;
-}
-nav::-webkit-scrollbar {
-  display:none;
-}
-
-nav button {
-  flex:1 0 auto;
-  min-width:68px;
-  padding:10px 6px;
-  font-family:"Oswald",sans-serif;
-  font-size:12px;
-  letter-spacing:.03em;
   text-transform:uppercase;
-  border:1px solid var(--border);
-  border-radius:10px;
-  color:var(--silver-dim);
-  background:var(--surface);
   cursor:pointer;
   white-space:nowrap;
+  box-shadow:0 0 8px var(--accent-glow);
 }
 
-nav button.active {
-  border-color:var(--accent);
-  color:#fff;
-  background:var(--accent);
-  font-weight:700;
-  box-shadow:0 0 10px var(--accent-glow);
-}
-
-main {
-  padding:14px 16px 0;
-}
-
-.cat-grid-2rows {
-  display:grid;
-  grid-template-columns:repeat(5, 1fr);
-  gap:6px;
+.cat-row {
+  display:flex;
+  gap:4px;
   margin-bottom:12px;
 }
 
-.cat-grid-2rows button,
-.goalie-cat-grid button {
-  width:100%;
-  padding:8px 4px;
+.cat-row button {
+  flex:1;
+  min-width:0;
+  padding:8px 3px;
   font-family:"Oswald",sans-serif;
-  font-size:12px;
-  letter-spacing:.04em;
+  font-size:clamp(9px, 2.5vw, 11px);
+  line-height:1.15;
+  letter-spacing:.02em;
   text-transform:uppercase;
   text-align:center;
   border:1px solid var(--border);
@@ -171,184 +127,46 @@ main {
   color:var(--silver-dim);
   background:var(--surface);
   cursor:pointer;
+  word-break:keep-all;
 }
 
-.cat-grid-2rows button.active,
-.goalie-cat-grid button.active {
+.cat-row button.active {
   border-color:var(--red);
   color:#fff;
   background:var(--red);
   font-weight:700;
 }
 
-.goalie-cat-grid {
-  display:grid;
-  grid-template-columns:repeat(4, 1fr);
-  gap:6px;
-  margin-bottom:12px;
-}
-
-.date-row {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  margin:10px 0 14px;
-}
-
-.date-input {
-  width:140px;
-  padding:6px 12px;
-  border:1px solid var(--border);
-  border-radius:8px;
-  outline:none;
-  color:var(--silver);
-  background:transparent;
-  font-family:"Roboto Mono",monospace;
-  font-size:14px;
-  text-align:center;
-}
-
-.date-input::-webkit-calendar-picker-indicator {
-  filter:invert(1);
-}
-
-select.date-input {
-  appearance:none;
-  -webkit-appearance:none;
-  background:var(--surface);
-}
-
-select.date-input option {
-  color:var(--silver);
-  background:#1a1a1a;
-}
-
-.date-row button {
-  width:34px;
-  height:34px;
-  color:var(--silver);
-  font-size:16px;
-  border:1px solid var(--border);
-  border-radius:8px;
-  background:var(--surface);
-  cursor:pointer;
-}
-
-.card {
-  margin-bottom:10px;
-  padding:14px;
-  border:1px solid var(--border);
-  border-radius:14px;
-  background:var(--surface);
-}
-
-.card.pinned {
-  border-color:var(--accent);
-  box-shadow:0 0 12px var(--accent-glow);
-}
-
-.game-row {
-  display:grid;
-  grid-template-columns:1fr auto 1fr;
-  align-items:center;
-  gap:10px;
-}
-
-.team {
-  display:flex;
-  align-items:center;
-  gap:10px;
-  min-width:0;
-  cursor:pointer;
-}
-
-.team.right {
-  justify-content:flex-end;
-  text-align:right;
-}
-
-.team-logo {
-  width:32px;
-  height:32px;
-  flex-shrink:0;
-  object-fit:contain;
-}
-
-.abbr {
-  font-family:"Oswald",sans-serif;
-  font-size:15px;
-  font-weight:700;
-  letter-spacing:.04em;
-}
-
-.team-record {
-  margin-top:3px;
-  color:var(--silver-dim);
-  font-family:"Roboto Mono",monospace;
-  font-size:10px;
-  line-height:1.1;
-  white-space:nowrap;
-}
-
-.team-record strong {
-  color:var(--silver);
-}
-
-.score-box {
-  min-width:70px;
-  padding:4px 6px;
-  border-radius:10px;
-  text-align:center;
-}
-
-.score-box.clickable,
-.score-box.game-center {
-  cursor:pointer;
-}
-
-.score-box:active,
-.team:active,
-.player-row:active,
-.spotlight-card:active {
-  background:var(--surface-2);
-}
-
-.score-box .score {
-  font-family:"Roboto Mono",monospace;
-  font-size:22px;
-  font-weight:700;
-  color:#ffffff !important;
-}
-
-.score-box .status {
-  margin-top:2px;
-  color:var(--red);
-  font-size:10px;
-  letter-spacing:.08em;
-  text-transform:uppercase;
-}
-
-.score-box .status.live-pulse {
-  color:#2ecc71;
-  font-weight:700;
-}
-
-.table-wrapper,
-.table-scroll {
-  width:100%;
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
-}
-
-/* Стандартная таблица: шапка и строки строго с одинаковыми колонками */
+/* Стандартная таблица: только базовые показатели (#, лого, имя, И, В, ОТ, П, ЗШ, ПШ, +/-, О) */
 .standings-table {
-  min-width: 820px;
+  min-width: 580px;
 }
 
 .standings-head,
 .standings-row {
   display: grid;
-  grid-template-columns: 26px 32px 105px repeat(8, 38px) 65px 65px 55px 50px 50px;
+  grid-template-columns: 26px 32px 105px repeat(8, 48px);
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.standings-row {
+  cursor: pointer;
+}
+
+.standings-row:active {
+  background: var(--surface-2) !important;
+}
+
+/* Продвинутая таблица: исходные метрики + перенесенные %Б, %М, %Вбр, Б/И, БП/И */
+.advanced-standings-table {
+  min-width: 780px;
+}
+
+.advanced-standings-table .standings-head,
+.advanced-standings-table .standings-row {
+  display: grid;
+  grid-template-columns: 26px 32px 105px repeat(9, 58px);
   align-items: center;
   border-bottom: 1px solid var(--border);
 }
@@ -839,25 +657,13 @@ select.date-input option {
   display:block;
 }
 
-.back-btn {
-  position:fixed;
-  left:16px;
-  bottom:calc(16px + env(safe-area-inset-bottom));
-  z-index:1000;
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  margin:0;
-  padding:9px 15px;
-  border:1px solid var(--accent);
-  border-radius:12px;
-  color:#fff;
-  background:rgba(31,95,206,.96);
-  box-shadow:0 6px 20px rgba(0,0,0,.45);
-  font-family:"Oswald",sans-serif;
-  font-size:13px;
-  letter-spacing:.04em;
-  text-transform:uppercase;
+.player-row .pgames {
+  flex-shrink:0;
+  font-family:"Roboto Mono",monospace;
+  font-size:12px;
+  color:var(--silver-dim);
+  text-align:right;
+  min-width:44px;
 }
 
 .detail-head-game {
@@ -1533,9 +1339,11 @@ select.date-input option {
 
 <body>
 <header>
+  <div class="header-left-slot">
+    <button class="header-back-btn" id="back-btn" style="display:none;">‹ Назад</button>
+  </div>
   <div class="header-brand">
     <h1><span class="dot"></span>NHL LIVE</h1>
-    <div class="sub">Матчи, результаты, таблица и статистика лиги</div>
   </div>
   <button class="my-team-btn" id="my-team-trigger">
     <span id="my-team-label">
@@ -1598,29 +1406,27 @@ select.date-input option {
             <div class="sortable" data-sort="goalAgainst">ПШ</div>
             <div class="sortable" data-sort="goalDifferential">+/-</div>
             <div class="sortable" data-sort="points">О</div>
-            <div class="sortable" data-sort="powerPlayPctg">% Б</div>
-            <div class="sortable" data-sort="penaltyKillPctg">% М</div>
-            <div class="sortable" data-sort="faceoffWinPct" title="Процент выигранных вбрасываний">% Вбр</div>
-            <div class="sortable" data-sort="shotsForPerGame" title="Броски в створ ворот соперника за игру">Б/И</div>
-            <div class="sortable" data-sort="shotsAgainstPerGame" title="Броски соперника по своим воротам за игру">БП/И</div>
           </div>
           <div id="standings-body" style="display:contents;">
             <div class="loading">Загрузка...</div>
           </div>
         </div>
 
-        <!-- Продвинутая таблица (Corsi / Fenwick / PDO / OZ St%) -->
+        <!-- Продвинутая таблица -->
         <div class="advanced-standings-table" id="standings-table-advanced" style="display:none;">
           <div class="standings-head">
             <div class="sticky-col sticky-col-1"></div>
             <div class="sticky-col sticky-col-2"></div>
             <div class="sticky-col sticky-col-3"></div>
-            <div class="sortable" data-adv-sort="satPct" title="Shot Attempts % (Corsi) — общий контроль шайбы">SAT%</div>
-            <div class="sortable" data-adv-sort="usatPct" title="Unblocked Shot Attempts % (Fenwick)">USAT%</div>
-            <div class="sortable" data-adv-sort="pdo" title="SPSV% — коэффициент удачи">PDO</div>
+            <div class="sortable" data-adv-sort="satPct" title="Shot Attempts % (Corsi)">SAT%</div>
+            <div class="sortable" data-adv-sort="usatPct" title="Fenwick %">USAT%</div>
+            <div class="sortable" data-adv-sort="pdo" title="PDO">PDO</div>
             <div class="sortable" data-adv-sort="ozsp" title="% вбрасываний в зоне атаки">OZ St%</div>
-            <div class="sortable" data-adv-sort="shotsForPerGame" title="Броски за игру">SF/G</div>
-            <div class="sortable" data-adv-sort="shotsAgainstPerGame" title="Броски соперника за игру">SA/G</div>
+            <div class="sortable" data-adv-sort="powerPlayPctg" title="Реализация большинства">% Б</div>
+            <div class="sortable" data-adv-sort="penaltyKillPctg" title="Нейтрализация меньшинства">% М</div>
+            <div class="sortable" data-adv-sort="faceoffWinPct" title="Выигранные вбрасывания">% Вбр</div>
+            <div class="sortable" data-adv-sort="shotsForPerGame" title="Броски за игру">Б/И</div>
+            <div class="sortable" data-adv-sort="shotsAgainstPerGame" title="Броски соперника за игру">БП/И</div>
           </div>
           <div id="advanced-standings-body" style="display:contents;">
             <div class="loading">Загрузка...</div>
@@ -1635,9 +1441,10 @@ select.date-input option {
   <!-- 3. ВКЛАДКА: ЛИДЕРЫ -->
   <div id="view-players" style="display:none">
     <div class="cat-row">
-      <button id="leaders-skaters-btn" class="active">Полевые</button>
+      <button id="leaders-all-btn" class="active">Общая</button>
+      <button id="leaders-def-btn">Защитники</button>
+      <button id="leaders-rookies-btn">Новички</button>
       <button id="leaders-goalies-btn">Вратари</button>
-      <button id="open-h2h-btn" style="flex:0 0 auto;border-color:var(--accent);color:#fff;">⚔️ Сравнить</button>
     </div>
 
     <!-- ПОЛЕВЫЕ: 10 кнопок (2 ряда по 5) -->
@@ -1671,6 +1478,30 @@ select.date-input option {
         <div class="loading">Загрузка...</div>
       </div>
     </div>
+  </div>
+
+  <!-- 4. ВКЛАДКА: ТРАНСФЕРЫ -->
+  <div id="view-transactions" style="display:none">
+    <div class="section-title">Свежие переходы и переподписания (ESPN)</div>
+    <div class="card" style="padding:0;" id="transactions-list">
+      <div class="loading">Загрузка трансферов...</div>
+    </div>
+  </div>
+
+  <!-- 5. ВКЛАДКА: НОВОСТИ TELEGRAM (Единственный экземпляр) -->
+  <div id="view-news" style="display:none">
+    <div class="section-title">Новости нашего Telegram-канала</div>
+    <div id="news-feed-container">
+      <div class="loading">Загрузка свежих новостей...</div>
+    </div>
+  </div>
+  
+  <!-- 6. ЭКРАН ПОДРОБНОСТЕЙ / КАРТОЧКА МАТЧА / ПРОФИЛЬ -->
+  <div id="view-detail" style="display:none">
+    <div id="detail-body">
+      <div class="loading">Загрузка...</div>
+    </div>
+  </div>
   </div>
 
   <!-- 4. ВКЛАДКА: ТРАНСФЕРЫ -->
@@ -1967,6 +1798,8 @@ function formatPeriodLabel(descriptor) {
   return descriptor.number ? `${descriptor.number}-й период` : "Период";
 }
 
+let currentLeadersSubgroup = "all"; // 'all', 'defensemen', 'rookies'
+
 function openDetail() {
   stopAllVideos();
   document.getElementById("view-schedule").style.display = "none";
@@ -1977,17 +1810,24 @@ function openDetail() {
   if (newsView) newsView.style.display = "none";
   document.getElementById("view-detail").style.display = "";
   document.getElementById("main-nav").style.display = "none";
+  
+  const backBtn = document.getElementById("back-btn");
+  if (backBtn) backBtn.style.display = "inline-flex";
+
   document.getElementById("detail-body").innerHTML = '<div class="loading">Загрузка...</div>';
   window.scrollTo(0, 0);
 }
 
 function resetLeadersToSkaters() {
   leadersMode = "skaters";
+  currentLeadersSubgroup = "all";
   currentCat = "points";
   currentLimit = 25;
 
-  document.getElementById("leaders-skaters-btn").classList.add("active");
-  document.getElementById("leaders-goalies-btn").classList.remove("active");
+  document.getElementById("leaders-all-btn")?.classList.add("active");
+  document.getElementById("leaders-def-btn")?.classList.remove("active");
+  document.getElementById("leaders-rookies-btn")?.classList.remove("active");
+  document.getElementById("leaders-goalies-btn")?.classList.remove("active");
 
   document.getElementById("skater-categories").style.display = "grid";
   document.getElementById("goalie-categories").style.display = "none";
@@ -2038,6 +1878,9 @@ function switchTab(tab) {
 
   document.getElementById("view-detail").style.display = "none";
   document.getElementById("main-nav").style.display = "flex";
+
+  const backBtn = document.getElementById("back-btn");
+  if (backBtn) backBtn.style.display = "none";
 
   lastMainTab = safeTab;
 
@@ -2552,12 +2395,6 @@ async function loadStandings() {
   const goalAgainst = Number(team.goalAgainst ?? 0);
   const difference = Number(team.goalDifferential ?? (goalFor - goalAgainst));
 
-  const pp = formatPctCell(team.powerPlayPctg);
-  const pk = formatPctCell(team.penaltyKillPctg);
-  const fo = formatPctCell(team.faceoffWinPct);
-  const sf = (team.shotsForPerGame !== undefined && team.shotsForPerGame !== null) ? Number(team.shotsForPerGame).toFixed(1) : "—";
-  const sa = (team.shotsAgainstPerGame !== undefined && team.shotsAgainstPerGame !== null) ? Number(team.shotsAgainstPerGame).toFixed(1) : "—";
-
   let clinchHtml = "";
   if (team.clinchIndicator) {
     const ci = String(team.clinchIndicator).toLowerCase();
@@ -2594,11 +2431,6 @@ async function loadStandings() {
         ${difference > 0 ? "+" : ""}${difference}
       </div>
       <div class="pts" style="color:#ffffff !important;font-weight:700;">${team.points ?? 0}</div>
-      <div class="num special-team-pct" style="color:#ffffff !important;">${pp}</div>
-      <div class="num special-team-pct" style="color:#ffffff !important;">${pk}</div>
-      <div class="num" style="color:#ffffff;">${fo}</div>
-      <div class="num" style="color:#ffffff;">${sf}</div>
-      <div class="num" style="color:#ffffff;">${sa}</div>
     </div>
   `;
 }
@@ -2660,7 +2492,22 @@ async function loadAdvancedStandings() {
 
     const res = await fetch(`${API_BASE}/api/advanced-team-stats?${params}`);
     const data = await res.json();
-    currentAdvancedTeamsData = data.teams || [];
+    const advList = data.teams || [];
+
+    const stdMap = new Map();
+    currentStandingsData.forEach(st => {
+      stdMap.set(st.teamAbbrev, st);
+    });
+
+    currentAdvancedTeamsData = advList.map(t => {
+      const st = stdMap.get(t.teamAbbrev) || {};
+      return {
+        ...t,
+        powerPlayPctg: st.powerPlayPctg ?? null,
+        penaltyKillPctg: st.penaltyKillPctg ?? null,
+        faceoffWinPct: st.faceoffWinPct ?? null,
+      };
+    });
 
     if (!currentAdvancedTeamsData.length && currentStandingsData.length) {
       currentAdvancedTeamsData = currentStandingsData.map(t => {
@@ -2675,7 +2522,10 @@ async function loadAdvancedStandings() {
           pdo: 100.2,
           ozsp: 51.4,
           shotsForPerGame: sf,
-          shotsAgainstPerGame: sa
+          shotsAgainstPerGame: sa,
+          powerPlayPctg: t.powerPlayPctg,
+          penaltyKillPctg: t.penaltyKillPctg,
+          faceoffWinPct: t.faceoffWinPct,
         };
       });
     }
@@ -2715,8 +2565,11 @@ function renderAdvancedStandings() {
       <div class="num" style="color:#ffffff;">${t.usatPct}%</div>
       <div class="num" style="color:#ffffff;">${t.pdo}</div>
       <div class="num" style="color:#ffffff;">${t.ozsp}%</div>
-      <div class="num" style="color:#ffffff;">${t.shotsForPerGame}</div>
-      <div class="num" style="color:#ffffff;">${t.shotsAgainstPerGame}</div>
+      <div class="num special-team-pct" style="color:#ffffff !important;">${formatPctCell(t.powerPlayPctg)}</div>
+      <div class="num special-team-pct" style="color:#ffffff !important;">${formatPctCell(t.penaltyKillPctg)}</div>
+      <div class="num" style="color:#ffffff;">${formatPctCell(t.faceoffWinPct)}</div>
+      <div class="num" style="color:#ffffff;">${t.shotsForPerGame ?? '—'}</div>
+      <div class="num" style="color:#ffffff;">${t.shotsAgainstPerGame ?? '—'}</div>
     </div>
   `).join("");
 
@@ -2800,19 +2653,31 @@ async function loadPlayoffBracket(playoffYear) {
   }
 }
 
-document.getElementById("leaders-skaters-btn").onclick = () => {
+function setLeadersSubgroup(group) {
+  currentLeadersSubgroup = group;
   leadersMode = "skaters";
-  document.getElementById("leaders-skaters-btn").classList.add("active");
-  document.getElementById("leaders-goalies-btn").classList.remove("active");
+
+  document.getElementById("leaders-all-btn")?.classList.toggle("active", group === "all");
+  document.getElementById("leaders-def-btn")?.classList.toggle("active", group === "defensemen");
+  document.getElementById("leaders-rookies-btn")?.classList.toggle("active", group === "rookies");
+  document.getElementById("leaders-goalies-btn")?.classList.remove("active");
+
   document.getElementById("skater-categories").style.display = "grid";
   document.getElementById("goalie-categories").style.display = "none";
   loadPlayers();
-};
+}
+
+document.getElementById("leaders-all-btn").onclick = () => setLeadersSubgroup("all");
+document.getElementById("leaders-def-btn").onclick = () => setLeadersSubgroup("defensemen");
+document.getElementById("leaders-rookies-btn").onclick = () => setLeadersSubgroup("rookies");
 
 document.getElementById("leaders-goalies-btn").onclick = () => {
   leadersMode = "goalies";
   document.getElementById("leaders-goalies-btn").classList.add("active");
-  document.getElementById("leaders-skaters-btn").classList.remove("active");
+  document.getElementById("leaders-all-btn")?.classList.remove("active");
+  document.getElementById("leaders-def-btn")?.classList.remove("active");
+  document.getElementById("leaders-rookies-btn")?.classList.remove("active");
+
   document.getElementById("skater-categories").style.display = "none";
   document.getElementById("goalie-categories").style.display = "grid";
 
@@ -2862,13 +2727,19 @@ async function loadPlayers() {
     const seasonId = seasonIdFromEndDate(selectedSeasonEndDate);
     const params = new URLSearchParams({
       limit: String(currentLimit),
-      category: currentCat
+      category: currentCat,
+      subgroup: currentLeadersSubgroup
     });
     if (seasonId) params.set("season", seasonId);
 
     const response = await fetch(`${API_BASE}/api/leaders/${encodeURIComponent(currentCat)}?${params}`);
     const data = await response.json();
-    const list = data[currentCat] || data.skaters || data.leaders || data.data || [];
+    let list = data[currentCat] || data.skaters || data.leaders || data.data || [];
+
+    // Клиентская дофильтрация для надежности
+    if (currentLeadersSubgroup === "defensemen") {
+      list = list.filter(p => !p.positionCode || p.positionCode === "D");
+    }
 
     if (!Array.isArray(list) || !list.length) {
       body.innerHTML = '<div class="empty">Нет данных игроков</div>';
@@ -2887,6 +2758,8 @@ async function loadPlayers() {
         displayValue = `+${displayValue}`;
       }
 
+      const gp = player.gamesPlayed ?? 0;
+
       return `
         <div class="player-row" data-player-id="${escapeHtml(getPlayerId(player))}">
           <div class="rank">${index + 1}</div>
@@ -2900,10 +2773,27 @@ async function loadPlayers() {
               ${escapeHtml(player.teamAbbrev || "")}
             </div>
           </div>
+          <div class="pgames">${gp} И</div>
           <div class="pvalue" style="color:#ffffff !important;">${escapeHtml(val(displayValue))}</div>
         </div>
       `;
     }).join("");
+
+    if (list.length >= currentLimit && currentLimit < 50) {
+      body.insertAdjacentHTML("beforeend", `<button class="show-more" id="show-more-players">Показать больше</button>`);
+      document.getElementById("show-more-players").onclick = () => {
+        currentLimit = 50;
+        loadPlayers();
+      };
+    }
+
+    body.querySelectorAll(".player-row").forEach(row => {
+      row.addEventListener("click", () => openPlayerDetail(row.dataset.playerId));
+    });
+  } catch (error) {
+    body.innerHTML = '<div class="empty">Не удалось загрузить лидеров</div>';
+  }
+}
 
     if (list.length >= currentLimit && currentLimit < 50) {
       body.insertAdjacentHTML("beforeend", `<button class="show-more" id="show-more-players">Показать больше</button>`);
@@ -2967,6 +2857,7 @@ function renderGoaliesFromCache() {
       mainValue = val(player.shutouts, 0);
     }
 
+    const gp = player.gamesPlayed ?? 0;
     return `
       <div class="player-row" data-player-id="${escapeHtml(getPlayerId(player))}">
         <div class="rank">${index + 1}</div>
@@ -2978,6 +2869,7 @@ function renderGoaliesFromCache() {
             ${escapeHtml(player.teamAbbrev || "")}
           </div>
         </div>
+        <div class="pgames">${gp} И</div>
         <div class="pvalue" style="color:#ffffff !important;">${escapeHtml(mainValue)}</div>
       </div>
     `;
@@ -4478,12 +4370,14 @@ async function openTeamScheduleTab(teamAbbrev) {
 
 function renderCareerRow(season, position) {
   const seasonName = String(season.season || "").replace(/^(\d{4})(\d{4})$/, "$1-$2");
-  const teamName = season.teamName?.default || season.teamAbbrev || "—";
+  const teamName = season.teamName?.default || season.teamName || season.teamAbbrev || "—";
+  const league = season.leagueAbbrev || season.leagueName || "—";
 
   let html = `
     <tr>
       <td>${escapeHtml(seasonName)}</td>
-      <td>${escapeHtml(teamName)}</td>
+      <td>${escapeHtml(league)}</td>
+      <td style="text-align:left;">${escapeHtml(teamName)}</td>
       <td class="num">${escapeHtml(val(season.gamesPlayed, 0))}</td>
   `;
 
@@ -4509,112 +4403,23 @@ function renderCareerRow(season, position) {
   return `${html}</tr>`;
 }
 
-async function openPlayerDetail(playerId) {
-  openDetail();
-  const body = document.getElementById("detail-body");
-
-  try {
-    const response = await fetch(`${API_BASE}/api/player/${encodeURIComponent(playerId)}`);
-    const player = await response.json();
-
-    if (!player || player.error) {
-      throw new Error(player?.error || "Игрок не найден");
-    }
-
-    const fullName = `${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || player.fullName || "Игрок";
-    const position = player.positionCode || player.position || "";
-    const birthPlace = [nameStr(player.birthCity), player.birthCountry].filter(Boolean).join(", ");
-
-    let draftText = "На драфте не выбран";
-    if (player.draftDetails) {
-      const draft = player.draftDetails;
-      draftText = `Выбран «${draft.teamAbbrev || ""}» в ${draft.year} г. (раунд ${draft.round}, общий номер ${draft.overallPick})`;
-    }
-
-    let html = `
-      <div class="detail-head">
-        <img class="headshot" src="${escapeHtml(player.headshot || `https://assets.nhle.com/mugs/nhl/latest/${playerId}.png`)}" alt="" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
-        <div>
-          <div class="title">${escapeHtml(fullName)}</div>
-          <div class="subtitle">
-            ${escapeHtml(player.teamAbbrev || "")} · №${escapeHtml(val(player.sweaterNumber))} · ${escapeHtml(position)}
-          </div>
-        </div>
-        <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(player.teamAbbrev || "")}_light.svg" alt="" style="margin-left:auto" onerror="this.style.display='none'">
-      </div>
-
-      <div class="section-title">Личные данные</div>
-      <div class="bio-grid">
-        <div><div class="label">Дата рождения</div><div class="value">${escapeHtml(val(player.birthDate))}</div></div>
-        <div><div class="label">Место рождения</div><div class="value">${escapeHtml(birthPlace || "—")}</div></div>
-        <div><div class="label">Рост / Вес</div><div class="value">${player.heightInCentimeters ? `${player.heightInCentimeters} см` : "—"} / ${player.weightInKilograms ? `${player.weightInKilograms} кг` : "—"}</div></div>
-        <div><div class="label">Хват</div><div class="value">${escapeHtml(val(player.shootsCatches))}</div></div>
-        <div style="grid-column:1/-1;"><div class="label">Драфт</div><div class="value">${escapeHtml(draftText)}</div></div>
-      </div>
-    `;
-
-    const currentStats = player.featuredStats?.regularSeason?.subSeason || player.currentSeasonStat;
-    html += '<div class="section-title">Статистика в текущем сезоне</div>';
-
-    if (!currentStats) {
-      html += '<div class="empty">Статистика текущего сезона отсутствует</div>';
-    } else if (position === "G") {
-      html += `
-        <div class="table-scroll">
-          <table class="stat-table">
-            <thead>
-              <tr><th>И</th><th>В</th><th>П</th><th>%ОБ</th><th>ГКИ</th></tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="num">${escapeHtml(val(currentStats.gamesPlayed))}</td>
-                <td class="num">${escapeHtml(val(currentStats.wins))}</td>
-                <td class="num">${escapeHtml(val(currentStats.losses))}</td>
-                <td class="num" style="color:#ffffff !important;font-weight:700;">${typeof currentStats.savePctg === "number" ? currentStats.savePctg.toFixed(3) : "—"}</td>
-                <td class="num">${typeof currentStats.goalsAgainstAverage === "number" ? currentStats.goalsAgainstAverage.toFixed(2) : "—"}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      `;
-    } else {
-      html += `
-        <div class="table-scroll">
-          <table class="stat-table">
-            <thead>
-              <tr><th>И</th><th>Г</th><th>П</th><th>О</th><th>+/-</th><th>Штр</th></tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="num">${escapeHtml(val(currentStats.gamesPlayed))}</td>
-                <td class="num">${escapeHtml(val(currentStats.goals))}</td>
-                <td class="num">${escapeHtml(val(currentStats.assists))}</td>
-                <td class="num" style="color:#ffffff !important;font-weight:700;">${escapeHtml(val(currentStats.points))}</td>
-                <td class="num">${escapeHtml(val(currentStats.plusMinus))}</td>
-                <td class="num">${escapeHtml(val(currentStats.pim ?? currentStats.penaltyMinutes))}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      `;
-    }
-
-    html += '<div class="section-title">История карьеры в NHL</div>';
-    const history = Array.isArray(player.seasonTotals) ? player.seasonTotals.filter(item => item.leagueAbbrev === "NHL") : [];
+    html += '<div class="section-title">Полная статистика карьеры (все лиги)</div>';
+    // Выводим все сезоны без отсекания лиг: юниорские, молодежные, КХЛ, АХЛ, европейские чемпионаты и НХЛ
+    const history = Array.isArray(player.seasonTotals) ? player.seasonTotals : [];
 
     if (!history.length) {
-      html += '<div class="empty">История выступлений в NHL отсутствует</div>';
+      html += '<div class="empty">История выступлений отсутствует</div>';
     } else {
-      const regular = history.filter(item => item.gameTypeId === 2 || item.gameTypeCode === 2);
+      const regular = history.filter(item => item.gameTypeId === 2 || item.gameTypeCode === 2 || !item.gameTypeId);
       const playoffs = history.filter(item => item.gameTypeId === 3 || item.gameTypeCode === 3);
-      const columns = position === "G" ? 7 : 8;
+      const columns = position === "G" ? 8 : 9;
 
       html += `
         <div class="table-scroll">
           <table class="stat-table">
             <thead>
               <tr>
-                <th>Сезон</th><th>Клуб</th><th>И</th>
+                <th>Сезон</th><th>Лига</th><th>Клуб</th><th>И</th>
                 ${position === "G" ? "<th>В</th><th>П</th><th>%ОБ</th><th>ГКИ</th>" : "<th>Г</th><th>П</th><th>О</th><th>+/-</th><th>Штр</th>"}
               </tr>
             </thead>
@@ -4622,7 +4427,7 @@ async function openPlayerDetail(playerId) {
       `;
 
       if (regular.length) {
-        html += `<tr class="playoff-header-row"><td colspan="${columns}">Регулярный сезон</td></tr>`;
+        html += `<tr class="playoff-header-row"><td colspan="${columns}">Регулярные чемпионаты</td></tr>`;
         regular.forEach(item => { html += renderCareerRow(item, position); });
       }
 
