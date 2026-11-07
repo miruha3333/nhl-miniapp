@@ -1406,6 +1406,9 @@ let advStandingsSortKey = "satPct";
 let advStandingsSortAsc = false;
 let standingsViewMode = "all";
 let selectedSeasonEndDate = "";
+let currentBoxscoreData = null;
+let boxSortKey = {};
+let boxSortAsc = {};
 
 let lastMainTab = "schedule";
 let currentDate = new Date();
@@ -1657,7 +1660,10 @@ function switchTab(tab) {
   lastMainTab = safeTab;
 
   if (safeTab === "schedule") loadSchedule();
-  if (safeTab === "standings") loadStandings();
+  if (safeTab === "standings") {
+    loadStandings();
+    loadCurrentPlayoffBracket();
+  }
   if (safeTab === "players") {
     resetLeadersToSkaters();
     loadPlayers();
@@ -2022,6 +2028,93 @@ function renderAdvancedStandings() {
   });
 }
 
+// Загрузка сетки плей-офф для выбранного сезона
+async function loadPlayoffBracket(playoffYear) {
+  const container = document.getElementById("bracket-container");
+  if (!container) return;
+  container.innerHTML = `<div class="bracket-wrap"><div class="loading">Загрузка сетки плей-офф...</div></div>`;
+
+  try {
+    const response = await fetch(`${API_BASE}/api/playoff-bracket/${encodeURIComponent(playoffYear)}`);
+    const data = await response.json();
+    const series = data?.series || [];
+
+    if (!series.length) {
+      container.innerHTML = `
+        <div class="bracket-wrap">
+          <div class="section-title">Сетка плей-офф</div>
+          <div class="empty">Плей-офф за этот сезон ещё не сформирован или недоступен</div>
+        </div>
+      `;
+      return;
+    }
+
+    const rounds = {};
+    series.forEach(item => {
+      const round = item.round ?? item.roundNumber ?? item.playoffRound ?? 1;
+      if (!rounds[round]) rounds[round] = [];
+      rounds[round].push(item);
+    });
+
+    const roundNames = {
+      1: "1-й раунд",
+      2: "2-й раунд (полуфинал конференции)",
+      3: "Финал конференции",
+      4: "Финал Кубка Стэнли"
+    };
+
+    let html = `<div class="bracket-wrap"><div class="section-title">Сетка плей-офф (${playoffYear})</div>`;
+    Object.keys(rounds).sort((a, b) => Number(a) - Number(b)).forEach(round => {
+      html += `<div class="bracket-round-title">${escapeHtml(roundNames[round] || `Раунд ${round}`)}</div>`;
+      rounds[round].forEach(item => {
+        const top = item.topSeedTeam || item.matchupTeams?.[0] || item.team1 || {};
+        const bottom = item.bottomSeedTeam || item.matchupTeams?.[1] || item.team2 || {};
+        const topWins = item.topSeedWins ?? item.matchupTeams?.[0]?.seriesWins ?? item.team1Wins ?? 0;
+        const bottomWins = item.bottomSeedWins ?? item.matchupTeams?.[1]?.seriesWins ?? item.team2Wins ?? 0;
+
+        const topName = top.abbrev || top.teamAbbrev?.default || top.placeName?.default || "TBD";
+        const bottomName = bottom.abbrev || bottom.teamAbbrev?.default || bottom.placeName?.default || "TBD";
+
+        html += `
+          <div class="bracket-series">
+            <div class="bracket-team-row ${topWins > bottomWins && topWins === 4 ? "winner" : ""}">
+              <div class="bt-name">
+                <img src="${escapeHtml(top.logo || top.teamLogo || '')}" alt="" onerror="this.style.display='none'">
+                <span>${escapeHtml(topName)}</span>
+              </div>
+              <div class="bt-wins">${topWins}</div>
+            </div>
+            <div class="bracket-team-row ${bottomWins > topWins && bottomWins === 4 ? "winner" : ""}">
+              <div class="bt-name">
+                <img src="${escapeHtml(bottom.logo || bottom.teamLogo || '')}" alt="" onerror="this.style.display='none'">
+                <span>${escapeHtml(bottomName)}</span>
+              </div>
+              <div class="bt-wins">${bottomWins}</div>
+            </div>
+          </div>
+        `;
+      });
+    });
+
+    html += "</div>";
+    container.innerHTML = html;
+  } catch (error) {
+    container.innerHTML = `<div class="bracket-wrap"><div class="empty">Не удалось загрузить сетку плей-офф</div></div>`;
+  }
+}
+
+function loadCurrentPlayoffBracket() {
+  const select = document.getElementById("season-select");
+  const opt = select?.options[select.selectedIndex];
+  let startYear = opt?.dataset.startYear;
+  if (!startYear) {
+    const now = new Date();
+    startYear = String(now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1);
+  }
+  const playoffYear = String(Number(startYear) + 1);
+  loadPlayoffBracket(playoffYear);
+}
+
 function setLeadersSubgroup(group) {
   currentLeadersSubgroup = group;
   leadersMode = "skaters";
@@ -2081,7 +2174,7 @@ async function loadPlayers() {
             <div class="info">
               <div class="pname">${escapeHtml(formatLeaderName(player))}</div>
               <div class="pteam">
-                <img class="team-logo" src="${escapeHtml(player.teamLogo || "")}" alt="" onerror="this.style.display='none'">
+                <img class="team-logo" src="${escapeHtml(player.teamLogo || '')}" alt="" onerror="this.style.display='none'">
                 ${escapeHtml(player.teamAbbrev || "")}
               </div>
             </div>
@@ -2108,7 +2201,6 @@ function renderGoaliesFromCache() {
     return;
   }
 
-  // Фильтр: Матчи команды * 60 мин * 0.3
   const maxTeamGames = Math.max(...currentStandingsData.map(t => Number(t.gamesPlayed) || 0), 0) 
     || Math.max(...cachedGoaliesList.map(g => Number(g.gamesPlayed) || 0), 10);
   const minToiMinutes = Math.round(maxTeamGames * 60 * 0.3);
@@ -2279,7 +2371,7 @@ async function openPlayerDetail(playerId) {
   }
 }
 
-// === КАРТОЧКА МАТЧА: ГОЛЫ, ЗВЕЗДЫ, СТАТИСТИКА КОМАНД, ИГРОКИ И ВРАТАРИ ===
+// === КАРТОЧКА ЗАВЕРШИВШЕГОСЯ МАТЧА С ТРЕМЯ ЗВЕЗДАМИ И СОРТИРОВКОЙ КАЖДОГО СТОЛБЦА ===
 async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
   openDetail();
   const body = document.getElementById("detail-body");
@@ -2294,6 +2386,7 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
     const score = await scoreRes.json();
     const rail = railRes ? await railRes.json() : {};
     const box = boxRes ? await boxRes.json() : {};
+    currentBoxscoreData = box;
 
     let html = `
       <div class="detail-head-game">
@@ -2307,26 +2400,41 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
       <div id="video-recap-slot"></div>
     `;
 
-    // 1. Три звезды (исправлен [object Object] и пустая третья колонка)
-    const threeStars = score?.summary?.threeStars || score?.threeStars || box?.threeStars || [];
-    if (Array.isArray(threeStars) && threeStars.length > 0) {
+    // 1. Все 3 звезды с показателями
+    let rawStars = score?.summary?.threeStars || box?.threeStars || score?.threeStars || [];
+    if (!Array.isArray(rawStars) || rawStars.length < 3) {
+      if (Array.isArray(box?.threeStars) && box.threeStars.length >= 3) rawStars = box.threeStars;
+      else if (Array.isArray(score?.threeStars) && score.threeStars.length >= 3) rawStars = score.threeStars;
+    }
+
+    if (Array.isArray(rawStars) && rawStars.length > 0) {
       const titles = ["1-я звезда", "2-я звезда", "3-я звезда"];
       const badges = ["🥇", "🥈", "🥉"];
-      const cols = Math.min(3, Math.max(1, threeStars.length));
+      const cols = Math.min(3, rawStars.length);
       html += `
         <div class="section-title">Три звезды матча</div>
         <div style="display:grid;grid-template-columns:repeat(${cols}, 1fr);gap:8px;margin-bottom:14px;">
-          ${threeStars.map((s, idx) => {
-            const rawName = nameStr(s.name) || nameStr(s.playerName) || `${nameStr(s.firstName)} ${nameStr(s.lastName)}`.trim();
+          ${rawStars.slice(0, 3).map((s, idx) => {
+            const starName = nameStr(s.name) || nameStr(s.playerName) || `${nameStr(s.firstName)} ${nameStr(s.lastName)}`.trim();
             const pId = s.playerId || s.id;
             const headshot = s.headshot || (pId ? `https://assets.nhle.com/mugs/nhl/latest/${pId}.png` : "");
+            
+            let statDesc = "";
+            if (s.goals !== undefined || s.assists !== undefined) {
+              statDesc = `${s.goals || 0}Г, ${s.assists || 0}П`;
+            } else if (s.savePctg !== undefined || s.savePercentage !== undefined || s.saves !== undefined) {
+              const sv = s.savePctg ?? s.savePercentage;
+              statDesc = typeof sv === 'number' ? `${(sv <= 1 ? sv * 100 : sv).toFixed(1)}% ОБ` : `${s.saves || 0} ОБ`;
+            }
+
             return `
-              <div class="card" style="padding:10px 6px;text-align:center;display:flex;flex-direction:column;align-items:center;cursor:pointer;" onclick="openPlayerDetail('${pId}')">
+              <div class="card" style="padding:10px 4px;text-align:center;display:flex;flex-direction:column;align-items:center;cursor:pointer;" onclick="openPlayerDetail('${pId}')">
                 <div style="font-size:11px;font-family:'Oswald',sans-serif;color:var(--silver-dim);margin-bottom:6px;text-transform:uppercase;">
-                  ${badges[idx] || "⭐"} ${titles[idx] || `${idx + 1} звезда`}
+                  ${badges[idx] || "⭐"} ${titles[idx]}
                 </div>
                 <img src="${escapeHtml(headshot)}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;background:var(--surface-2);border:1px solid var(--border);" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
-                <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:12px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;">${escapeHtml(rawName || "Игрок")}</div>
+                <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:12px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;">${escapeHtml(starName || "Игрок")}</div>
+                ${statDesc ? `<div style="font-family:'Roboto Mono',monospace;font-size:10px;color:#2ecc71;font-weight:700;margin-top:2px;">${escapeHtml(statDesc)}</div>` : ''}
               </div>
             `;
           }).join("")}
@@ -2393,77 +2501,13 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
       html += '</div>';
     }
 
-    // 4. Полевые игроки и вратари из протокола (Boxscore)
-    const awayStats = box?.playerByGameStats?.awayTeam;
-    const homeStats = box?.playerByGameStats?.homeTeam;
-    if (awayStats || homeStats) {
-      function renderBoxSkaters(sideTeam, abbr) {
-        const fw = Array.isArray(sideTeam?.forwards) ? sideTeam.forwards : [];
-        const def = Array.isArray(sideTeam?.defense) ? sideTeam.defense : [];
-        const sks = [...fw, ...def];
-        if (!sks.length) return '';
-        return `
-          <div class="section-title">Полевые игроки — ${abbr}</div>
-          <div class="table-scroll">
-            <table class="stat-table">
-              <thead><tr><th>Игрок</th><th>Г</th><th>П</th><th>О</th><th>+/-</th><th>Б</th><th>Штр</th></tr></thead>
-              <tbody>
-                ${sks.map(p => {
-                  const pName = `${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim() || nameStr(p.name);
-                  const pts = (Number(p.goals) || 0) + (Number(p.assists) || 0);
-                  return `
-                    <tr class="clickable-row" onclick="openPlayerDetail('${getPlayerId(p)}')">
-                      <td>${escapeHtml(pName)}</td>
-                      <td class="num">${val(p.goals, 0)}</td>
-                      <td class="num">${val(p.assists, 0)}</td>
-                      <td class="num" style="color:#ffffff !important;font-weight:700;">${pts}</td>
-                      <td class="num">${val(p.plusMinus, 0)}</td>
-                      <td class="num">${val(p.sog ?? p.shots, 0)}</td>
-                      <td class="num">${val(p.pim ?? p.penaltyMinutes, 0)}</td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
-          </div>
-        `;
-      }
-
-      function renderBoxGoalies(sideTeam, abbr) {
-        const gs = Array.isArray(sideTeam?.goalies) ? sideTeam.goalies : [];
-        if (!gs.length) return '';
-        return `
-          <div class="section-title" style="margin-top:12px;">Вратари — ${abbr}</div>
-          <div class="table-scroll">
-            <table class="stat-table">
-              <thead><tr><th>Вратарь</th><th>Бр</th><th>ОБ</th><th>%ОБ</th><th>ПШ</th></tr></thead>
-              <tbody>
-                ${gs.map(g => {
-                  const gName = `${nameStr(g.firstName)} ${nameStr(g.lastName)}`.trim() || nameStr(g.name);
-                  const sv = g.savePctg ?? g.savePercentage;
-                  return `
-                    <tr class="clickable-row" onclick="openPlayerDetail('${getPlayerId(g)}')">
-                      <td>${escapeHtml(gName)}</td>
-                      <td class="num">${val(g.shotsAgainst ?? g.shots, 0)}</td>
-                      <td class="num">${val(g.saves, 0)}</td>
-                      <td class="num" style="color:#ffffff !important;font-weight:700;">${typeof sv === 'number' ? sv.toFixed(3) : val(sv)}</td>
-                      <td class="num">${val(g.goalsAgainst, 0)}</td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
-          </div>
-        `;
-      }
-
-      html += renderBoxSkaters(awayStats, awayAbbrev);
-      html += renderBoxGoalies(awayStats, awayAbbrev);
-      html += renderBoxSkaters(homeStats, homeAbbrev);
-      html += renderBoxGoalies(homeStats, homeAbbrev);
-    }
+    // Контейнер для таблиц полевых игроков и вратарей с сортировкой
+    html += '<div id="boxscore-tables-container"></div>';
 
     if (body) body.innerHTML = html;
+
+    // Отрисовка интерактивных таблиц игроков с сортировкой
+    renderBoxTables(awayAbbrev, homeAbbrev);
 
     const slot = document.getElementById("video-recap-slot");
     if (slot && (score.gameState === "FINAL" || score.gameState === "OFF")) {
@@ -2485,7 +2529,138 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
   }
 }
 
-// === ПРЕДМАТЧЕВЫЙ ЦЕНТР: СРАВНЕНИЕ (ЗЕЛЕНЫЙ/КРАСНЫЙ), ИСТОРИЯ 10 МАТЧЕЙ И ВСЕ РАЗДЕЛЫ ===
+// Сортировка таблиц игроков и вратарей для каждого столбца
+function renderBoxTables(awayAbbrev, homeAbbrev) {
+  const container = document.getElementById("boxscore-tables-container");
+  if (!container || !currentBoxscoreData) return;
+
+  const awayStats = currentBoxscoreData?.playerByGameStats?.awayTeam;
+  const homeStats = currentBoxscoreData?.playerByGameStats?.homeTeam;
+
+  const arrow = (sec, col) => {
+    if (boxSortKey[sec] !== col) return '';
+    return `<span class="sort-arrow">${boxSortAsc[sec] ? '▲' : '▼'}</span>`;
+  };
+
+  function sortList(list, sec) {
+    const k = boxSortKey[sec] || (sec.includes("g") ? "saves" : "points");
+    const isAsc = !!boxSortAsc[sec];
+    return [...list].sort((a, b) => {
+      let va = a[k] ?? 0;
+      let vb = b[k] ?? 0;
+      if (k === "points") {
+        va = (Number(a.goals) || 0) + (Number(a.assists) || 0);
+        vb = (Number(b.goals) || 0) + (Number(b.assists) || 0);
+      }
+      return isAsc ? Number(va) - Number(vb) : Number(vb) - Number(va);
+    });
+  }
+
+  function renderSkatersTable(sideTeam, abbr, sec) {
+    const fw = Array.isArray(sideTeam?.forwards) ? sideTeam.forwards : [];
+    const def = Array.isArray(sideTeam?.defense) ? sideTeam.defense : [];
+    const sks = [...fw, ...def];
+    if (!sks.length) return '';
+    const sorted = sortList(sks, sec);
+
+    return `
+      <div class="section-title">Полевые игроки — ${abbr}</div>
+      <div class="table-scroll">
+        <table class="stat-table">
+          <thead>
+            <tr>
+              <th>Игрок</th>
+              <th class="sortable" data-sec="${sec}" data-col="goals">Г${arrow(sec, "goals")}</th>
+              <th class="sortable" data-sec="${sec}" data-col="assists">П${arrow(sec, "assists")}</th>
+              <th class="sortable" data-sec="${sec}" data-col="points">О${arrow(sec, "points")}</th>
+              <th class="sortable" data-sec="${sec}" data-col="plusMinus">+/-${arrow(sec, "plusMinus")}</th>
+              <th class="sortable" data-sec="${sec}" data-col="sog">Б${arrow(sec, "sog")}</th>
+              <th class="sortable" data-sec="${sec}" data-col="pim">Штр${arrow(sec, "pim")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sorted.map(p => {
+              const pName = `${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim() || nameStr(p.name);
+              const pts = (Number(p.goals) || 0) + (Number(p.assists) || 0);
+              return `
+                <tr class="clickable-row" onclick="openPlayerDetail('${getPlayerId(p)}')">
+                  <td>${escapeHtml(pName)}</td>
+                  <td class="num">${val(p.goals, 0)}</td>
+                  <td class="num">${val(p.assists, 0)}</td>
+                  <td class="num" style="color:#ffffff !important;font-weight:700;">${pts}</td>
+                  <td class="num">${val(p.plusMinus, 0)}</td>
+                  <td class="num">${val(p.sog ?? p.shots, 0)}</td>
+                  <td class="num">${val(p.pim ?? p.penaltyMinutes, 0)}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function renderGoaliesTable(sideTeam, abbr, sec) {
+    const gs = Array.isArray(sideTeam?.goalies) ? sideTeam.goalies : [];
+    if (!gs.length) return '';
+    const sorted = sortList(gs, sec);
+
+    return `
+      <div class="section-title" style="margin-top:12px;">Вратари — ${abbr}</div>
+      <div class="table-scroll">
+        <table class="stat-table">
+          <thead>
+            <tr>
+              <th>Вратарь</th>
+              <th class="sortable" data-sec="${sec}" data-col="shotsAgainst">Бр${arrow(sec, "shotsAgainst")}</th>
+              <th class="sortable" data-sec="${sec}" data-col="saves">ОБ${arrow(sec, "saves")}</th>
+              <th class="sortable" data-sec="${sec}" data-col="savePctg">%ОБ${arrow(sec, "savePctg")}</th>
+              <th class="sortable" data-sec="${sec}" data-col="goalsAgainst">ПШ${arrow(sec, "goalsAgainst")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sorted.map(g => {
+              const gName = `${nameStr(g.firstName)} ${nameStr(g.lastName)}`.trim() || nameStr(g.name);
+              const sv = g.savePctg ?? g.savePercentage;
+              return `
+                <tr class="clickable-row" onclick="openPlayerDetail('${getPlayerId(g)}')">
+                  <td>${escapeHtml(gName)}</td>
+                  <td class="num">${val(g.shotsAgainst ?? g.shots, 0)}</td>
+                  <td class="num">${val(g.saves, 0)}</td>
+                  <td class="num" style="color:#ffffff !important;font-weight:700;">${typeof sv === 'number' ? sv.toFixed(3) : val(sv)}</td>
+                  <td class="num">${val(g.goalsAgainst, 0)}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  let html = renderSkatersTable(awayStats, awayAbbrev, "away_skaters");
+  html += renderGoaliesTable(awayStats, awayAbbrev, "away_goalies");
+  html += renderSkatersTable(homeStats, homeAbbrev, "home_skaters");
+  html += renderGoaliesTable(homeStats, homeAbbrev, "home_goalies");
+
+  container.innerHTML = html;
+
+  container.querySelectorAll("th.sortable").forEach(th => {
+    th.onclick = () => {
+      const sec = th.dataset.sec;
+      const col = th.dataset.col;
+      if (boxSortKey[sec] === col) {
+        boxSortAsc[sec] = !boxSortAsc[sec];
+      } else {
+        boxSortKey[sec] = col;
+        boxSortAsc[sec] = false;
+      }
+      renderBoxTables(awayAbbrev, homeAbbrev);
+    };
+  });
+}
+
+// === ПРЕДМАТЧЕВЫЙ ЦЕНТР: СРАВНЕНИЕ (ЗЕЛЕНЫЙ/КРАСНЫЙ), ПОСЛЕДНИЕ 10 МАТЧЕЙ И ВРАТАРИ ===
 async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo, dateStr) {
   openDetail();
   const body = document.getElementById("detail-body");
@@ -2541,7 +2716,6 @@ async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, h
       <div class="card" style="padding:10px 14px;">
     `;
 
-    // Выделение лучшего (зеленый #2ecc71) и худшего (красный #ff4d4d)
     preStats.forEach(st => {
       const cat = String(st.category || '').toLowerCase();
       const isPct = cat.includes('pct');
@@ -2636,7 +2810,6 @@ async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, h
 
     if (body) body.innerHTML = html;
 
-    // Подгружаем реальные 10 матчей из истории сезонов
     loadMatchupHistory(away.abbrev || awayAbbrev, home.abbrev || homeAbbrev).then(hGames => {
       const box = document.getElementById("pregame-h2h-container");
       if (box) box.innerHTML = renderMatchupHistory(hGames, away.abbrev || awayAbbrev, home.abbrev || homeAbbrev);
@@ -2673,7 +2846,7 @@ function renderPregameSeasonSeries(series, awayAbbrev, homeAbbrev) {
   return html;
 }
 
-// Загрузка реальных 10 очных встреч с опросом истории сезонов
+// Загрузка 10 очных матчей
 async function loadMatchupHistory(awayAbbrev, homeAbbrev) {
   const away = String(awayAbbrev || "").toUpperCase();
   const home = String(homeAbbrev || "").toUpperCase();
@@ -2725,6 +2898,7 @@ async function loadMatchupHistory(awayAbbrev, homeAbbrev) {
   return unique.slice(0, 10);
 }
 
+// Победитель матча выделен зеленым (#2ecc71), проигравший — красным (#ff4d4d)
 function renderMatchupHistory(games, awayAbbrev, homeAbbrev) {
   if (!games.length) return '<div class="empty">История встреч формируется</div>';
   const away = String(awayAbbrev).toUpperCase();
@@ -2757,14 +2931,24 @@ function renderMatchupHistory(games, awayAbbrev, homeAbbrev) {
     const dStr = g.gameDate ? new Date(g.gameDate).toLocaleDateString("ru-RU") : "";
     const seasonText = g.__season ? String(g.__season).replace(/^(\d{4})(\d{4})$/, "$1-$2") : "";
 
+    let awayWin = false;
+    let homeWin = false;
+    if (as !== null && hs !== null && as !== hs) {
+      awayWin = as > hs;
+      homeWin = hs > as;
+    }
+
+    const awayColor = awayWin ? '#2ecc71' : (homeWin ? '#ff4d4d' : 'var(--silver)');
+    const homeColor = homeWin ? '#2ecc71' : (awayWin ? '#ff4d4d' : 'var(--silver)');
+
     html += `
       <div class="h2h-game-row">
-        <div class="h2h-team-cell left">${escapeHtml(gAway)}</div>
+        <div class="h2h-team-cell left" style="color:${awayColor};font-weight:700;">${escapeHtml(gAway)}</div>
         <div class="h2h-center-cell">
           <div class="h2h-score-val">${as !== null && hs !== null ? `${as} : ${hs}` : '—'}</div>
-          ${dStr ? `<div class="h2h-date-sub">${escapeHtml(dStr)}${seasonText ? ` · ${seasonText}` : ''}</div>` : ''}
+          ${dStr ? `<div class="h2h-date-sub">${escapeHtml(dStr)}</div>` : ''}
         </div>
-        <div class="h2h-team-cell right">${escapeHtml(gHome)}</div>
+        <div class="h2h-team-cell right" style="color:${homeColor};font-weight:700;">${escapeHtml(gHome)}</div>
       </div>
     `;
   });
@@ -2981,7 +3165,7 @@ async function loadNews() {
   }
 }
 
-// 5. Исключаем дублирующий верхний сезон
+// Загрузка сезонов с фильтрацией дублирующего сезона
 async function buildSeasonOptions() {
   const select = document.getElementById("season-select");
   if (!select) return;
@@ -2997,7 +3181,6 @@ async function buildSeasonOptions() {
 
     let html = "<option value='' selected>Текущий сезон</option>";
     const sorted = [...seasons].sort((a, b) => b.id - a.id);
-    // Пропускаем самый первый сезон из API, так как он уже выведен как «Текущий сезон»
     const previousSeasons = sorted.slice(1);
     previousSeasons.forEach(season => {
       const id = String(season.id);
@@ -3076,15 +3259,14 @@ function initApp() {
     currentStandingsData = [];
     currentAdvancedTeamsData = [];
     loadStandings();
+    loadCurrentPlayoffBracket();
   });
 
-  // Переключение режимов таблицы
   safeOn("std-mode-all", "click", () => setStandingsMode("all"));
   safeOn("std-mode-conf", "click", () => setStandingsMode("conf"));
   safeOn("std-mode-div", "click", () => setStandingsMode("div"));
   safeOn("std-mode-adv", "click", () => setStandingsMode("adv"));
 
-  // Сортировка таблицы
   document.querySelectorAll("#standings-table-regular .sortable").forEach(header => {
     header.onclick = () => {
       const key = header.dataset.sort;
@@ -3102,7 +3284,6 @@ function initApp() {
     };
   });
 
-  // Подкатегории лидеров
   safeOn("leaders-all-btn", "click", () => setLeadersSubgroup("all"));
   safeOn("leaders-def-btn", "click", () => setLeadersSubgroup("defensemen"));
   safeOn("leaders-rookies-btn", "click", () => setLeadersSubgroup("rookies"));
