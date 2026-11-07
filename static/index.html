@@ -1868,6 +1868,31 @@ function normalizeTeamAbbr(raw) {
 // Кэш статистики игроков в НХЛ
 const draftCareerCache = new Map();
 
+function normalizeTeamAbbr(raw) {
+  if (!raw) return "";
+  if (typeof raw === "object") {
+    raw = raw.default || raw.abbrev || raw.triCode || raw.rawTricode || "";
+  }
+  return String(raw).trim().toUpperCase();
+}
+
+// Кэш профилей и статистики игроков драфта
+const draftPlayerCache = new Map();
+
+async function handleDraftClick(fullName, pId) {
+  if (pId) {
+    openPlayerDetail(pId);
+    return;
+  }
+  const cached = draftPlayerCache.get(fullName);
+  if (cached && cached.playerId) {
+    openPlayerDetail(cached.playerId);
+    return;
+  }
+  await findAndOpenPlayer(fullName);
+}
+
+// Загрузка драфта
 async function loadDraft() {
   const container = document.getElementById("draft-picks-container");
   if (container) container.innerHTML = '<div class="loading">Загрузка результатов драфта...</div>';
@@ -1875,7 +1900,7 @@ async function loadDraft() {
   const year = currentDraftYear;
   cachedDraftPicks = [];
 
-  // 1. Попытка через backend прокси Cloudflare Worker
+  // 1. Запрос через backend Cloudflare Worker
   try {
     const res = await fetch(`${API_BASE}/api/draft/${year}?round=all`);
     if (res.ok) {
@@ -1888,7 +1913,7 @@ async function loadDraft() {
     }
   } catch (_) {}
 
-  // 2. Попытка через Render
+  // 2. Запрос через Render
   try {
     const res = await fetch(`/api/draft/${year}?round=all`);
     if (res.ok) {
@@ -1901,7 +1926,7 @@ async function loadDraft() {
     }
   } catch (_) {}
 
-  // 3. Обход CORS через публичный прокси напрямую к API драфта NHL
+  // 3. Запрос напрямую через CORS-прокси к API драфта NHL
   try {
     const target = `https://api-web.nhle.com/v1/draft/picks/${year}/all`;
     const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`);
@@ -1915,7 +1940,7 @@ async function loadDraft() {
     }
   } catch (_) {}
 
-  // 4. Запрос к архивной базе NHL Stats (для 2020 и всех исторических драфтов до 1963 года)
+  // 4. Резервный опрос архивной базы NHL Stats (для 2020 и всех ранних драфтов)
   try {
     const target = `https://api.nhle.com/stats/rest/en/draft?cayenneExp=draftYear=${year}&limit=300`;
     const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`);
@@ -1946,49 +1971,88 @@ async function loadDraft() {
   }
 }
 
-// Загрузка статистики в НХЛ для драфтованных игроков
-async function loadNhlStatsForPicks(picks) {
-  const toFetch = picks.filter(p => p.playerId && !draftCareerCache.has(p.playerId)).slice(0, 40);
-  if (!toFetch.length) return;
+// Подгрузка фотографий и статистики в НХЛ (И, Ш, П, О, Штр)
+async function hydrateDraftPicks(picks) {
+  const toProcess = picks.slice(0, 35);
 
-  await Promise.all(toFetch.map(async p => {
-    try {
-      const res = await fetch(`${API_BASE}/api/player/${p.playerId}`);
-      if (!res.ok) {
-        draftCareerCache.set(p.playerId, "—");
-        return;
+  for (const p of toProcess) {
+    const first = nameStr(p.firstName);
+    const last = nameStr(p.lastName);
+    const fullName = `${first} ${last}`.trim();
+    if (!fullName) continue;
+
+    const pickNum = p.overallPick || p.pickInRound || 1;
+    let info = draftPlayerCache.get(fullName);
+
+    if (!info) {
+      try {
+        let pId = p.playerId;
+
+        // Если в объекте драфта не было ID игрока — находим его через официальный сервис поиска NHL
+        if (!pId) {
+          const sRes = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=1&q=${encodeURIComponent(fullName)}`);
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            if (Array.isArray(sData) && sData.length > 0 && sData[0].playerId) {
+              pId = sData[0].playerId;
+            }
+          }
+        }
+
+        let statText = "—";
+        let headshot = pId ? `https://assets.nhle.com/mugs/nhl/latest/${pId}.png` : "https://assets.nhle.com/mugs/nhl/default-player.png";
+
+        if (pId) {
+          const pRes = await fetch(`${API_BASE}/api/player/${pId}`);
+          if (pRes.ok) {
+            const pData = await pRes.json();
+            const reg = pData?.careerTotals?.regularSeason;
+            if (reg && (Number(reg.gamesPlayed) || 0) > 0) {
+              if (p.positionCode === "G") {
+                statText = `${reg.gamesPlayed} И, ${reg.wins || 0} В, ${reg.losses || 0} П, ${typeof reg.savePctg === 'number' ? reg.savePctg.toFixed(3) : '—'} %ОБ`;
+              } else {
+                // Игры, шайбы, передачи, очки, штрафное время
+                statText = `${reg.gamesPlayed} И, ${reg.goals || 0} Ш, ${reg.assists || 0} П, ${reg.points || 0} О, ${reg.pim ?? reg.penaltyMinutes ?? 0} Штр`;
+              }
+            } else {
+              statText = "—";
+            }
+          }
+        }
+
+        info = { playerId: pId, headshot, statText };
+        draftPlayerCache.set(fullName, info);
+      } catch (_) {
+        info = { playerId: p.playerId || "", headshot: "https://assets.nhle.com/mugs/nhl/default-player.png", statText: "—" };
+        draftPlayerCache.set(fullName, info);
       }
-      const data = await res.json();
-      const history = Array.isArray(data?.seasonTotals) ? data.seasonTotals : [];
-      const nhlSeasons = history.filter(s => s.leagueAbbrev === "NHL" && (s.gameTypeId === 2 || s.gameTypeCode === 2));
+    }
 
-      if (!nhlSeasons.length) {
-        draftCareerCache.set(p.playerId, "—");
-      } else if (p.positionCode === "G") {
-        const totalGP = nhlSeasons.reduce((sum, s) => sum + (Number(s.gamesPlayed) || 0), 0);
-        const totalW = nhlSeasons.reduce((sum, s) => sum + (Number(s.wins) || 0), 0);
-        draftCareerCache.set(p.playerId, totalGP > 0 ? `${totalGP} И, ${totalW} В` : "—");
+    // Обновляем фото игрока
+    const imgEl = document.getElementById(`draft-img-${pickNum}`);
+    if (imgEl && info.headshot) {
+      imgEl.src = info.headshot;
+    }
+
+    // Обновляем статистику (Игры, шайбы, передачи, очки, штрафное время)
+    const statEl = document.getElementById(`draft-stat-${pickNum}`);
+    if (statEl) {
+      statEl.textContent = info.statText;
+      if (info.statText !== "—") {
+        statEl.style.color = "#2ecc71";
+        statEl.style.fontWeight = "700";
       } else {
-        const totalGP = nhlSeasons.reduce((sum, s) => sum + (Number(s.gamesPlayed) || 0), 0);
-        const totalG = nhlSeasons.reduce((sum, s) => sum + (Number(s.goals) || 0), 0);
-        const totalA = nhlSeasons.reduce((sum, s) => sum + (Number(s.assists) || 0), 0);
-        const totalPts = totalG + totalA;
-        draftCareerCache.set(p.playerId, totalGP > 0 ? `${totalGP} И, ${totalPts} О (${totalG}+${totalA})` : "—");
+        statEl.style.color = "var(--silver-dim)";
+        statEl.style.fontWeight = "normal";
       }
-    } catch (_) {
-      draftCareerCache.set(p.playerId, "—");
     }
 
-    const span = document.getElementById(`draft-nhl-${p.playerId}`);
-    if (span) {
-      const valText = draftCareerCache.get(p.playerId) || "—";
-      span.textContent = valText;
-      if (valText !== "—") {
-        span.style.color = "#2ecc71";
-        span.style.fontWeight = "700";
-      }
+    // Привязываем клик к имени
+    const linkEl = document.getElementById(`draft-link-${pickNum}`);
+    if (linkEl && info.playerId) {
+      linkEl.setAttribute("onclick", `openPlayerDetail('${info.playerId}')`);
     }
-  }));
+  }
 }
 
 function renderDraftPicks() {
@@ -2011,7 +2075,7 @@ function renderDraftPicks() {
     return;
   }
 
-  container.innerHTML = list.map(p => {
+  container.innerHTML = list.map((p, idx) => {
     const first = nameStr(p.firstName);
     const last = nameStr(p.lastName);
     const fullName = `${first} ${last}`.trim() || "Игрок";
@@ -2019,21 +2083,23 @@ function renderDraftPicks() {
     const logoUrl = getSafeTeamLogoUrl(teamAbbr, p.teamLogoLight || p.teamLogoDark);
     const pId = p.playerId || "";
     const clubInfo = p.amateurClubName || p.amateurLeague ? `${p.amateurClubName || ''} (${p.amateurLeague || ''})`.trim() : "—";
-    const headshotUrl = pId ? `https://assets.nhle.com/mugs/nhl/latest/${pId}.png` : "https://assets.nhle.com/mugs/nhl/default-player.png";
+    const pickNum = p.overallPick || p.pickInRound || (idx + 1);
 
-    const nhlStat = pId ? (draftCareerCache.get(pId) || "Загрузка...") : "—";
-    const isStatActive = nhlStat !== "—" && nhlStat !== "Загрузка...";
+    const cached = draftPlayerCache.get(fullName);
+    const headshotUrl = cached?.headshot || (pId ? `https://assets.nhle.com/mugs/nhl/latest/${pId}.png` : "https://assets.nhle.com/mugs/nhl/default-player.png");
+    const statText = cached ? cached.statText : "Загрузка...";
+    const isStatActive = statText !== "—" && statText !== "Загрузка...";
 
     return `
       <div class="draft-pick-card">
         <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">
           <div style="font-family:'Roboto Mono',monospace;font-size:15px;font-weight:700;color:#fff;width:32px;text-align:center;flex-shrink:0;">
-            #${p.overallPick || p.pickInRound || 1}
+            #${pickNum}
           </div>
-          <img src="${headshotUrl}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:var(--surface-2);border:1px solid var(--border);flex-shrink:0;" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
+          <img id="draft-img-${pickNum}" src="${headshotUrl}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:var(--surface-2);border:1px solid var(--border);flex-shrink:0;" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
           <div style="min-width:0;flex:1;">
-            <div style="font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${pId ? `<span class="tx-player-link" onclick="openPlayerDetail('${pId}')">${escapeHtml(fullName)}</span>` : escapeHtml(fullName)}
+            <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              <span id="draft-link-${pickNum}" class="tx-player-link" onclick="handleDraftClick('${escapeHtml(fullName)}', '${pId}')">${escapeHtml(fullName)}</span>
               <span style="font-size:11px;color:var(--silver-dim);font-weight:normal;">(${escapeHtml(p.positionCode || '')})</span>
             </div>
             <div style="font-size:11px;color:var(--silver-dim);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
@@ -2044,8 +2110,8 @@ function renderDraftPicks() {
               <span>· Р${p.round} (#${p.pickInRound})</span>
               <span>· ${escapeHtml(clubInfo)}</span>
             </div>
-            <div style="font-family:'Roboto Mono',monospace;font-size:11px;color:var(--silver-dim);margin-top:2px;">
-              НХЛ: <span id="draft-nhl-${pId}" style="${isStatActive ? 'color:#2ecc71;font-weight:700;' : ''}">${escapeHtml(nhlStat)}</span>
+            <div style="font-family:'Roboto Mono',monospace;font-size:11px;color:var(--silver-dim);margin-top:3px;">
+              НХЛ: <span id="draft-stat-${pickNum}" style="${isStatActive ? 'color:#2ecc71;font-weight:700;' : ''}">${escapeHtml(statText)}</span>
             </div>
           </div>
         </div>
@@ -2056,8 +2122,8 @@ function renderDraftPicks() {
     `;
   }).join("");
 
-  // Фоновая подгрузка статистики НХЛ для текущих игроков
-  loadNhlStatsForPicks(list);
+  // Фоновая подгрузка фото и статистики для карточек
+  hydrateDraftPicks(list);
 }
 
 async function loadSchedule() {
