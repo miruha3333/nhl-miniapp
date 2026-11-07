@@ -301,6 +301,7 @@ async def skater_leaders_ext(
     category: str = "points",
     season: str | None = None,
     limit: int = 50,
+    subgroup: str | None = None,
 ):
     target_season = season or current_season_id()
     safe_limit = max(1, min(limit, 100))
@@ -329,10 +330,16 @@ async def skater_leaders_ext(
         sort_prop = "blockedShots"
         endpoint = "realtime"
 
+    cayenne = f"gameTypeId=2 and seasonId={target_season}"
+    if subgroup == "defensemen":
+        cayenne += ' and positionCode="D"'
+    elif subgroup == "rookies":
+        cayenne += " and isRookie=1"
+
     params = {
         "isAggregate": "false",
         "isGame": "false",
-        "cayenneExp": f"gameTypeId=2 and seasonId={target_season}",
+        "cayenneExp": cayenne,
         "start": 0,
         "limit": safe_limit,
         "sort": f'[{{"property":"{sort_prop}","direction":"DESC"}}]',
