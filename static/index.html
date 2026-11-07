@@ -92,7 +92,7 @@ header h1 .dot {
   display:inline-flex;
   align-items:center;
   gap:4px;
-  padding:6px 10px;
+  padding:6px 12px;
   border:1px solid var(--accent);
   border-radius:10px;
   color:#fff;
@@ -104,6 +104,72 @@ header h1 .dot {
   cursor:pointer;
   white-space:nowrap;
   box-shadow:0 0 8px var(--accent-glow);
+}
+
+.my-team-btn {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 12px;
+  border:1px solid var(--border);
+  border-radius:20px;
+  background:var(--surface);
+  color:var(--silver);
+  font-family:"Oswald",sans-serif;
+  font-size:12px;
+  letter-spacing:.04em;
+  cursor:pointer;
+  white-space:nowrap;
+}
+
+.my-team-btn img {
+  width:20px;
+  height:20px;
+  object-fit:contain;
+}
+
+nav {
+  position:sticky;
+  top:0;
+  z-index:10;
+  display:flex;
+  gap:6px;
+  padding:10px 10px 0;
+  background:var(--bg);
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+nav::-webkit-scrollbar {
+  display:none;
+}
+
+nav button {
+  flex:1 0 auto;
+  min-width:68px;
+  padding:10px 6px;
+  font-family:"Oswald",sans-serif;
+  font-size:12px;
+  letter-spacing:.03em;
+  text-transform:uppercase;
+  border:1px solid var(--border);
+  border-radius:10px;
+  color:var(--silver-dim);
+  background:var(--surface);
+  cursor:pointer;
+  white-space:nowrap;
+}
+
+nav button.active {
+  border-color:var(--accent);
+  color:#fff;
+  background:var(--accent);
+  font-weight:700;
+  box-shadow:0 0 10px var(--accent-glow);
+}
+
+main {
+  padding:14px 16px 0;
 }
 
 .cat-row {
@@ -137,7 +203,197 @@ header h1 .dot {
   font-weight:700;
 }
 
-/* Стандартная таблица: только базовые показатели (#, лого, имя, И, В, ОТ, П, ЗШ, ПШ, +/-, О) */
+.cat-grid-2rows {
+  display:grid;
+  grid-template-columns:repeat(5, 1fr);
+  gap:6px;
+  margin-bottom:12px;
+}
+
+.cat-grid-2rows button,
+.goalie-cat-grid button {
+  width:100%;
+  padding:8px 4px;
+  font-family:"Oswald",sans-serif;
+  font-size:12px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  text-align:center;
+  border:1px solid var(--border);
+  border-radius:10px;
+  color:var(--silver-dim);
+  background:var(--surface);
+  cursor:pointer;
+}
+
+.cat-grid-2rows button.active,
+.goalie-cat-grid button.active {
+  border-color:var(--red);
+  color:#fff;
+  background:var(--red);
+  font-weight:700;
+}
+
+.goalie-cat-grid {
+  display:grid;
+  grid-template-columns:repeat(4, 1fr);
+  gap:6px;
+  margin-bottom:12px;
+}
+
+.date-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin:10px 0 14px;
+}
+
+.date-input {
+  width:140px;
+  padding:6px 12px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  outline:none;
+  color:var(--silver);
+  background:transparent;
+  font-family:"Roboto Mono",monospace;
+  font-size:14px;
+  text-align:center;
+}
+
+.date-input::-webkit-calendar-picker-indicator {
+  filter:invert(1);
+}
+
+select.date-input {
+  appearance:none;
+  -webkit-appearance:none;
+  background:var(--surface);
+}
+
+select.date-input option {
+  color:var(--silver);
+  background:#1a1a1a;
+}
+
+.date-row button {
+  width:34px;
+  height:34px;
+  color:var(--silver);
+  font-size:16px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface);
+  cursor:pointer;
+}
+
+.card {
+  margin-bottom:10px;
+  padding:14px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:var(--surface);
+}
+
+.card.pinned {
+  border-color:var(--accent);
+  box-shadow:0 0 12px var(--accent-glow);
+}
+
+.game-row {
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  align-items:center;
+  gap:10px;
+}
+
+.team {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+  cursor:pointer;
+}
+
+.team.right {
+  justify-content:flex-end;
+  text-align:right;
+}
+
+.team-logo {
+  width:32px;
+  height:32px;
+  flex-shrink:0;
+  object-fit:contain;
+}
+
+.abbr {
+  font-family:"Oswald",sans-serif;
+  font-size:15px;
+  font-weight:700;
+  letter-spacing:.04em;
+}
+
+.team-record {
+  margin-top:3px;
+  color:var(--silver-dim);
+  font-family:"Roboto Mono",monospace;
+  font-size:10px;
+  line-height:1.1;
+  white-space:nowrap;
+}
+
+.team-record strong {
+  color:var(--silver);
+}
+
+.score-box {
+  min-width:70px;
+  padding:4px 6px;
+  border-radius:10px;
+  text-align:center;
+}
+
+.score-box.clickable,
+.score-box.game-center {
+  cursor:pointer;
+}
+
+.score-box:active,
+.team:active,
+.player-row:active,
+.spotlight-card:active {
+  background:var(--surface-2);
+}
+
+.score-box .score {
+  font-family:"Roboto Mono",monospace;
+  font-size:22px;
+  font-weight:700;
+  color:#ffffff !important;
+}
+
+.score-box .status {
+  margin-top:2px;
+  color:var(--red);
+  font-size:10px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.score-box .status.live-pulse {
+  color:#2ecc71;
+  font-weight:700;
+}
+
+.table-wrapper,
+.table-scroll {
+  width:100%;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+
+/* Стандартная таблица */
 .standings-table {
   min-width: 580px;
 }
@@ -158,36 +414,15 @@ header h1 .dot {
   background: var(--surface-2) !important;
 }
 
-/* Продвинутая таблица: исходные метрики + перенесенные %Б, %М, %Вбр, Б/И, БП/И */
-.advanced-standings-table {
-  min-width: 780px;
-}
-
-.advanced-standings-table .standings-head,
-.advanced-standings-table .standings-row {
-  display: grid;
-  grid-template-columns: 26px 32px 105px repeat(9, 58px);
-  align-items: center;
-  border-bottom: 1px solid var(--border);
-}
-
-.standings-row {
-  cursor: pointer;
-}
-
-.standings-row:active {
-  background: var(--surface-2) !important;
-}
-
 /* Продвинутая таблица */
 .advanced-standings-table {
-  min-width: 580px;
+  min-width: 820px;
 }
 
 .advanced-standings-table .standings-head,
 .advanced-standings-table .standings-row {
   display: grid;
-  grid-template-columns: 26px 32px 105px 80px 80px 70px 75px 65px 65px;
+  grid-template-columns: 26px 32px 105px repeat(9, 62px);
   align-items: center;
   border-bottom: 1px solid var(--border);
 }
@@ -225,14 +460,6 @@ header h1 .dot {
   color:var(--silver);
   cursor:pointer;
   text-decoration:underline dotted;
-}
-
-.standings-row {
-  cursor:pointer;
-}
-
-.standings-row:active > div {
-  background:var(--surface-2)!important;
 }
 
 .standings-row .name {
@@ -274,11 +501,7 @@ header h1 .dot {
   height:20px;
 }
 
-.standings-row .pts {
-  color:#ffffff !important;
-  font-weight:700;
-}
-
+.standings-row .pts,
 .special-team-pct {
   color:#ffffff !important;
   font-weight:700;
@@ -292,19 +515,13 @@ header h1 .dot {
   font-weight:700;
 }
 
-.spotlight-value {
+.player-row .pgames {
   flex-shrink:0;
-  color:#ffffff !important;
   font-family:"Roboto Mono",monospace;
-  font-size:20px;
-  font-weight:700;
-}
-
-.h2h-score-val {
-  font-family:"Roboto Mono",monospace;
-  font-size:13px;
-  font-weight:700;
-  color:#ffffff !important;
+  font-size:12px;
+  color:var(--silver-dim);
+  text-align:right;
+  min-width:44px;
 }
 
 .group-header-row > div {
@@ -318,34 +535,6 @@ header h1 .dot {
   font-weight:700;
   letter-spacing:.05em;
   text-transform:uppercase;
-}
-
-.cat-row {
-  display:flex;
-  gap:6px;
-  margin-bottom:12px;
-}
-
-.cat-row button {
-  flex:1;
-  min-width:0;
-  padding:8px 6px;
-  font-family:"Oswald",sans-serif;
-  font-size:12px;
-  letter-spacing:.04em;
-  text-transform:uppercase;
-  border:1px solid var(--border);
-  border-radius:10px;
-  color:var(--silver-dim);
-  background:var(--surface);
-  cursor:pointer;
-}
-
-.cat-row button.active {
-  border-color:var(--red);
-  color:#fff;
-  background:var(--red);
-  font-weight:700;
 }
 
 .player-row {
@@ -436,249 +625,17 @@ header h1 .dot {
   font-family:"Roboto Mono",monospace;
 }
 
-.spotlight-title {
-  margin:24px 0 12px;
-  color:var(--silver-dim);
-  font-family:"Oswald",sans-serif;
-  font-size:13px;
-  font-weight:700;
-  letter-spacing:.06em;
-  text-transform:uppercase;
-}
-
-.spotlight-card {
-  display:flex;
-  align-items:center;
-  gap:12px;
-  margin-bottom:8px;
-  padding:12px 14px;
-  border:1px solid var(--border);
-  border-radius:14px;
-  background:var(--surface);
-  cursor:pointer;
-}
-
-.spotlight-headshot {
-  width:52px;
-  height:52px;
-  flex-shrink:0;
-  border:1px solid var(--border);
-  border-radius:50%;
-  background:var(--surface-2);
-  object-fit:cover;
-}
-
-.spotlight-info {
-  min-width:0;
-  flex:1;
-}
-
-.spotlight-name {
-  font-family:"Oswald",sans-serif;
-  font-size:15px;
-  font-weight:600;
-}
-
-.spotlight-team {
-  display:flex;
-  align-items:center;
-  gap:6px;
-  margin-top:4px;
-  color:var(--silver-dim);
-  font-size:12px;
-}
-
-.spotlight-team .team-logo {
-  width:16px;
-  height:16px;
-}
-
-.spotlight-rank {
-  width:18px;
-  flex-shrink:0;
-  color:var(--silver-dim);
-  font-family:"Roboto Mono",monospace;
-  text-align:center;
-}
-
-.matchup-summary-box {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:10px 14px;
-  border-bottom:1px solid var(--border);
-  text-align:center;
-}
-
-.matchup-side-col {
-  flex:1 1 0%;
-  min-width:0;
-}
-.matchup-side-col.left { text-align:left; }
-.matchup-side-col.right { text-align:right; }
-
-.matchup-team-title {
-  font-family:"Oswald",sans-serif;
-  font-size:14px;
-  font-weight:700;
-  color:var(--silver);
-}
-
-.matchup-rec-sub {
-  font-family:"Roboto Mono",monospace;
-  font-size:11px;
-  color:var(--silver-dim);
-  margin-top:2px;
-}
-
-.matchup-total-badge {
-  flex:0 0 auto;
-  padding:4px 10px;
-  border-radius:8px;
-  background:var(--surface-2);
-  font-family:"Roboto Mono",monospace;
-  font-size:11px;
-  font-weight:700;
-  color:#ffffff;
-}
-
-.h2h-game-row {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:8px 12px;
-  border-bottom:1px solid var(--border);
-  font-size:12px;
-}
-.h2h-game-row:last-child {
-  border-bottom:none;
-}
-
-.h2h-team-cell {
-  flex:1 1 0%;
-  min-width:0;
-  font-family:"Oswald",sans-serif;
-  font-weight:600;
-  color:var(--silver);
-}
-.h2h-team-cell.left { text-align:left; }
-.h2h-team-cell.right { text-align:right; }
-.h2h-team-cell.winner { color:#2ecc71; font-weight:700; }
-
-.h2h-center-cell {
-  flex:0 0 auto;
-  text-align:center;
-  min-width:110px;
-}
-
-.h2h-date-sub {
-  font-family:"Roboto Mono",monospace;
-  font-size:9px;
-  color:var(--silver-dim);
-  margin-top:2px;
-}
-
-.teamstat-header-flex {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:6px 12px 10px;
-  border-bottom:1px solid var(--border);
-}
-
-.teamstat-side-flex {
-  display:flex;
-  align-items:center;
-  gap:8px;
-  flex:1 1 0%;
-  min-width:0;
-  font-family:"Oswald",sans-serif;
-  font-size:14px;
-  font-weight:700;
-}
-.teamstat-side-flex.right {
-  justify-content:flex-end;
-}
-.teamstat-side-flex img {
-  width:26px;
-  height:26px;
-  object-fit:contain;
-}
-
-.teamstat-row-flex {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:8px 12px;
-  border-bottom:1px solid var(--border);
-}
-.teamstat-row-flex:last-child {
-  border-bottom:none;
-}
-
-.teamstat-val-flex {
-  flex:1 1 0%;
-  min-width:0;
-  font-family:"Roboto Mono",monospace;
-  font-size:14px;
-  font-weight:700;
-  color:#ffffff !important;
-}
-.teamstat-val-flex.left { text-align:left; }
-.teamstat-val-flex.right { text-align:right; }
-
-.teamstat-label-flex {
-  flex:0 0 auto;
-  width:140px;
-  text-align:center;
-  font-family:"Oswald",sans-serif;
-  font-size:11px;
-  color:var(--silver-dim);
-  text-transform:uppercase;
-  letter-spacing:.03em;
-  line-height:1.2;
-}
-
-.video-container {
-  position:relative;
-  width:100%;
-  aspect-ratio:16/9;
-  background:#000;
-  border-radius:12px;
-  overflow:hidden;
-  margin-bottom:14px;
-  border:1px solid var(--border);
-}
-
-.video-container iframe {
-  width:100%;
-  height:100%;
-  border:0;
-  display:block;
-}
-
-.player-row .pgames {
-  flex-shrink:0;
-  font-family:"Roboto Mono",monospace;
-  font-size:12px;
-  color:var(--silver-dim);
-  text-align:right;
-  min-width:44px;
-}
-
-.detail-head-game {
-  display:grid;
-  grid-template-columns:auto 1fr auto;
-  align-items:center;
-  gap:14px;
-  margin-bottom:14px;
-}
-
+.detail-head-game,
 .detail-head {
   display:flex;
   align-items:center;
   gap:14px;
   margin-bottom:14px;
+}
+
+.detail-head-game {
+  display:grid;
+  grid-template-columns:auto 1fr auto;
 }
 
 .detail-head img.team-logo,
@@ -848,62 +805,27 @@ header h1 .dot {
   text-transform:uppercase;
 }
 
-.bracket-wrap {
-  margin-top:16px;
-}
-
-.bracket-round-title {
-  margin:14px 0 8px;
-  color:var(--silver-dim);
-  font-family:"Oswald",sans-serif;
-  font-size:13px;
-  font-weight:700;
-  letter-spacing:.06em;
-  text-transform:uppercase;
-}
-
-.bracket-series {
-  margin-bottom:8px;
-  padding:10px 12px;
-  border:1px solid var(--border);
+.video-container {
+  position:relative;
+  width:100%;
+  aspect-ratio:16/9;
+  background:#000;
   border-radius:12px;
-  background:var(--surface);
+  overflow:hidden;
+  margin-bottom:14px;
+  border:1px solid var(--border);
 }
 
-.bracket-team-row {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:4px 0;
-  font-size:13px;
-}
-
-.bracket-team-row .bt-name {
-  display:flex;
-  align-items:center;
-  gap:8px;
-  font-family:"Oswald",sans-serif;
-  font-weight:600;
-}
-
-.bracket-team-row .bt-name img {
-  width:20px;
-  height:20px;
-  object-fit:contain;
-}
-
-.bracket-team-row.winner .bt-name {
-  color:var(--accent);
-}
-
-.bracket-team-row .bt-wins {
-  font-family:"Roboto Mono",monospace;
-  font-weight:700;
-  color:#ffffff;
+.video-container iframe {
+  width:100%;
+  height:100%;
+  border:0;
+  display:block;
 }
 
 /* Предматчевый центр */
-.pregame-probables-grid {
+.pregame-probables-grid,
+.pregame-injuries-grid {
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:10px;
@@ -1029,13 +951,6 @@ header h1 .dot {
   line-height:1.2;
 }
 
-.pregame-injuries-grid {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-  margin-bottom:10px;
-}
-
 .injury-team-col h4 {
   margin:0 0 8px;
   font-family:"Oswald",sans-serif;
@@ -1102,82 +1017,7 @@ header h1 .dot {
   line-height:1.2;
 }
 
-.goalie-sticky-col1 {
-  position:sticky;
-  left:0;
-  z-index:4;
-  background:var(--surface);
-  white-space:nowrap;
-  min-width:110px;
-  text-align:left!important;
-}
-
-.goalie-sticky-col2 {
-  position:sticky;
-  left:110px;
-  z-index:4;
-  background:var(--surface);
-  white-space:nowrap;
-  min-width:45px;
-  box-shadow:4px 0 6px -4px rgba(0,0,0,0.65);
-}
-
-.table-scroll thead .goalie-sticky-col1,
-.table-scroll thead .goalie-sticky-col2 {
-  z-index:5;
-}
-
-/* Виджет Pick'em голосования (интерактивный с сервером) */
-.pickem-container {
-  padding:12px;
-  border:1px solid var(--border);
-  border-radius:12px;
-  background:var(--surface-2);
-  margin-bottom:14px;
-}
-.pickem-title {
-  font-family:"Oswald",sans-serif;
-  font-size:13px;
-  font-weight:700;
-  text-transform:uppercase;
-  margin-bottom:8px;
-  color:var(--silver);
-  display:flex;
-  align-items:center;
-  gap:6px;
-}
-.pickem-buttons {
-  display:flex;
-  gap:8px;
-}
-.pickem-btn {
-  flex:1;
-  padding:8px 6px;
-  border-radius:8px;
-  border:1px solid var(--border);
-  background:var(--surface);
-  color:var(--silver);
-  font-family:"Oswald",sans-serif;
-  font-size:12px;
-  font-weight:700;
-  cursor:pointer;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:2px;
-}
-.pickem-btn.selected {
-  border-color:#2ecc71;
-  background:rgba(46,204,113,0.15);
-  color:#2ecc71;
-}
-.pickem-pct {
-  font-family:"Roboto Mono",monospace;
-  font-size:11px;
-  color:#ffffff !important;
-}
-
-/* Сравнение Head-to-Head */
+/* Модалки и транзакции */
 .h2h-modal-wrap {
   position:fixed;
   inset:0;
@@ -1198,33 +1038,7 @@ header h1 .dot {
   overflow-y:auto;
   padding:16px;
 }
-.h2h-bar-row {
-  margin-bottom:8px;
-}
-.h2h-bar-labels {
-  display:flex;
-  justify-content:space-between;
-  font-size:11px;
-  font-family:"Roboto Mono",monospace;
-  margin-bottom:3px;
-}
-.h2h-bar-track {
-  display:flex;
-  height:8px;
-  border-radius:4px;
-  background:var(--surface-2);
-  overflow:hidden;
-}
-.h2h-bar-left {
-  background:#3a86ff;
-  height:100%;
-}
-.h2h-bar-right {
-  background:#2ecc71;
-  height:100%;
-}
 
-/* Трансферы */
 .tx-item {
   padding:10px 14px;
   border-bottom:1px solid var(--border);
@@ -1249,90 +1063,97 @@ header h1 .dot {
   color:#ffffff !important;
 }
 
-/* === СТИЛИ ТИЗЕРНЫХ КАРТОЧЕК НОВОСТЕЙ === */
+/* Новости */
 .news-card {
-  margin-bottom: 14px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  margin-bottom:14px;
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:var(--surface);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
 }
-
-.news-card:active {
-  border-color: var(--accent);
-}
-
 .news-card img {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  max-height: 220px;
-  object-fit: cover;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  cursor: pointer;
+  width:100%;
+  aspect-ratio:16/9;
+  max-height:220px;
+  object-fit:cover;
+  border-radius:10px;
+  border:1px solid var(--border);
+  cursor:pointer;
 }
-
 .news-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-family: "Roboto Mono", monospace;
-  font-size: 11px;
-  color: var(--silver-dim);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  font-family:"Roboto Mono",monospace;
+  font-size:11px;
+  color:var(--silver-dim);
 }
-
 .news-tg-tag {
-  color: #29b6f6;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  color:#29b6f6;
+  font-weight:700;
 }
-
-/* Кликабельный заголовок-гиперссылка */
 .news-title-link {
-  font-family: "Oswald", sans-serif;
-  font-size: 17px;
-  font-weight: 700;
-  line-height: 1.35;
-  color: #ffffff;
-  text-decoration: none;
-  cursor: pointer;
-  display: block;
+  font-family:"Oswald",sans-serif;
+  font-size:17px;
+  font-weight:700;
+  line-height:1.35;
+  color:#ffffff;
+  text-decoration:none;
+  cursor:pointer;
 }
-
-.news-title-link:hover,
-.news-title-link:active {
-  color: #3a86ff;
-  text-decoration: underline;
-}
-
-/* Кнопка перехода в Telegram */
 .news-read-btn {
-  width: 100%;
-  margin-top: 2px;
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid var(--accent);
-  background: rgba(31, 95, 206, 0.15);
-  color: #ffffff;
-  font-family: "Oswald", sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  text-align: center;
-  cursor: pointer;
-  transition: background 0.2s ease;
+  width:100%;
+  margin-top:2px;
+  padding:10px;
+  border-radius:10px;
+  border:1px solid var(--accent);
+  background:rgba(31,95,206,0.15);
+  color:#ffffff;
+  font-family:"Oswald",sans-serif;
+  font-size:13px;
+  font-weight:700;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  text-align:center;
+  cursor:pointer;
 }
 
-.news-read-btn:active {
-  background: var(--accent);
+.matchup-summary-box {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:10px 14px;
+  border-bottom:1px solid var(--border);
+  text-align:center;
 }
+.matchup-side-col { flex:1; min-width:0; }
+.matchup-side-col.left { text-align:left; }
+.matchup-side-col.right { text-align:right; }
+.matchup-team-title { font-family:"Oswald",sans-serif; font-size:14px; font-weight:700; }
+.matchup-rec-sub { font-family:"Roboto Mono",monospace; font-size:11px; color:var(--silver-dim); margin-top:2px; }
+.matchup-total-badge { padding:4px 10px; border-radius:8px; background:var(--surface-2); font-family:"Roboto Mono",monospace; font-size:11px; font-weight:700; color:#fff; }
+.h2h-game-row { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-bottom:1px solid var(--border); font-size:12px; }
+.h2h-game-row:last-child { border-bottom:none; }
+.h2h-team-cell { flex:1; min-width:0; font-family:"Oswald",sans-serif; font-weight:600; }
+.h2h-team-cell.left { text-align:left; }
+.h2h-team-cell.right { text-align:right; }
+.h2h-team-cell.winner { color:#2ecc71; font-weight:700; }
+.h2h-center-cell { flex:0 0 auto; text-align:center; min-width:110px; }
+.h2h-date-sub { font-family:"Roboto Mono",monospace; font-size:9px; color:var(--silver-dim); margin-top:2px; }
+.h2h-score-val { font-family:"Roboto Mono",monospace; font-size:13px; font-weight:700; color:#ffffff !important; }
+.teamstat-header-flex { display:flex; align-items:center; justify-content:space-between; padding:6px 12px 10px; border-bottom:1px solid var(--border); }
+.teamstat-side-flex { display:flex; align-items:center; gap:8px; font-family:"Oswald",sans-serif; font-size:14px; font-weight:700; }
+.teamstat-side-flex.right { justify-content:flex-end; }
+.teamstat-side-flex img { width:26px; height:26px; object-fit:contain; }
+.teamstat-row-flex { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-bottom:1px solid var(--border); }
+.teamstat-row-flex:last-child { border-bottom:none; }
+.teamstat-val-flex { flex:1; font-family:"Roboto Mono",monospace; font-size:14px; font-weight:700; color:#ffffff !important; }
+.teamstat-val-flex.left { text-align:left; }
+.teamstat-val-flex.right { text-align:right; }
+.teamstat-label-flex { width:140px; text-align:center; font-family:"Oswald",sans-serif; font-size:11px; color:var(--silver-dim); text-transform:uppercase; line-height:1.2; }
 </style>
 
 </head>
@@ -1392,7 +1213,7 @@ header h1 .dot {
 
     <div class="card" style="padding:0;">
       <div class="table-wrapper">
-        <!-- Обычная таблица -->
+        <!-- Обычная таблица (только классические показатели) -->
         <div class="standings-table" id="standings-table-regular">
           <div class="standings-head">
             <div class="sticky-col sticky-col-1"></div>
@@ -1412,7 +1233,7 @@ header h1 .dot {
           </div>
         </div>
 
-        <!-- Продвинутая таблица -->
+        <!-- Продвинутая таблица (со всеми расширенными показателями) -->
         <div class="advanced-standings-table" id="standings-table-advanced" style="display:none;">
           <div class="standings-head">
             <div class="sticky-col sticky-col-1"></div>
@@ -1488,7 +1309,7 @@ header h1 .dot {
     </div>
   </div>
 
-  <!-- 5. ВКЛАДКА: НОВОСТИ TELEGRAM (Единственный экземпляр) -->
+  <!-- 5. ВКЛАДКА: НОВОСТИ TELEGRAM -->
   <div id="view-news" style="display:none">
     <div class="section-title">Новости нашего Telegram-канала</div>
     <div id="news-feed-container">
@@ -1496,33 +1317,8 @@ header h1 .dot {
     </div>
   </div>
   
-  <!-- 6. ЭКРАН ПОДРОБНОСТЕЙ / КАРТОЧКА МАТЧА / ПРОФИЛЬ -->
+  <!-- 6. ЭКРАН ПОДРОБНОСТЕЙ -->
   <div id="view-detail" style="display:none">
-    <div id="detail-body">
-      <div class="loading">Загрузка...</div>
-    </div>
-  </div>
-  </div>
-
-  <!-- 4. ВКЛАДКА: ТРАНСФЕРЫ -->
-  <div id="view-transactions" style="display:none">
-    <div class="section-title">Свежие переходы и переподписания (ESPN)</div>
-    <div class="card" style="padding:0;" id="transactions-list">
-      <div class="loading">Загрузка трансферов...</div>
-    </div>
-  </div>
-
-  <!-- 5. ВКЛАДКА: НОВОСТИ TELEGRAM (Единственный экземпляр) -->
-  <div id="view-news" style="display:none">
-    <div class="section-title">Новости нашего Telegram-канала</div>
-    <div id="news-feed-container">
-      <div class="loading">Загрузка свежих новостей...</div>
-    </div>
-  </div>
-  
-  <!-- 6. ЭКРАН ПОДРОБНОСТЕЙ / КАРТОЧКА МАТЧА / ПРОФИЛЬ -->
-  <div id="view-detail" style="display:none">
-    <button class="back-btn" id="back-btn">‹ Назад</button>
     <div id="detail-body">
       <div class="loading">Загрузка...</div>
     </div>
@@ -1575,9 +1371,11 @@ const tg = window.Telegram?.WebApp;
 tg?.ready();
 tg?.expand();
 
-const API_BASE = "https://nhl-live-api.sergvolk504.workers.dev";
+// Автоматически берет домен текущего хостинга (Render), а при локальном тесте переключает на Worker
+const API_BASE = window.location.origin.includes("onrender.com")
+  ? window.location.origin
+  : "https://nhl-live-api.sergvolk504.workers.dev";
 
-// Официальные акцентные цвета 32 клубов NHL
 const TEAM_COLORS = {
   ANA: "#F47A38", BOS: "#FFB81C", BUF: "#003087", CGY: "#C8102E",
   CAR: "#CC0000", CHI: "#CF0A2C", COL: "#6F263D", CBJ: "#002654",
@@ -1593,9 +1391,6 @@ let currentTeamFullData = null;
 let currentTeamType = "regular";
 let currentTeamSortKey = "points";
 let currentTeamSortAsc = false;
-let currentTeamSchedule = null;
-let currentTeamScheduleSeason = "";
-let currentTeamScheduleSeasons = [];
 
 let currentStandingsData = [];
 let currentAdvancedTeamsData = [];
@@ -1613,37 +1408,18 @@ let currentCat = "points";
 let currentLimit = 25;
 
 let leadersMode = "skaters";
+let currentLeadersSubgroup = "all"; // 'all', 'defensemen', 'rookies'
 let currentGoalieSortKey = "wins";
 let currentGoalieSortAsc = false;
 let cachedGoaliesList = [];
 let cachedSkatersList = [];
 
 let myFavoriteTeam = localStorage.getItem("nhl_my_team") || "";
-
 const goalieHeadshotCache = new Map();
-const h2hTeamCache = new Map();
 const datePicker = document.getElementById("date-picker");
-// База официальных эмблем исторических и переехавших клубов NHL
-const HISTORICAL_TEAM_LOGOS = {
-  QUE: "https://records.nhle.com/site/asset/public/ext/franchise/logos/17.png", // Quebec Nordiques
-  ATL: "https://records.nhle.com/site/asset/public/ext/franchise/logos/35.png", // Atlanta Thrashers
-  PHX: "https://records.nhle.com/site/asset/public/ext/franchise/logos/27.png", // Phoenix Coyotes
-  HFD: "https://records.nhle.com/site/asset/public/ext/franchise/logos/26.png", // Hartford Whalers
-  MIN: "https://records.nhle.com/site/asset/public/ext/franchise/logos/15.png", // Minnesota North Stars
-  WIN: "https://records.nhle.com/site/asset/public/ext/franchise/logos/27.png", // Winnipeg Jets (оригинал до 1996)
-  CLE: "https://records.nhle.com/site/asset/public/ext/franchise/logos/12.png", // Cleveland Barons
-  KCS: "https://records.nhle.com/site/asset/public/ext/franchise/logos/10.png", // Kansas City Scouts
-  CGS: "https://records.nhle.com/site/asset/public/ext/franchise/logos/12.png", // California Golden Seals
-  TRA: "https://records.nhle.com/site/asset/public/ext/franchise/logos/28.png", // Toronto Arenas
-  TSP: "https://records.nhle.com/site/asset/public/ext/franchise/logos/28.png", // Toronto St. Patricks
-  SEN: "https://records.nhle.com/site/asset/public/ext/franchise/logos/30.png", // Ottawa Senators (оригинал)
-};
 
 function getSafeTeamLogoUrl(abbrev, fallbackLogo) {
   const up = String(abbrev || "").toUpperCase();
-  if (HISTORICAL_TEAM_LOGOS[up]) {
-    return HISTORICAL_TEAM_LOGOS[up];
-  }
   if (fallbackLogo && typeof fallbackLogo === "string" && fallbackLogo.startsWith("http")) {
     return fallbackLogo;
   }
@@ -1656,11 +1432,6 @@ function stopAllVideos() {
     container.querySelectorAll("iframe").forEach(iframe => {
       iframe.src = "about:blank";
       iframe.remove();
-    });
-    container.querySelectorAll("video").forEach(v => {
-      v.pause();
-      v.removeAttribute("src");
-      v.load();
     });
   }
 }
@@ -1710,9 +1481,7 @@ function escapeHtml(value) {
 function formatShortName(fullName, first, last) {
   const f = nameStr(first);
   const l = nameStr(last);
-  if (f && l) {
-    return `${f.charAt(0).toUpperCase()}. ${l}`;
-  }
+  if (f && l) return `${f.charAt(0).toUpperCase()}. ${l}`;
   const str = String(fullName || "").trim();
   if (!str) return "Игрок";
   const parts = str.split(/\s+/);
@@ -1731,13 +1500,7 @@ function getTeamAbbrev(team) {
   if (!team) return "";
   if (typeof team === "string") return team.trim().toUpperCase();
   if (typeof team === "object") {
-    return String(
-      team.default ||
-      team.abbrev ||
-      team.abbreviation ||
-      team.teamAbbrev ||
-      ""
-    ).trim().toUpperCase();
+    return String(team.default || team.abbrev || team.abbreviation || team.teamAbbrev || "").trim().toUpperCase();
   }
   return "";
 }
@@ -1745,18 +1508,14 @@ function getTeamAbbrev(team) {
 function getTeamName(team) {
   if (!team) return "";
   if (typeof team === "string") return team;
-  if (typeof team === "object") {
-    return String(team.default || team.name || team.teamName || "");
-  }
+  if (typeof team === "object") return String(team.default || team.name || team.teamName || "");
   return "";
 }
 
 function getTeamLogo(team) {
   if (!team) return "";
   if (typeof team === "string") return team;
-  if (typeof team === "object") {
-    return String(team.logo || team.teamLogo || team.crest || "");
-  }
+  if (typeof team === "object") return String(team.logo || team.teamLogo || team.crest || "");
   return "";
 }
 
@@ -1788,26 +1547,13 @@ function seasonIdFromEndDate(endDate) {
   return `${endYear - 1}${endYear}`;
 }
 
-function formatPeriodLabel(descriptor) {
-  if (!descriptor) return "Период";
-  if (descriptor.periodType === "SO") return "Буллиты";
-  if (descriptor.periodType === "OT") {
-    const number = descriptor.number && descriptor.number > 3 ? descriptor.number - 3 : 1;
-    return number > 1 ? `${number}-й овертайм` : "Овертайм";
-  }
-  return descriptor.number ? `${descriptor.number}-й период` : "Период";
-}
-
-let currentLeadersSubgroup = "all"; // 'all', 'defensemen', 'rookies'
-
 function openDetail() {
   stopAllVideos();
   document.getElementById("view-schedule").style.display = "none";
   document.getElementById("view-standings").style.display = "none";
   document.getElementById("view-players").style.display = "none";
   document.getElementById("view-transactions").style.display = "none";
-  const newsView = document.getElementById("view-news");
-  if (newsView) newsView.style.display = "none";
+  document.getElementById("view-news").style.display = "none";
   document.getElementById("view-detail").style.display = "";
   document.getElementById("main-nav").style.display = "none";
   
@@ -1837,30 +1583,9 @@ function resetLeadersToSkaters() {
   });
 }
 
-function normalizeInitialSection(section) {
-  switch (section) {
-    case "schedule":
-    case "matches":
-      return "schedule";
-    case "standings":
-    case "table":
-      return "standings";
-    case "leaders":
-    case "players":
-    case "goalies":
-      return "players";
-    case "transactions":
-      return "transactions";
-    case "news":
-      return "news";
-    default:
-      return "schedule";
-  }
-}
-
 function switchTab(tab) {
   stopAllVideos();
-  const safeTab = normalizeInitialSection(tab);
+  const safeTab = ["schedule", "standings", "players", "transactions", "news"].includes(tab) ? tab : "schedule";
 
   document.getElementById("tab-schedule")?.classList.toggle("active", safeTab === "schedule");
   document.getElementById("tab-standings")?.classList.toggle("active", safeTab === "standings");
@@ -1872,9 +1597,7 @@ function switchTab(tab) {
   document.getElementById("view-standings").style.display = safeTab === "standings" ? "" : "none";
   document.getElementById("view-players").style.display = safeTab === "players" ? "" : "none";
   document.getElementById("view-transactions").style.display = safeTab === "transactions" ? "" : "none";
-  
-  const newsView = document.getElementById("view-news");
-  if (newsView) newsView.style.display = safeTab === "news" ? "" : "none";
+  document.getElementById("view-news").style.display = safeTab === "news" ? "" : "none";
 
   document.getElementById("view-detail").style.display = "none";
   document.getElementById("main-nav").style.display = "flex";
@@ -1885,37 +1608,13 @@ function switchTab(tab) {
   lastMainTab = safeTab;
 
   if (safeTab === "schedule") loadSchedule();
-  if (safeTab === "standings") {
-    loadStandings();
-    if (!bracketLoadedOnce) {
-      const now = new Date();
-      const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
-      const playoffYear = startYear + 1;
-      const playoffStart = new Date(playoffYear, 3, 14);
-
-      if (now >= playoffStart) {
-        loadPlayoffBracket(String(playoffYear));
-      } else {
-        document.getElementById("bracket-container").innerHTML = `
-          <div class="bracket-wrap">
-            <div class="section-title">Сетка плей-офф</div>
-            <div class="empty">Регулярный сезон ещё не завершён — пары формируются к старту плей-офф</div>
-          </div>
-        `;
-      }
-      bracketLoadedOnce = true;
-    }
-  }
+  if (safeTab === "standings") loadStandings();
   if (safeTab === "players") {
     resetLeadersToSkaters();
     loadPlayers();
   }
-  if (safeTab === "transactions") {
-    loadTransactions();
-  }
-  if (safeTab === "news") {
-    loadNews();
-  }
+  if (safeTab === "transactions") loadTransactions();
+  if (safeTab === "news") loadNews();
 }
 
 document.getElementById("tab-schedule").onclick = () => switchTab("schedule");
@@ -1932,7 +1631,6 @@ document.getElementById("prev-day").onclick = () => {
   currentDate.setDate(currentDate.getDate() - 1);
   loadSchedule();
 };
-
 document.getElementById("next-day").onclick = () => {
   currentDate.setDate(currentDate.getDate() + 1);
   loadSchedule();
@@ -1983,8 +1681,6 @@ function renderTeamSelectorModal() {
 
 async function buildSeasonOptions() {
   const select = document.getElementById("season-select");
-  select.innerHTML = "<option value=''>Загрузка сезонов...</option>";
-
   try {
     const response = await fetch(`${API_BASE}/api/seasons-list`);
     const data = await response.json();
@@ -2000,11 +1696,7 @@ async function buildSeasonOptions() {
       const id = String(season.id);
       const startYear = id.slice(0, 4);
       const endYear = id.slice(6, 8);
-      html += `
-        <option value="${escapeHtml(season.standingsEnd || "")}" data-start-year="${escapeHtml(startYear)}">
-          ${escapeHtml(`${startYear}-${endYear}`)}
-        </option>
-      `;
+      html += `<option value="${escapeHtml(season.standingsEnd || "")}" data-start-year="${escapeHtml(startYear)}">${startYear}-${endYear}</option>`;
     });
 
     select.innerHTML = html;
@@ -2014,40 +1706,17 @@ async function buildSeasonOptions() {
 }
 
 document.getElementById("season-select").addEventListener("change", event => {
-  const option = event.target.options[event.target.selectedIndex];
-  selectedSeasonEndDate = option.value;
+  selectedSeasonEndDate = event.target.value;
   currentStandingsData = [];
   currentAdvancedTeamsData = [];
   loadStandings();
-
-  let startYear = option.dataset.startYear;
-  if (!startYear) {
-    const now = new Date();
-    startYear = String(now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1);
-  }
-
-  const playoffYear = String(Number(startYear) + 1);
-  if (option.dataset.startYear || new Date() >= new Date(Number(playoffYear), 3, 14)) {
-    loadPlayoffBracket(playoffYear);
-  } else {
-    document.getElementById("bracket-container").innerHTML = `
-      <div class="bracket-wrap">
-        <div class="section-title">Сетка плей-офф</div>
-        <div class="empty">Регулярный сезон ещё не завершён — пары формируются к старту плей-офф</div>
-      </div>
-    `;
-  }
 });
 
 document.querySelectorAll("#standings-table-regular .sortable").forEach(header => {
   header.onclick = () => {
     const key = header.dataset.sort;
-    if (standingsSortKey === key) {
-      standingsSortAsc = !standingsSortAsc;
-    } else {
-      standingsSortKey = key;
-      standingsSortAsc = false;
-    }
+    standingsSortAsc = standingsSortKey === key ? !standingsSortAsc : false;
+    standingsSortKey = key;
     renderStandings();
   };
 });
@@ -2055,12 +1724,8 @@ document.querySelectorAll("#standings-table-regular .sortable").forEach(header =
 document.querySelectorAll("#standings-table-advanced .sortable").forEach(header => {
   header.onclick = () => {
     const key = header.dataset.advSort;
-    if (advStandingsSortKey === key) {
-      advStandingsSortAsc = !advStandingsSortAsc;
-    } else {
-      advStandingsSortKey = key;
-      advStandingsSortAsc = false;
-    }
+    advStandingsSortAsc = advStandingsSortKey === key ? !advStandingsSortAsc : false;
+    advStandingsSortKey = key;
     renderAdvancedStandings();
   };
 });
@@ -2083,15 +1748,13 @@ function setStandingsMode(mode) {
   if (mode === "adv") {
     regTable.style.display = "none";
     advTable.style.display = "grid";
-    if (currentAdvancedTeamsData.length) {
-      renderAdvancedStandings();
-    } else {
-      loadAdvancedStandings();
-    }
+    if (currentAdvancedTeamsData.length) renderAdvancedStandings();
+    else loadAdvancedStandings();
   } else {
     advTable.style.display = "none";
     regTable.style.display = "grid";
-    currentStandingsData.length ? renderStandings() : loadStandings();
+    if (currentStandingsData.length) renderStandings();
+    else loadStandings();
   }
 }
 
@@ -2110,7 +1773,6 @@ async function loadSchedule() {
 
     if (!list.length) {
       games.innerHTML = '<div class="empty">В этот день матчей нет</div>';
-      loadSpotlight();
       return;
     }
 
@@ -2133,7 +1795,7 @@ async function loadSchedule() {
         const homeLogo = element.dataset.homeLogo;
 
         const game = list.find(item => String(item.id) === String(gameId));
-        if (game && isFutureGame(game)) {
+        if (game && (game.gameState === "FUT" || game.gameState === "PRE")) {
           openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo, date);
           return;
         }
@@ -2170,7 +1832,6 @@ function renderGame(game) {
   const homeAbbrev = getTeamAbbrev(home);
 
   const isPinned = myFavoriteTeam && (awayAbbrev === myFavoriteTeam || homeAbbrev === myFavoriteTeam);
-
   const started = game.gameState !== "FUT" && game.gameState !== "PRE";
   const isLive = game.gameState === "LIVE" || game.gameState === "CRIT";
   const status = started
@@ -2205,105 +1866,6 @@ function renderGame(game) {
   `;
 }
 
-function isFutureGame(game) {
-  return game.gameState === "FUT" || game.gameState === "PRE";
-}
-
-function getScheduleGames(data) {
-  if (!data || typeof data !== "object") return [];
-  if (Array.isArray(data.games)) return data.games;
-  const result = [];
-  if (Array.isArray(data.gameWeek)) {
-    data.gameWeek.forEach(day => {
-      if (Array.isArray(day?.games)) result.push(...day.games);
-    });
-  }
-  return result;
-}
-
-function getGameDateValue(game) {
-  return game?.gameDate || game?.date || game?.startTimeUTC || "";
-}
-
-function getGameTeamAbbrev(team) {
-  if (!team) return "";
-  if (typeof team === "string") return team.toUpperCase();
-  return String(team.abbrev || team.teamAbbrev?.default || team.teamAbbrev || team.abbreviation || "").toUpperCase();
-}
-
-function getGameTeamName(team, fallback = "") {
-  if (!team) return fallback;
-  if (typeof team === "string") return team;
-  return team.abbrev || team.teamAbbrev?.default || team.teamAbbrev || team.placeName?.default || team.teamName?.default || team.name?.default || fallback;
-}
-
-function getGameScore(game, side) {
-  const value = game?.[`${side}Team`]?.score ?? game?.[`${side}Score`] ?? game?.[`${side}TeamScore`] ?? game?.[side]?.score;
-  return value === undefined || value === null ? null : Number(value);
-}
-
-function getGoalStrengthLabel(goal) {
-  const raw = String(goal?.strengthCode ?? goal?.strength ?? goal?.situationCode ?? goal?.typeCode ?? goal?.goalType ?? "").toUpperCase();
-  if (goal?.isShortHanded === true || goal?.isShorthanded === true || /SH/.test(raw)) return "М";
-  if (goal?.isPowerPlay === true || goal?.isPowerplay === true || /PP/.test(raw)) return "Б";
-  return "";
-}
-
-function isCompletedGame(game) {
-  const state = String(game?.gameState || "").toUpperCase();
-  return state === "OFF" || state === "FINAL" || state === "F" ||
-    (game?.awayTeam?.score !== undefined && game?.homeTeam?.score !== undefined && !["FUT", "PRE", "LIVE", "CRIT"].includes(state));
-}
-
-function formatStreakDisplay(code, count) {
-  if (!code || !count) return "—";
-  const num = Number(count) || 0;
-  const s = String(code).toUpperCase();
-
-  function pluralize(n, one, few, many) {
-    const mod10 = n % 10;
-    const mod100 = n % 100;
-    if (mod100 >= 11 && mod100 <= 19) return many;
-    if (mod10 === 1) return one;
-    if (mod10 >= 2 && mod10 <= 4) return few;
-    return many;
-  }
-
-  const winWord = pluralize(num, "выигрыш", "выигрыша", "выигрышей");
-  const lossWord = pluralize(num, "поражение", "поражения", "поражений");
-
-  if (s.startsWith("W")) {
-    return s.includes("OT") || s.includes("SO") ? `${num} ${winWord} в ОТ` : `${num} ${winWord}`;
-  }
-  if (s.startsWith("L")) {
-    return `${num} ${lossWord}`;
-  }
-  if (s.startsWith("O")) {
-    return `${num} ${lossWord} в ОТ`;
-  }
-  return `${code}${count}`;
-}
-
-function formatPercentDisplay(num) {
-  if (num === undefined || num === null || num === "") return "—";
-  const n = Number(num);
-  if (!Number.isFinite(n)) return String(num);
-  return `${(n <= 1 ? n * 100 : n).toFixed(1)}%`;
-}
-
-function formatPregameLabel(cat) {
-  const map = {
-    powerPlayPctg: "Большинство (%PP)",
-    penaltyKillPctg: "Меньшинство (%PK)",
-    goalsForPerGame: "Шайб за игру (GF/G)",
-    goalsAgainstPerGame: "Пропущено за игру (GA/G)",
-    shotsForPerGame: "Броски по воротам соперника (SF/G)",
-    shotsAgainstPerGame: "Броски соперника по своим воротам (SA/G)",
-    faceoffWinningPctg: "Вбрасывания (%FO)"
-  };
-  return map[cat] || cat;
-}
-
 async function loadStandings() {
   const body = document.getElementById("standings-body");
   body.innerHTML = '<div class="loading">Загрузка таблицы...</div>';
@@ -2314,83 +1876,30 @@ async function loadStandings() {
       standingsUrl = `${API_BASE}/api/standings-by-date/${encodeURIComponent(selectedSeasonEndDate)}`;
     }
 
-    const specialTeamsSeason = seasonIdFromEndDate(selectedSeasonEndDate);
-    const specialTeamsUrl = specialTeamsSeason
-      ? `${API_BASE}/api/team-special-teams?season=${encodeURIComponent(specialTeamsSeason)}`
-      : `${API_BASE}/api/team-special-teams`;
-
-    let data = null;
-    try {
-      const resp = await fetch(standingsUrl);
-      if (resp.ok) {
-        data = await resp.json();
-      }
-    } catch (_) {}
-
-    if (!data || (!data.standings && !Array.isArray(data))) {
-      try {
-        const fallbackResp = await fetch(`${API_BASE}/api/standings`);
-        if (fallbackResp.ok) {
-          data = await fallbackResp.json();
-        }
-      } catch (_) {}
-    }
-
-    if (!data || (!data.standings && !Array.isArray(data))) {
-      body.innerHTML = '<div class="empty">Таблица за выбранный период формируется лигой</div>';
-      return;
-    }
-
+    const resp = await fetch(standingsUrl);
+    const data = await resp.json();
     const rawStandings = Array.isArray(data) ? data : (data.standings || []);
-
-    let specialTeams = [];
-    try {
-      const spResp = await fetch(specialTeamsUrl);
-      if (spResp.ok) {
-        const spJson = await spResp.json();
-        specialTeams = Array.isArray(spJson?.teams) ? spJson.teams : [];
-      }
-    } catch (_) {}
-
-    const specialMap = new Map();
-    specialTeams.forEach(row => {
-      let abbrev = row?.teamAbbrev ?? row?.teamAbbrevs ?? row?.rawTricode ?? row?.triCode ?? row?.team;
-      if (Array.isArray(abbrev)) abbrev = abbrev[0];
-      if (abbrev && typeof abbrev === "object") abbrev = abbrev.default ?? abbrev.abbrev ?? "";
-      if (abbrev) specialMap.set(String(abbrev).toUpperCase(), row);
-    });
 
     currentStandingsData = rawStandings.map(team => {
       let rawAbbr = team.teamAbbrev || team.abbrev || team.rawTricode || team.triCode || team.team;
       if (Array.isArray(rawAbbr)) rawAbbr = rawAbbr[0];
       if (rawAbbr && typeof rawAbbr === "object") rawAbbr = rawAbbr.default ?? rawAbbr.abbrev ?? "";
-      
-      const abbrevStr = String(rawAbbr || "").toUpperCase();
-      const special = specialMap.get(abbrevStr);
-
       return {
         ...team,
-        teamAbbrev: abbrevStr,
-        powerPlayPctg: special?.powerPlayPctg ?? special?.powerPlayPct ?? team.powerPlayPctg,
-        penaltyKillPctg: special?.penaltyKillPctg ?? special?.penaltyKillPct ?? team.penaltyKillPctg,
-        faceoffWinPct: special?.faceoffWinPct ?? team.faceoffWinPct,
-        shotsForPerGame: special?.shotsForPerGame ?? team.shotsForPerGame,
-        shotsAgainstPerGame: special?.shotsAgainstPerGame ?? team.shotsAgainstPerGame,
+        teamAbbrev: String(rawAbbr || "").toUpperCase(),
         clinchIndicator: team.clinchIndicator || null,
       };
     });
 
     renderStandings();
   } catch (error) {
-    console.error("Standings loading error:", error);
     body.innerHTML = '<div class="empty">Не удалось загрузить таблицу</div>';
   }
 }
-  function renderTeamRow(team, rank) {
+
+function renderTeamRow(team, rank) {
   const abbreviation = getTeamAbbrev(team.teamAbbrev || team.abbrev || team.team);
   const teamName = getTeamName(team.teamName || team.name) || abbreviation;
-  const logo = getTeamLogo(team.teamLogo || team.logo);
-
   const goalFor = Number(team.goalFor ?? 0);
   const goalAgainst = Number(team.goalAgainst ?? 0);
   const difference = Number(team.goalDifferential ?? (goalFor - goalAgainst));
@@ -2398,38 +1907,26 @@ async function loadStandings() {
   let clinchHtml = "";
   if (team.clinchIndicator) {
     const ci = String(team.clinchIndicator).toLowerCase();
-    if (ci === "x" || ci === "y" || ci === "p") {
-      clinchHtml = `<span class="clinch-badge clinch-x">${ci.toUpperCase()}</span>`;
-    } else if (ci === "e") {
-      clinchHtml = `<span class="clinch-badge clinch-e">E</span>`;
-    }
+    if (ci === "x" || ci === "y" || ci === "p") clinchHtml = `<span class="clinch-badge clinch-x">${ci.toUpperCase()}</span>`;
+    else if (ci === "e") clinchHtml = `<span class="clinch-badge clinch-e">E</span>`;
   }
 
-  const logoSrc = typeof getSafeTeamLogoUrl === "function" 
-    ? getSafeTeamLogoUrl(abbreviation, logo) 
-    : `https://assets.nhle.com/logos/nhl/svg/${escapeHtml(abbreviation)}_light.svg`;
+  const logoSrc = `https://assets.nhle.com/logos/nhl/svg/${escapeHtml(abbreviation)}_light.svg`;
 
   return `
     <div class="standings-row" data-team="${escapeHtml(abbreviation)}" data-name="${escapeHtml(teamName)}" data-logo="${escapeHtml(logoSrc)}">
       <div class="num sticky-col sticky-col-1">${rank}</div>
       <div class="sticky-col sticky-col-2">
-        <img class="team-logo" 
-             src="${escapeHtml(logoSrc)}" 
-             alt="" 
-             onerror="this.onerror=null; this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(abbreviation)}_dark.svg';">
+        <img class="team-logo" src="${escapeHtml(logoSrc)}" alt="" onerror="this.onerror=null; this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(abbreviation)}_dark.svg';">
       </div>
-      <div class="name sticky-col sticky-col-3">
-        ${escapeHtml(abbreviation)} ${clinchHtml}
-      </div>
+      <div class="name sticky-col sticky-col-3">${escapeHtml(abbreviation)} ${clinchHtml}</div>
       <div class="num" style="color:#ffffff;">${team.gamesPlayed ?? 0}</div>
       <div class="num" style="color:#ffffff;">${team.wins ?? 0}</div>
       <div class="num" style="color:#ffffff;">${team.otLosses ?? 0}</div>
       <div class="num" style="color:#ffffff;">${team.losses ?? 0}</div>
       <div class="num" style="color:#ffffff;">${goalFor}</div>
       <div class="num" style="color:#ffffff;">${goalAgainst}</div>
-      <div class="diff" style="color:${difference >= 0 ? "#2ecc71" : "#e74c3c"}">
-        ${difference > 0 ? "+" : ""}${difference}
-      </div>
+      <div class="diff" style="color:${difference >= 0 ? "#2ecc71" : "#e74c3c"}">${difference > 0 ? "+" : ""}${difference}</div>
       <div class="pts" style="color:#ffffff !important;font-weight:700;">${team.points ?? 0}</div>
     </div>
   `;
@@ -2439,7 +1936,6 @@ function sortTeams(teams) {
   return [...teams].sort((a, b) => {
     let valueA = a[standingsSortKey] ?? 0;
     let valueB = b[standingsSortKey] ?? 0;
-
     if (standingsSortKey === "goalDifferential") {
       valueA = a.goalDifferential ?? ((a.goalFor ?? 0) - (a.goalAgainst ?? 0));
       valueB = b.goalDifferential ?? ((b.goalFor ?? 0) - (b.goalAgainst ?? 0));
@@ -2490,45 +1986,26 @@ async function loadAdvancedStandings() {
     const params = new URLSearchParams();
     if (seasonId) params.set("season", seasonId);
 
-    const res = await fetch(`${API_BASE}/api/advanced-team-stats?${params}`);
-    const data = await res.json();
-    const advList = data.teams || [];
+    const [advRes, specRes] = await Promise.all([
+      fetch(`${API_BASE}/api/advanced-team-stats?${params}`),
+      fetch(`${API_BASE}/api/team-special-teams?${params}`).catch(() => null)
+    ]);
 
-    const stdMap = new Map();
-    currentStandingsData.forEach(st => {
-      stdMap.set(st.teamAbbrev, st);
-    });
+    const advData = await advRes.json();
+    const specData = specRes ? await specRes.json() : null;
 
-    currentAdvancedTeamsData = advList.map(t => {
-      const st = stdMap.get(t.teamAbbrev) || {};
+    const specMap = new Map();
+    (specData?.teams || []).forEach(st => specMap.set(st.teamAbbrev, st));
+
+    currentAdvancedTeamsData = (advData.teams || []).map(t => {
+      const sp = specMap.get(t.teamAbbrev) || {};
       return {
         ...t,
-        powerPlayPctg: st.powerPlayPctg ?? null,
-        penaltyKillPctg: st.penaltyKillPctg ?? null,
-        faceoffWinPct: st.faceoffWinPct ?? null,
+        powerPlayPctg: sp.powerPlayPctg ?? null,
+        penaltyKillPctg: sp.penaltyKillPctg ?? null,
+        faceoffWinPct: sp.faceoffWinPct ?? null,
       };
     });
-
-    if (!currentAdvancedTeamsData.length && currentStandingsData.length) {
-      currentAdvancedTeamsData = currentStandingsData.map(t => {
-        const ab = getTeamAbbrev(t);
-        const sf = Number(t.shotsForPerGame || 30.5);
-        const sa = Number(t.shotsAgainstPerGame || 29.8);
-        const sat = ((sf / (sf + sa || 1)) * 100);
-        return {
-          teamAbbrev: ab,
-          satPct: +sat.toFixed(1),
-          usatPct: +(sat * 0.98).toFixed(1),
-          pdo: 100.2,
-          ozsp: 51.4,
-          shotsForPerGame: sf,
-          shotsAgainstPerGame: sa,
-          powerPlayPctg: t.powerPlayPctg,
-          penaltyKillPctg: t.penaltyKillPctg,
-          faceoffWinPct: t.faceoffWinPct,
-        };
-      });
-    }
 
     renderAdvancedStandings();
   } catch (_) {
@@ -2553,20 +2030,15 @@ function renderAdvancedStandings() {
     <div class="standings-row" data-team="${escapeHtml(t.teamAbbrev)}">
       <div class="num sticky-col sticky-col-1">${idx + 1}</div>
       <div class="sticky-col sticky-col-2">
-        <img class="team-logo" 
-             src="${escapeHtml(getSafeTeamLogoUrl(t.teamAbbrev))}" 
-             alt="" 
-             onerror="this.onerror=null; this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(t.teamAbbrev)}_dark.svg';">
+        <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(t.teamAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(t.teamAbbrev)}_dark.svg';">
       </div>
-      <div class="name sticky-col sticky-col-3">
-        <span>${escapeHtml(t.teamAbbrev)}</span>
-      </div>
+      <div class="name sticky-col sticky-col-3">${escapeHtml(t.teamAbbrev)}</div>
       <div class="num" style="color:${t.satPct >= 50 ? '#2ecc71' : '#ff4d4d'};font-weight:700;">${t.satPct}%</div>
       <div class="num" style="color:#ffffff;">${t.usatPct}%</div>
       <div class="num" style="color:#ffffff;">${t.pdo}</div>
       <div class="num" style="color:#ffffff;">${t.ozsp}%</div>
-      <div class="num special-team-pct" style="color:#ffffff !important;">${formatPctCell(t.powerPlayPctg)}</div>
-      <div class="num special-team-pct" style="color:#ffffff !important;">${formatPctCell(t.penaltyKillPctg)}</div>
+      <div class="num special-team-pct">${formatPctCell(t.powerPlayPctg)}</div>
+      <div class="num special-team-pct">${formatPctCell(t.penaltyKillPctg)}</div>
       <div class="num" style="color:#ffffff;">${formatPctCell(t.faceoffWinPct)}</div>
       <div class="num" style="color:#ffffff;">${t.shotsForPerGame ?? '—'}</div>
       <div class="num" style="color:#ffffff;">${t.shotsAgainstPerGame ?? '—'}</div>
@@ -2578,79 +2050,6 @@ function renderAdvancedStandings() {
       openTeamDetail(row.dataset.team, row.dataset.team, `https://assets.nhle.com/logos/nhl/svg/${row.dataset.team}_light.svg`);
     });
   });
-}
-
-async function loadPlayoffBracket(playoffYear) {
-  const container = document.getElementById("bracket-container");
-  container.innerHTML = `<div class="bracket-wrap"><div class="loading">Загрузка сетки плей-офф...</div></div>`;
-
-  try {
-    const response = await fetch(`${API_BASE}/api/playoff-bracket/${encodeURIComponent(playoffYear)}`);
-    const data = await response.json();
-    const series = data?.series || [];
-
-    if (!series.length) {
-      container.innerHTML = `
-        <div class="bracket-wrap">
-          <div class="section-title">Сетка плей-офф</div>
-          <div class="empty">Плей-офф недоступен</div>
-        </div>
-      `;
-      return;
-    }
-
-    const rounds = {};
-    series.forEach(item => {
-      const round = item.round ?? item.roundNumber ?? item.playoffRound ?? 1;
-      if (!rounds[round]) rounds[round] = [];
-      rounds[round].push(item);
-    });
-
-    const roundNames = {
-      1: "1-й раунд",
-      2: "2-й раунд (полуфинал конференции)",
-      3: "Финал конференции",
-      4: "Финал Кубка Стэнли"
-    };
-
-    let html = `<div class="bracket-wrap"><div class="section-title">Сетка плей-офф</div>`;
-    Object.keys(rounds).sort((a, b) => Number(a) - Number(b)).forEach(round => {
-      html += `<div class="bracket-round-title">${escapeHtml(roundNames[round] || `Раунд ${round}`)}</div>`;
-      rounds[round].forEach(item => {
-        const top = item.topSeedTeam || item.matchupTeams?.[0] || item.team1 || {};
-        const bottom = item.bottomSeedTeam || item.matchupTeams?.[1] || item.team2 || {};
-        const topWins = item.topSeedWins ?? item.matchupTeams?.[0]?.seriesWins ?? item.team1Wins ?? 0;
-        const bottomWins = item.bottomSeedWins ?? item.matchupTeams?.[1]?.seriesWins ?? item.team2Wins ?? 0;
-
-        const topName = top.abbrev || top.teamAbbrev?.default || top.placeName?.default || "TBD";
-        const bottomName = bottom.abbrev || bottom.teamAbbrev?.default || bottom.placeName?.default || "TBD";
-
-        html += `
-          <div class="bracket-series">
-            <div class="bracket-team-row ${topWins > bottomWins && topWins === 4 ? "winner" : ""}">
-              <div class="bt-name">
-                <img src="${escapeHtml(top.logo || top.teamLogo || "")}" alt="">
-                <span>${escapeHtml(topName)}</span>
-              </div>
-              <div class="bt-wins">${topWins}</div>
-            </div>
-            <div class="bracket-team-row ${bottomWins > topWins && bottomWins === 4 ? "winner" : ""}">
-              <div class="bt-name">
-                <img src="${escapeHtml(bottom.logo || bottom.teamLogo || "")}" alt="">
-                <span>${escapeHtml(bottomName)}</span>
-              </div>
-              <div class="bt-wins">${bottomWins}</div>
-            </div>
-          </div>
-        `;
-      });
-    });
-
-    html += "</div>";
-    container.innerHTML = html;
-  } catch (error) {
-    container.innerHTML = `<div class="bracket-wrap"><div class="empty">Не удалось загрузить сетку плей-офф</div></div>`;
-  }
 }
 
 function setLeadersSubgroup(group) {
@@ -2681,11 +2080,8 @@ document.getElementById("leaders-goalies-btn").onclick = () => {
   document.getElementById("skater-categories").style.display = "none";
   document.getElementById("goalie-categories").style.display = "grid";
 
-  if (cachedGoaliesList.length > 0) {
-    renderGoaliesFromCache();
-  } else {
-    loadGoalieCards();
-  }
+  if (cachedGoaliesList.length > 0) renderGoaliesFromCache();
+  else loadGoalieCards();
 };
 
 document.querySelectorAll("#skater-categories button").forEach(button => {
@@ -2704,18 +2100,11 @@ document.querySelectorAll("#goalie-categories button").forEach(button => {
     button.classList.add("active");
 
     const key = button.dataset.goalieSort;
-    if (currentGoalieSortKey === key) {
-      currentGoalieSortAsc = !currentGoalieSortAsc;
-    } else {
-      currentGoalieSortKey = key;
-      currentGoalieSortAsc = (key === "gaa" || key === "losses");
-    }
+    currentGoalieSortAsc = currentGoalieSortKey === key ? !currentGoalieSortAsc : (key === "gaa" || key === "losses");
+    currentGoalieSortKey = key;
 
-    if (cachedGoaliesList.length > 0) {
-      renderGoaliesFromCache();
-    } else {
-      loadGoalieCards();
-    }
+    if (cachedGoaliesList.length > 0) renderGoaliesFromCache();
+    else loadGoalieCards();
   };
 });
 
@@ -2736,7 +2125,6 @@ async function loadPlayers() {
     const data = await response.json();
     let list = data[currentCat] || data.skaters || data.leaders || data.data || [];
 
-    // Клиентская дофильтрация для надежности
     if (currentLeadersSubgroup === "defensemen") {
       list = list.filter(p => !p.positionCode || p.positionCode === "D");
     }
@@ -2749,15 +2137,10 @@ async function loadPlayers() {
     cachedSkatersList = list;
 
     body.innerHTML = list.map((player, index) => {
-      let displayValue = player.value;
-      if (displayValue === undefined || displayValue === null) {
-        displayValue = player[currentCat] ?? "—";
-      }
-
+      let displayValue = player.value ?? player[currentCat] ?? "—";
       if (currentCat === "plusMinus" && typeof displayValue === "number" && displayValue > 0) {
         displayValue = `+${displayValue}`;
       }
-
       const gp = player.gamesPlayed ?? 0;
 
       return `
@@ -2774,50 +2157,17 @@ async function loadPlayers() {
             </div>
           </div>
           <div class="pgames">${gp} И</div>
-          <div class="pvalue" style="color:#ffffff !important;">${escapeHtml(val(displayValue))}</div>
+          <div class="pvalue">${escapeHtml(val(displayValue))}</div>
         </div>
       `;
     }).join("");
 
-    if (list.length >= currentLimit && currentLimit < 50) {
-      body.insertAdjacentHTML("beforeend", `<button class="show-more" id="show-more-players">Показать больше</button>`);
-      document.getElementById("show-more-players").onclick = () => {
-        currentLimit = 50;
-        loadPlayers();
-      };
-    }
-
     body.querySelectorAll(".player-row").forEach(row => {
       row.addEventListener("click", () => openPlayerDetail(row.dataset.playerId));
     });
   } catch (error) {
     body.innerHTML = '<div class="empty">Не удалось загрузить лидеров</div>';
   }
-}
-
-    if (list.length >= currentLimit && currentLimit < 50) {
-      body.insertAdjacentHTML("beforeend", `<button class="show-more" id="show-more-players">Показать больше</button>`);
-      document.getElementById("show-more-players").onclick = () => {
-        currentLimit = 50;
-        loadPlayers();
-      };
-    }
-
-    body.querySelectorAll(".player-row").forEach(row => {
-      row.addEventListener("click", () => openPlayerDetail(row.dataset.playerId));
-    });
-  } catch (error) {
-    body.innerHTML = '<div class="empty">Не удалось загрузить лидеров</div>';
-  }
-}
-
-function goalieSortValue(player) {
-  if (currentGoalieSortKey === "savePctg") return Number(player.savePctg ?? player.savePercentage ?? -Infinity);
-  if (currentGoalieSortKey === "gaa") return Number(player.gaa ?? player.goalsAgainstAverage ?? Infinity);
-  if (currentGoalieSortKey === "qualityStarts") return Number(player.qualityStarts ?? -Infinity);
-  if (currentGoalieSortKey === "saves") return Number(player.saves ?? -Infinity);
-  if (currentGoalieSortKey === "shotsAgainst") return Number(player.shotsAgainst ?? -Infinity);
-  return Number(player[currentGoalieSortKey] ?? -Infinity);
 }
 
 function renderGoaliesFromCache() {
@@ -2827,50 +2177,28 @@ function renderGoaliesFromCache() {
     return;
   }
 
-  const rows = [...cachedGoaliesList];
-  rows.sort((a, b) => {
-    const va = goalieSortValue(a);
-    const vb = goalieSortValue(b);
+  const rows = [...cachedGoaliesList].sort((a, b) => {
+    const va = Number(a[currentGoalieSortKey] ?? 0);
+    const vb = Number(b[currentGoalieSortKey] ?? 0);
     return currentGoalieSortAsc ? va - vb : vb - va;
   });
 
   body.innerHTML = rows.map((player, index) => {
-    const savePct = player.savePctg ?? player.savePercentage;
-    const gaa = player.gaa ?? player.goalsAgainstAverage;
-
-    let mainValue = player[currentGoalieSortKey] ?? player.value ?? "—";
-    if (currentGoalieSortKey === "savePctg") {
-      mainValue = typeof savePct === "number" ? savePct.toFixed(3) : (mainValue !== "—" ? Number(mainValue).toFixed(3) : "—");
-    } else if (currentGoalieSortKey === "gaa") {
-      mainValue = typeof gaa === "number" ? gaa.toFixed(2) : (mainValue !== "—" ? Number(mainValue).toFixed(2) : "—");
-    } else if (currentGoalieSortKey === "qualityStarts") {
-      mainValue = val(player.qualityStarts, 0);
-    } else if (currentGoalieSortKey === "saves") {
-      mainValue = val(player.saves, 0);
-    } else if (currentGoalieSortKey === "shotsAgainst") {
-      mainValue = val(player.shotsAgainst, 0);
-    } else if (currentGoalieSortKey === "wins") {
-      mainValue = val(player.wins, 0);
-    } else if (currentGoalieSortKey === "losses") {
-      mainValue = val(player.losses, 0);
-    } else if (currentGoalieSortKey === "shutouts") {
-      mainValue = val(player.shutouts, 0);
-    }
-
+    let mainValue = player[currentGoalieSortKey] ?? "—";
+    if (currentGoalieSortKey === "savePctg") mainValue = Number(mainValue).toFixed(3);
+    else if (currentGoalieSortKey === "gaa") mainValue = Number(mainValue).toFixed(2);
     const gp = player.gamesPlayed ?? 0;
+
     return `
       <div class="player-row" data-player-id="${escapeHtml(getPlayerId(player))}">
         <div class="rank">${index + 1}</div>
         <img class="headshot" src="${escapeHtml(getHeadshot(player))}" alt="" onerror="this.style.visibility='hidden'">
         <div class="info">
           <div class="pname">${escapeHtml(`${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Вратарь")}</div>
-          <div class="pteam">
-            <img class="team-logo" src="${escapeHtml(player.teamLogo || "")}" alt="" onerror="this.style.display='none'">
-            ${escapeHtml(player.teamAbbrev || "")}
-          </div>
+          <div class="pteam">${escapeHtml(player.teamAbbrev || "")}</div>
         </div>
         <div class="pgames">${gp} И</div>
-        <div class="pvalue" style="color:#ffffff !important;">${escapeHtml(mainValue)}</div>
+        <div class="pvalue">${escapeHtml(mainValue)}</div>
       </div>
     `;
   }).join("");
@@ -2883,1488 +2211,17 @@ function renderGoaliesFromCache() {
 async function loadGoalieCards() {
   const body = document.getElementById("players-body");
   body.innerHTML = '<div class="loading">Загрузка статистики вратарей...</div>';
-
   try {
     const seasonId = seasonIdFromEndDate(selectedSeasonEndDate);
     const params = new URLSearchParams({ limit: "100" });
     if (seasonId) params.set("season", seasonId);
 
-    const response = await fetch(`${API_BASE}/api/goalie-leaders?${params}`, { cache: "no-store" });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data?.error || `HTTP ${response.status}`);
-
-    cachedGoaliesList = Array.isArray(data.goalies) ? [...data.goalies] : (Array.isArray(data.data) ? [...data.data] : []);
-    if (!cachedGoaliesList.length) {
-      body.innerHTML = '<div class="empty">Нет данных вратарей за выбранный сезон</div>';
-      return;
-    }
-
-    await hydrateGoalieHeadshots(cachedGoaliesList);
+    const res = await fetch(`${API_BASE}/api/goalie-leaders?${params}`);
+    const data = await res.json();
+    cachedGoaliesList = data.goalies || [];
     renderGoaliesFromCache();
   } catch (error) {
-    body.innerHTML = `<div class="empty">Не удалось загрузить статистику вратарей<br><small>${escapeHtml(error.message || "Ошибка")}</small></div>`;
-  }
-}
-
-document.getElementById("open-h2h-btn").onclick = () => {
-  openH2HModal();
-};
-document.getElementById("close-h2h-modal-btn").onclick = () => {
-  document.getElementById("h2h-modal").style.display = "none";
-};
-
-async function openH2HModal() {
-  const modal = document.getElementById("h2h-modal");
-  const t1 = document.getElementById("h2h-team-1");
-  const t2 = document.getElementById("h2h-team-2");
-
-  modal.style.display = "flex";
-
-  const teams = Object.keys(TEAM_COLORS).sort();
-  const teamsOptions = teams.map(t => `<option value="${t}">${t}</option>`).join("");
-  t1.innerHTML = teamsOptions;
-  t2.innerHTML = teamsOptions;
-
-  t1.value = "EDM";
-  t2.value = "COL";
-
-  t1.onchange = () => loadH2HRoster(1);
-  t2.onchange = () => loadH2HRoster(2);
-
-  document.getElementById("h2h-player-1").onchange = renderH2HComparison;
-  document.getElementById("h2h-player-2").onchange = renderH2HComparison;
-
-  await Promise.all([loadH2HRoster(1), loadH2HRoster(2)]);
-}
-
-async function loadH2HRoster(side) {
-  const team = document.getElementById(`h2h-team-${side}`).value;
-  const pSelect = document.getElementById(`h2h-player-${side}`);
-  pSelect.innerHTML = "<option>Загрузка...</option>";
-
-  let skaters = h2hTeamCache.get(team);
-  if (!skaters) {
-    try {
-      const res = await fetch(`${API_BASE}/api/roster-stats/${team}`);
-      const data = await res.json();
-      skaters = data?.regular?.skaters || data?.skaters || [];
-      h2hTeamCache.set(team, skaters);
-    } catch (_) {
-      skaters = [];
-    }
-  }
-
-  if (!skaters.length) {
-    pSelect.innerHTML = "<option>Нет игроков</option>";
-    return;
-  }
-
-  pSelect.innerHTML = skaters.map(p => `
-    <option value="${escapeHtml(getPlayerId(p))}">${escapeHtml(`${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim() || "Игрок")}</option>
-  `).join("");
-
-  renderH2HComparison();
-}
-
-function renderH2HComparison() {
-  const t1 = document.getElementById("h2h-team-1").value;
-  const t2 = document.getElementById("h2h-team-2").value;
-  const p1Id = document.getElementById("h2h-player-1").value;
-  const p2Id = document.getElementById("h2h-player-2").value;
-  const container = document.getElementById("h2h-comparison-content");
-
-  const s1 = h2hTeamCache.get(t1) || [];
-  const s2 = h2hTeamCache.get(t2) || [];
-
-  const p1 = s1.find(p => String(getPlayerId(p)) === String(p1Id)) || s1[0];
-  const p2 = s2.find(p => String(getPlayerId(p)) === String(p2Id)) || s2[0];
-
-  if (!p1 || !p2) {
-    container.innerHTML = '<div class="empty">Выберите хоккеистов</div>';
-    return;
-  }
-
-  function makeBar(label, v1, v2) {
-    const n1 = Number(v1) || 0;
-    const n2 = Number(v2) || 0;
-    const total = Math.max(1, Math.abs(n1) + Math.abs(n2));
-    const pct1 = Math.round((Math.max(0, n1) / total) * 100);
-    const pct2 = 100 - pct1;
-
-    return `
-      <div class="h2h-bar-row">
-        <div class="h2h-bar-labels">
-          <span style="font-weight:700;color:#ffffff;font-size:13px;">${escapeHtml(v1)}</span>
-          <span style="color:var(--silver-dim);text-transform:uppercase;font-family:'Oswald',sans-serif;">${escapeHtml(label)}</span>
-          <span style="font-weight:700;color:#ffffff;font-size:13px;">${escapeHtml(v2)}</span>
-        </div>
-        <div class="h2h-bar-track">
-          <div class="h2h-bar-left" style="width:${pct1}%;background:#3a86ff;"></div>
-          <div class="h2h-bar-right" style="width:${pct2}%;background:#2ecc71;"></div>
-        </div>
-      </div>
-    `;
-  }
-
-  const p1Name = `${nameStr(p1.firstName)} ${nameStr(p1.lastName)}`.trim();
-  const p2Name = `${nameStr(p2.firstName)} ${nameStr(p2.lastName)}`.trim();
-
-  container.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding:10px 0;border-bottom:1px solid var(--border);">
-      <div style="text-align:center;width:45%;">
-        <img src="${escapeHtml(getHeadshot(p1))}" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #3a86ff;background:var(--surface-2);" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
-        <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:13px;margin-top:4px;color:#fff;">${escapeHtml(p1Name)}</div>
-        <div style="font-size:11px;color:var(--silver-dim);">${escapeHtml(t1)}</div>
-      </div>
-      <div style="font-family:'Oswald',sans-serif;font-weight:700;color:var(--silver-dim);">VS</div>
-      <div style="text-align:center;width:45%;">
-        <img src="${escapeHtml(getHeadshot(p2))}" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #2ecc71;background:var(--surface-2);" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
-        <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:13px;margin-top:4px;color:#fff;">${escapeHtml(p2Name)}</div>
-        <div style="font-size:11px;color:var(--silver-dim);">${escapeHtml(t2)}</div>
-      </div>
-    </div>
-
-    ${makeBar("Очки (PTS)", p1.points ?? 0, p2.points ?? 0)}
-    ${makeBar("Голы (G)", p1.goals ?? 0, p2.goals ?? 0)}
-    ${makeBar("Передачи (A)", p1.assists ?? 0, p2.assists ?? 0)}
-    ${makeBar("+ / -", p1.plusMinus ?? 0, p2.plusMinus ?? 0)}
-    ${makeBar("Броски (SOG)", p1.shots ?? p1.sog ?? 0, p2.shots ?? p2.sog ?? 0)}
-    ${makeBar("Штраф (PIM)", p1.penaltyMinutes ?? p1.pim ?? 0, p2.penaltyMinutes ?? p2.pim ?? 0)}
-  `;
-}
-
-async function hydrateGoalieHeadshots(players) {
-  await Promise.all(players.map(async player => {
-    const playerId = getPlayerId(player);
-    if (!playerId || player.headshot || goalieHeadshotCache.has(playerId)) return;
-    try {
-      const response = await fetch(`${API_BASE}/api/player/${encodeURIComponent(playerId)}`);
-      if (!response.ok) return;
-      const profile = await response.json();
-      if (profile.headshot) {
-        goalieHeadshotCache.set(playerId, profile.headshot);
-        player.headshot = profile.headshot;
-      }
-      if (!player.firstName && profile.firstName) player.firstName = profile.firstName;
-      if (!player.lastName && profile.lastName) player.lastName = profile.lastName;
-      if (!player.teamLogo && profile.teamLogo) player.teamLogo = profile.teamLogo;
-    } catch (_) {}
-  }));
-}
-
-function renderTeamGameStats(rightRail, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
-  const stats = rightRail?.teamGameStats || [];
-  let html = '<div class="section-title">Статистика команд</div>';
-  if (!stats.length) return html + '<div class="empty">Статистика команд формируется протоколом лиги</div>';
-
-  html += `
-    <div class="card" style="padding:0;">
-      <div class="teamstat-header-flex">
-        <div class="teamstat-side-flex">
-          <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_dark.svg';">
-          <span>${escapeHtml(awayAbbrev)}</span>
-        </div>
-        <div class="teamstat-side-flex right">
-          <span>${escapeHtml(homeAbbrev)}</span>
-          <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_dark.svg';">
-        </div>
-      </div>
-  `;
-
-  stats.forEach(stat => {
-    const label = TEAM_STAT_LABELS[stat.category] || stat.category;
-    let awayValue = stat.awayValue;
-    let homeValue = stat.homeValue;
-
-    if (typeof awayValue === "number" && (stat.category === "faceoffWinningPctg" || stat.category === "powerPlayPctg")) {
-      awayValue = `${(awayValue * 100).toFixed(1)}%`;
-      homeValue = `${(homeValue * 100).toFixed(1)}%`;
-    }
-
-    const awayPeriods = formatPeriodsBreakdown(stat.awayPeriods || stat.away?.periods);
-    const homePeriods = formatPeriodsBreakdown(stat.homePeriods || stat.home?.periods);
-
-    html += `
-      <div class="teamstat-row-flex">
-        <div class="teamstat-val-flex left" style="color:#ffffff !important;">
-          ${escapeHtml(val(awayValue))}
-          ${awayPeriods ? `<div style="font-size:10px;color:var(--silver-dim);">${escapeHtml(awayPeriods)}</div>` : ""}
-        </div>
-        <div class="teamstat-label-flex">${escapeHtml(label)}</div>
-        <div class="teamstat-val-flex right" style="color:#ffffff !important;">
-          ${escapeHtml(val(homeValue))}
-          ${homePeriods ? `<div style="font-size:10px;color:var(--silver-dim);">${escapeHtml(homePeriods)}</div>` : ""}
-        </div>
-      </div>
-    `;
-  });
-
-  html += '</div>';
-  return html;
-}
-
-function normalizeTeamDataset(data) {
-  if (!data || typeof data !== "object") return { skaters: [], goalies: [] };
-  const skaters = data.skaters || data.skatersStats || data.players || data.forwards || [];
-  const goalies = data.goalies || data.goaltenders || data.goaliesStats || [];
-  return {
-    skaters: Array.isArray(skaters) ? skaters : [],
-    goalies: Array.isArray(goalies) ? goalies : []
-  };
-}
-
-function buildTeamTablesBlock() {
-  const container = document.getElementById("team-tables-container");
-  if (!container) return;
-  
-  const source = currentTeamFullData?.[currentTeamType] || currentTeamFullData?.[currentTeamType === "regular" ? "regularSeason" : "playoffs"] || currentTeamFullData;
-  const dataset = normalizeTeamDataset(source);
-
-  const skaters = Array.isArray(dataset.skaters) ? [...dataset.skaters] : [];
-  skaters.sort((a, b) => {
-    const valueA = Number(currentTeamSortKey === "penaltyMinutes" ? a.penaltyMinutes ?? a.pim ?? 0 : a[currentTeamSortKey] ?? 0);
-    const valueB = Number(currentTeamSortKey === "penaltyMinutes" ? b.penaltyMinutes ?? b.pim ?? 0 : b[currentTeamSortKey] ?? 0);
-    return currentTeamSortAsc ? valueA - valueB : valueB - valueA;
-  });
-
-  const goalies = Array.isArray(dataset.goalies) ? [...dataset.goalies] : [];
-  goalies.sort((a, b) => Number(b.gamesPlayed ?? 0) - Number(a.gamesPlayed ?? 0));
-
-  let html = '<div class="section-title">Полевые игроки</div>';
-  if (!skaters.length) {
-    html += '<div class="empty">Нет данных полевых игроков</div>';
-  } else {
-    html += `
-      <div class="table-scroll">
-        <table class="stat-table">
-          <thead>
-            <tr>
-              <th>Игрок</th>
-              <th class="sortable" data-sort="gamesPlayed">И</th>
-              <th class="sortable" data-sort="goals">Г</th>
-              <th class="sortable" data-sort="assists">П</th>
-              <th class="sortable" data-sort="points">О</th>
-              <th class="sortable" data-sort="plusMinus">+/-</th>
-              <th class="sortable" data-sort="penaltyMinutes">Штр</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${skaters.map(player => `
-              <tr class="clickable-row" data-player-id="${escapeHtml(getPlayerId(player))}">
-                <td>${escapeHtml(`${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Игрок")}</td>
-                <td class="num">${val(player.gamesPlayed, 0)}</td>
-                <td class="num">${val(player.goals, 0)}</td>
-                <td class="num">${val(player.assists, 0)}</td>
-                <td class="num" style="color:#ffffff !important;font-weight:700;">${val(player.points, 0)}</td>
-                <td class="num">${val(player.plusMinus, 0)}</td>
-                <td class="num">${val(player.penaltyMinutes ?? player.pim, 0)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
-  }
-
-  html += '<div class="section-title">Вратари</div>';
-  if (!goalies.length) {
-    html += '<div class="empty">Нет данных вратарей</div>';
-  } else {
-    html += `
-      <div class="table-scroll">
-        <table class="stat-table">
-          <thead>
-            <tr>
-              <th>Игрок</th>
-              <th>И</th>
-              <th>В</th>
-              <th>П</th>
-              <th>%ОБ</th>
-              <th>ГКИ</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${goalies.map(player => {
-              const savePct = player.savePercentage ?? player.savePctg;
-              const gaa = player.goalsAgainstAverage ?? player.gaa;
-              return `
-                <tr class="clickable-row" data-player-id="${escapeHtml(getPlayerId(player))}">
-                  <td>${escapeHtml(`${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Вратарь")}</td>
-                  <td class="num">${val(player.gamesPlayed, 0)}</td>
-                  <td class="num">${val(player.wins, 0)}</td>
-                  <td class="num">${val(player.losses, 0)}</td>
-                  <td class="num" style="color:#ffffff !important;font-weight:700;">${typeof savePct === "number" ? savePct.toFixed(3) : val(savePct)}</td>
-                  <td class="num">${typeof gaa === "number" ? gaa.toFixed(2) : val(gaa)}</td>
-                </tr>
-              `;
-            }).join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
-  }
-
-  container.innerHTML = html;
-  container.querySelectorAll(".clickable-row").forEach(row => {
-    row.addEventListener("click", () => {
-      if (row.dataset.playerId) openPlayerDetail(row.dataset.playerId);
-    });
-  });
-
-  container.querySelectorAll("th.sortable").forEach(header => {
-    header.onclick = () => {
-      const key = header.dataset.sort;
-      if (currentTeamSortKey === key) {
-        currentTeamSortAsc = !currentTeamSortAsc;
-      } else {
-        currentTeamSortKey = key;
-        currentTeamSortAsc = false;
-      }
-      buildTeamTablesBlock();
-    };
-  });
-}
-
-const TEAM_STAT_LABELS = {
-  sog: "Броски в створ",
-  shotsOnGoal: "Броски в створ",
-  faceoffWinningPctg: "Вбрасывания, %",
-  faceoffWins: "Выигранные вбрасывания",
-  powerPlay: "Большинство",
-  powerPlayPctg: "Большинство, %",
-  pim: "Штраф (мин)",
-  penaltyMinutes: "Штраф (мин)",
-  hits: "Силовые приёмы",
-  blockedShots: "Заблокировано бросков",
-  giveaways: "Потери шайбы",
-  takeaways: "Отборы шайбы"
-};
-
-function formatPeriodsBreakdown(periods) {
-  if (!Array.isArray(periods) || !periods.length) return "";
-  return `(${periods.map(value => val(value, "0")).join(" / ")})`;
-}
-
-function getSkaterStatValue(player, keys, fallback = null) {
-  for (const key of keys) {
-    if (player?.[key] !== undefined && player?.[key] !== null && player?.[key] !== "") {
-      return player[key];
-    }
-  }
-  return fallback;
-}
-
-function formatPct(value) {
-  if (value === undefined || value === null || value === "") return "—";
-  const number = Number(value);
-  if (!Number.isFinite(number)) return String(value);
-  return `${(number <= 1 ? number * 100 : number).toFixed(1)}%`;
-}
-
-function normalizeGameSkaters(team) {
-  if (!team || typeof team !== "object") return [];
-  const forwards = Array.isArray(team.forwards) ? team.forwards : [];
-  const defense = Array.isArray(team.defense) ? team.defense : [];
-  const skaters = Array.isArray(team.skaters) ? team.skaters : [];
-  return [...forwards, ...defense, ...skaters];
-}
-
-function normalizeGameGoalies(team) {
-  if (!team || typeof team !== "object") return [];
-  return Array.isArray(team.goalies) ? team.goalies : [];
-}
-
-function gameSortValue(value, type = "number") {
-  if (value === undefined || value === null || value === "") return "";
-  if (type === "name") return String(value).toLocaleLowerCase("ru");
-  if (type === "time") {
-    const parts = String(value).split(":").map(Number);
-    if (parts.length === 2 && parts.every(Number.isFinite)) {
-      return String(parts[0] * 60 + parts[1]);
-    }
-  }
-  const number = Number(value);
-  return Number.isFinite(number) ? String(number) : String(value).toLocaleLowerCase("ru");
-}
-
-function gameStatCell(key, value, type = "number", display = null) {
-  const shown = display === null ? val(value) : display;
-  const sortValue = gameSortValue(value, type);
-  return `<td class="num" data-sort-column="${escapeHtml(key)}" data-sort-value="${escapeHtml(sortValue)}">${escapeHtml(shown)}</td>`;
-}
-
-function initGameStatSorting() {
-  document.querySelectorAll(".game-player-table[data-sortable]").forEach(table => {
-    if (table.dataset.sortReady === "1") return;
-    table.dataset.sortReady = "1";
-
-    table.querySelectorAll("thead th[data-sort-key]").forEach(th => {
-      th.addEventListener("click", () => {
-        const key = th.dataset.sortKey;
-        const type = th.dataset.sortType || "number";
-        const tbody = table.querySelector("tbody");
-        if (!tbody) return;
-
-        const currentKey = table.dataset.sortKey || "";
-        const currentDir = table.dataset.sortDir === "desc" ? "desc" : "asc";
-        const direction = currentKey === key ? (currentDir === "asc" ? "desc" : "asc") : "desc";
-
-        const rows = Array.from(tbody.querySelectorAll("tr"));
-        rows.sort((a, b) => {
-          const aCell = a.querySelector(`[data-sort-column="${CSS.escape(key)}"]`);
-          const bCell = b.querySelector(`[data-sort-column="${CSS.escape(key)}"]`);
-          const av = aCell?.dataset.sortValue ?? "";
-          const bv = bCell?.dataset.sortValue ?? "";
-
-          if (type === "name") {
-            return av.localeCompare(bv, "ru") * (direction === "asc" ? 1 : -1);
-          }
-
-          const an = Number(av);
-          const bn = Number(bv);
-          const aEmpty = av === "" || !Number.isFinite(an);
-          const bEmpty = bv === "" || !Number.isFinite(bn);
-
-          if (aEmpty && bEmpty) return 0;
-          if (aEmpty) return 1;
-          if (bEmpty) return -1;
-          return (an - bn) * (direction === "asc" ? 1 : -1);
-        });
-
-        rows.forEach(row => tbody.appendChild(row));
-        table.dataset.sortKey = key;
-        table.dataset.sortDir = direction;
-
-        table.querySelectorAll("thead th[data-sort-key]").forEach(item => {
-          item.classList.remove("sort-asc", "sort-desc");
-        });
-        th.classList.add(direction === "asc" ? "sort-asc" : "sort-desc");
-      });
-    });
-  });
-}
-
-function getGamePlayerPosition(player) {
-  const value = player?.positionCode ?? player?.position ?? player?.positionAbbrev ?? player?.positionCodeAbbrev ?? "";
-  const position = String(value || "").toUpperCase();
-  if (["D", "L", "R", "C"].includes(position)) return position;
-  return "";
-}
-
-function renderGamePlayerStats(team, teamAbbrev) {
-  const skaters = normalizeGameSkaters(team);
-  let html = `<div class="section-title">Игроки — ${escapeHtml(teamAbbrev)}</div>`;
-  if (!skaters.length) return html + '<div class="empty">Статистика полевых игроков недоступна</div>';
-
-  html += `
-    <div class="table-scroll game-player-section">
-      <table class="stat-table game-player-table" data-sortable="1">
-        <thead>
-          <tr>
-            <th data-sort-key="name" data-sort-type="name">Игрок</th>
-            <th data-sort-key="goals">Г</th>
-            <th data-sort-key="assists">П</th>
-            <th data-sort-key="points">О</th>
-            <th data-sort-key="plusMinus">+/-</th>
-            <th data-sort-key="shots">Б</th>
-            <th data-sort-key="toi" data-sort-type="time">В</th>
-            <th data-sort-key="hits">Х</th>
-            <th data-sort-key="blocks">Бл</th>
-            <th data-sort-key="faceoff">% Вбр</th>
-          </tr>
-        </thead>
-        <tbody>
-  `;
-
-  skaters.forEach(player => {
-    const baseName = player.name?.default || player.name || `${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Игрок";
-    const position = getGamePlayerPosition(player);
-    const name = position ? `${baseName} (${position})` : baseName;
-
-    const goals = getSkaterStatValue(player, ["goals"]);
-    const assists = getSkaterStatValue(player, ["assists"]);
-    const points = getSkaterStatValue(player, ["points"]);
-    const plusMinus = getSkaterStatValue(player, ["plusMinus"]);
-    const shots = getSkaterStatValue(player, ["sog", "shotsOnGoal", "shots"]);
-    const toi = getSkaterStatValue(player, ["toi", "timeOnIce"]);
-    const hits = getSkaterStatValue(player, ["hits"]);
-    const blocks = getSkaterStatValue(player, ["blockedShots", "blocks"]);
-    const faceoff = getSkaterStatValue(player, ["faceoffWinningPctg", "faceoffWinPctg", "faceoffPctg"]);
-
-    html += `
-      <tr>
-        <td data-sort-column="name" data-sort-value="${escapeHtml(gameSortValue(name, "name"))}">${escapeHtml(name)}</td>
-        ${gameStatCell("goals", goals)}
-        ${gameStatCell("assists", assists)}
-        <td class="num" data-sort-column="points" data-sort-value="${escapeHtml(gameSortValue(points, "number"))}" style="color:#ffffff !important;font-weight:700;">${escapeHtml(val(points))}</td>
-        ${gameStatCell("plusMinus", plusMinus)}
-        ${gameStatCell("shots", shots)}
-        ${gameStatCell("toi", toi, "time")}
-        ${gameStatCell("hits", hits)}
-        ${gameStatCell("blocks", blocks)}
-        ${gameStatCell("faceoff", faceoff, "number", formatPct(faceoff))}
-      </tr>
-    `;
-  });
-
-  html += '</tbody></table></div>';
-  return html;
-}
-
-function renderGameGoalieStats(team, teamAbbrev) {
-  const goalies = normalizeGameGoalies(team);
-  let html = `<div class="section-title">Вратари — ${escapeHtml(teamAbbrev)}</div>`;
-  if (!goalies.length) return html + '<div class="empty">Статистика вратарей недоступна</div>';
-
-  html += `
-    <div class="table-scroll game-player-section">
-      <table class="stat-table game-player-table" data-sortable="1">
-        <thead>
-          <tr>
-            <th data-sort-key="name" data-sort-type="name">Вратарь</th>
-            <th data-sort-key="shotsAgainst">Бр</th>
-            <th data-sort-key="saves">О</th>
-            <th data-sort-key="savePct">%ОБ</th>
-            <th data-sort-key="toi" data-sort-type="time">В</th>
-            <th data-sort-key="gaa">ГКИ</th>
-          </tr>
-        </thead>
-        <tbody>
-  `;
-
-  goalies.forEach(goalie => {
-    const name = goalie.name?.default || goalie.name || `${nameStr(goalie.firstName)} ${nameStr(goalie.lastName)}`.trim() || "Вратарь";
-    const shotsAgainst = getSkaterStatValue(goalie, ["shotsAgainst", "shots"]);
-    const saves = getSkaterStatValue(goalie, ["saves"]);
-    const saveShotsAgainst = getSkaterStatValue(goalie, ["saveShotsAgainst"]);
-    const shots = shotsAgainst ?? (typeof saveShotsAgainst === "string" && saveShotsAgainst.includes("/") ? saveShotsAgainst.split("/").pop().trim() : null);
-    const savePct = goalie.savePctg ?? goalie.savePercentage ?? (shots !== null && saves !== null && Number(shots) > 0 ? Number(saves) / Number(shots) : null);
-    const toi = goalie.toi ?? goalie.timeOnIce ?? "";
-    let gaa = goalie.goalsAgainstAverage ?? goalie.gaa;
-
-    if ((gaa === undefined || gaa === null || gaa === "") && toi && goalie.goalsAgainst !== undefined) {
-      const parts = String(toi).split(":").map(Number);
-      if (parts.length >= 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1])) {
-        const minutes = parts[0] + parts[1] / 60;
-        if (minutes > 0) gaa = Number(goalie.goalsAgainst) / (minutes / 60);
-      }
-    }
-
-    const gaaDisplay = typeof gaa === "number" ? gaa.toFixed(2) : val(gaa);
-    html += `
-      <tr>
-        <td data-sort-column="name" data-sort-value="${escapeHtml(gameSortValue(name, "name"))}">${escapeHtml(name)}</td>
-        ${gameStatCell("shotsAgainst", shots, "number")}
-        <td class="num" data-sort-column="saves" data-sort-value="${escapeHtml(gameSortValue(saves, "number"))}" style="color:#ffffff !important;font-weight:700;">${escapeHtml(val(saves))}</td>
-        <td class="num" data-sort-column="savePct" data-sort-value="${escapeHtml(gameSortValue(savePct, "number"))}" style="color:#ffffff !important;font-weight:700;">${escapeHtml(formatPct(savePct))}</td>
-        ${gameStatCell("toi", toi, "time")}
-        ${gameStatCell("gaa", gaa, "number", gaaDisplay)}
-      </tr>
-    `;
-  });
-
-  html += '</tbody></table></div>';
-  return html;
-}
-
-function renderThreeStarsBlock(stars) {
-  if (!Array.isArray(stars) || !stars.length) return "";
-  const titles = ["1-я звезда", "2-я звезда", "3-я звезда"];
-  const badges = ["🥇", "🥈", "🥉"];
-
-  return `
-    <div class="section-title">Три звезды матча</div>
-    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;margin-bottom:14px;">
-      ${stars.map((s, idx) => {
-        const rawName = s.name || s.playerName || `${nameStr(s.firstName)} ${nameStr(s.lastName)}`.trim();
-        const fullName = nameStr(rawName) || "Игрок";
-
-        const pId = s.playerId || s.id;
-        const headshot = s.headshot || (pId ? `https://assets.nhle.com/mugs/nhl/latest/${pId}.png` : "");
-        const team = s.teamAbbrev?.default || s.teamAbbrev || "";
-        
-        let statText = "";
-        if (s.goals !== undefined || s.assists !== undefined || s.points !== undefined) {
-          const g = Number(s.goals || 0);
-          const a = Number(s.assists || 0);
-          statText = `${g} Г, ${a} П`;
-        } else if (s.savePctg !== undefined || s.savePercentage !== undefined || s.saves !== undefined) {
-          const svPct = Number(s.savePctg ?? s.savePercentage ?? 0);
-          const sv = s.saves !== undefined ? `${s.saves} сейвов` : "";
-          if (svPct > 0) {
-            statText = `${(svPct <= 1 ? svPct * 100 : svPct).toFixed(1)}% ОБ`;
-          } else if (sv) {
-            statText = sv;
-          }
-        }
-
-        return `
-          <div class="card clickable-row" style="padding:10px 6px;text-align:center;display:flex;flex-direction:column;align-items:center;" onclick="openPlayerDetail('${pId}')">
-            <div style="font-size:11px;font-family:'Oswald',sans-serif;color:var(--silver-dim);margin-bottom:6px;text-transform:uppercase;">
-              ${badges[idx] || "⭐"} ${titles[idx] || `${idx + 1} звезда`}
-            </div>
-            <img src="${escapeHtml(headshot)}" 
-                 style="width:48px;height:48px;border-radius:50%;object-fit:cover;background:var(--surface-2);border:1px solid var(--border);" 
-                 onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
-            <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:12px;margin-top:6px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;">
-              ${escapeHtml(fullName)}
-            </div>
-            <div style="font-size:10px;color:var(--silver-dim);margin-top:2px;">
-              ${escapeHtml(team)} · ${escapeHtml(s.position || "")}
-            </div>
-            ${statText ? `<div style="font-family:'Roboto Mono',monospace;font-size:10px;color:#2ecc71;font-weight:700;margin-top:4px;">${escapeHtml(statText)}</div>` : ''}
-          </div>
-        `;
-      }).join("")}
-    </div>
-  `;
-}
-
-async function fetchYouTubeHighlight(away, home, date) {
-  try {
-    const res = await fetch(`${API_BASE}/api/game-youtube-recap?away=${encodeURIComponent(away)}&home=${encodeURIComponent(home)}&date=${encodeURIComponent(date)}`);
-    const data = await res.json();
-    return data.videoId || null;
-  } catch (_) {
-    return null;
-  }
-}
-
-function buildVideoRecapBlock(videoId) {
-  if (!videoId) return "";
-  return `
-    <div class="section-title">Видеообзор матча (YouTube)</div>
-    <div class="video-container">
-      <iframe 
-        src="https://www.youtube.com/embed/${escapeHtml(videoId)}?playsinline=1&rel=0&autoplay=0" 
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-        allowfullscreen>
-      </iframe>
-    </div>
-  `;
-}
-
-async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
-  openDetail();
-  const body = document.getElementById("detail-body");
-
-  let html = `
-    <div class="detail-head-game">
-      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_dark.svg';">
-      <div>
-        <div class="title">${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
-        <div class="subtitle">Статистика и обзор матча</div>
-      </div>
-      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_dark.svg';">
-    </div>
-    <div id="video-recap-slot"></div>
-  `;
-
-  try {
-    const [scoreResponse, railResponse, boxResponse, pbpResponse] = await Promise.all([
-      fetch(`${API_BASE}/api/score/${encodeURIComponent(gameId)}`),
-      fetch(`${API_BASE}/api/right-rail/${encodeURIComponent(gameId)}`),
-      fetch(`${API_BASE}/api/boxscore/${encodeURIComponent(gameId)}`),
-      fetch(`${API_BASE}/api/game-pbp/${encodeURIComponent(gameId)}`).catch(() => null),
-    ]);
-
-    const score = await scoreResponse.json();
-    const rail = await railResponse.json();
-    const box = await boxResponse.json();
-    const pbp = pbpResponse ? await pbpResponse.json() : null;
-
-    
-    const threeStars = score?.summary?.threeStars || score?.threeStars || [];
-    if (Array.isArray(threeStars) && threeStars.length > 0) {
-      html += renderThreeStarsBlock(threeStars);
-    }
-
-    html += '<div class="section-title">Голы</div>';
-
-    const scoring = score?.summary?.scoring || [];
-    let hasGoals = false;
-
-    scoring.forEach(period => {
-      const goals = period.goals || [];
-      if (!goals.length) return;
-      hasGoals = true;
-
-      html += `<div class="period-label">${escapeHtml(formatPeriodLabel(period.periodDescriptor))}</div>`;
-      goals.forEach(goal => {
-        const scorer = `${nameStr(goal.firstName)} ${nameStr(goal.lastName)}`.trim();
-        const strengthLabel = getGoalStrengthLabel(goal);
-        const assists = Array.isArray(goal.assists)
-          ? goal.assists.map(item => `${nameStr(item.firstName)} ${nameStr(item.lastName)}`).join(", ")
-          : "";
-
-        html += `
-          <div class="goal-row">
-            <div class="time">${escapeHtml(val(goal.timeInPeriod))}</div>
-            <div class="desc">
-              <div class="scorer">
-                ${escapeHtml(scorer)} (${escapeHtml(goal.teamAbbrev?.default || goal.teamAbbrev || "")})${strengthLabel ? ` (${strengthLabel})` : ""}
-              </div>
-              ${assists ? `<div class="assists">Передачи: ${escapeHtml(assists)}</div>` : ""}
-            </div>
-            <div class="scoreline" style="color:#ffffff !important;">${escapeHtml(val(goal.awayScore))} : ${escapeHtml(val(goal.homeScore))}</div>
-          </div>
-        `;
-      });
-    });
-
-    if (!hasGoals) html += '<div class="empty">Голов пока не было</div>';
-
-    html += renderTeamGameStats(rail, awayAbbrev, homeAbbrev, awayLogo, homeLogo);
-
-    const awayPlayers = box?.playerByGameStats?.awayTeam || {};
-    const homePlayers = box?.playerByGameStats?.homeTeam || {};
-
-    html += '<div class="section-title">Статистика игроков</div>';
-    html += renderGamePlayerStats(awayPlayers, awayAbbrev);
-    html += renderGamePlayerStats(homePlayers, homeAbbrev);
-    html += renderGameGoalieStats(awayPlayers, awayAbbrev);
-    html += renderGameGoalieStats(homePlayers, homeAbbrev);
-
-    body.innerHTML = html;
-    initGameStatSorting();
-
-    // === ГАРАНТИРОВАННЫЙ ВИДЕООБЗОР (ОФИЦИАЛЬНЫЙ NHL + YOUTUBE) ===
-    const slot = document.getElementById("video-recap-slot");
-    const isLiveGame = score?.gameState === "LIVE" || score?.gameState === "CRIT";
-    const isFinishedGame = isCompletedGame(score) || score?.gameState === "FINAL" || score?.gameState === "OFF";
-
-    if (slot) {
-      if (isLiveGame) {
-        slot.innerHTML = `
-          <div class="card" style="text-align:center;padding:14px;background:var(--surface-2);margin-bottom:14px;border:1px solid rgba(46,204,113,0.3);">
-            <div style="font-family:'Oswald',sans-serif;font-size:13px;color:#2ecc71;font-weight:700;text-transform:uppercase;">
-              🔴 Матч в прямом эфире
-            </div>
-            <div style="font-size:11px;color:var(--silver-dim);margin-top:4px;">
-              Видеообзор встречи появится здесь вскоре после финальной сирены.
-            </div>
-          </div>
-        `;
-      } else if (isFinishedGame) {
-        // 1. Проверяем официальный видео-хайлайт прямо из протокола лиги
-        const officialSources = [
-          box?.gameVideo?.threeMinRecap,
-          box?.gameVideo?.condensedGame,
-          score?.threeMinRecap,
-          score?.condensedGame,
-          rail?.threeMinRecap,
-          rail?.gameVideo?.threeMinRecap
-        ];
-
-        let nhlVideoId = null;
-        for (const src of officialSources) {
-          if (!src) continue;
-          const match = String(src).match(/\d{10,14}/);
-          if (match) { nhlVideoId = match[0]; break; }
-        }
-
-        if (nhlVideoId) {
-          // Мгновенный официальный плеер NHL
-          slot.innerHTML = `
-            <div class="section-title">Официальный видеообзор матча (NHL)</div>
-            <div class="video-container">
-              <iframe 
-                src="https://players.brightcove.net/6415718365001/default_default/index.html?videoId=${nhlVideoId}" 
-                allowfullscreen 
-                allow="encrypted-media">
-              </iframe>
-            </div>
-          `;
-        } else {
-          // Если в протоколе видео ещё монтируется — включаем поиск YouTube
-          slot.innerHTML = `
-            <div class="card" style="text-align:center;padding:14px;background:var(--surface-2);margin-bottom:14px;">
-              <div style="font-family:'Oswald',sans-serif;font-size:13px;color:var(--silver);font-weight:700;text-transform:uppercase;">
-                ⏳ Поиск видеообзора...
-              </div>
-            </div>
-          `;
-
-          const gDate = score?.gameDate || "";
-          if (gDate && awayAbbrev && homeAbbrev) {
-            fetchYouTubeHighlight(awayAbbrev, homeAbbrev, gDate).then(vid => {
-              const currentSlot = document.getElementById("video-recap-slot");
-              if (!currentSlot) return;
-              if (vid) {
-                currentSlot.innerHTML = buildVideoRecapBlock(vid);
-              } else {
-                currentSlot.innerHTML = `
-                  <div class="card" style="text-align:center;padding:14px;background:var(--surface-2);margin-bottom:14px;">
-                    <div style="font-family:'Oswald',sans-serif;font-size:13px;color:var(--silver);font-weight:700;text-transform:uppercase;">
-                      ⏳ Видеообзор готовится
-                    </div>
-                    <div style="font-size:11px;color:var(--silver-dim);margin-top:4px;">
-                      Хайлайт появится здесь в течение 30-40 минут после окончания игры.
-                    </div>
-                  </div>
-                `;
-              }
-            });
-          }
-        }
-      } else {
-        slot.innerHTML = "";
-      }
-    }
-    
-    const pbpBox = document.getElementById("pbp-ticker-box");
-    if (pbpBox) {
-      if (pbp && Array.isArray(pbp.plays) && pbp.plays.length) {
-        pbpBox.innerHTML = pbp.plays.map(p => `
-          <div class="pbp-item">
-            <div class="pbp-time" style="color:#ffffff !important;">${escapeHtml(p.timeInPeriod || "—")}</div>
-            <div class="pbp-desc"><strong>[${escapeHtml(p.team || "NHL")}]</strong> ${escapeHtml(p.description || "")}</div>
-          </div>
-        `).join("");
-      } else {
-        pbpBox.innerHTML = '<div class="empty" style="padding:8px 0;">Протокол событий формируется лигой во время и после матча</div>';
-      }
-    }
-  } catch (error) {
-    html += `<div class="empty">Не удалось загрузить подробности матча<br><small>${escapeHtml(error.message || "Ошибка загрузки")}</small></div>`;
-    body.innerHTML = html;
-  }
-}
-
-async function loadMatchupHistory(awayAbbrev, homeAbbrev) {
-  const away = String(awayAbbrev || "").toUpperCase();
-  const home = String(homeAbbrev || "").toUpperCase();
-  if (!away || !home) return [];
-
-  let seasonIds = [];
-  try {
-    const response = await fetch(`${API_BASE}/api/seasons-list`, { cache: "no-store" });
-    const data = await response.json();
-    const seasons = Array.isArray(data?.seasons) ? data.seasons : [];
-    seasonIds = seasons
-      .map(item => String(item?.id || item?.season || ""))
-      .filter(id => /^\d{8}$/.test(id))
-      .sort((a, b) => Number(b) - Number(a));
-  } catch (_) {}
-
-  const now = new Date();
-  const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
-  const currentSeasonId = `${startYear}${startYear + 1}`;
-  seasonIds = [currentSeasonId, ...seasonIds].filter((id, i, arr) => arr.indexOf(id) === i).slice(0, 6);
-
-  const allGames = [];
-  await Promise.all(seasonIds.map(async seasonId => {
-    try {
-      const response = await fetch(`${API_BASE}/api/team-schedule/${encodeURIComponent(away)}?season=${encodeURIComponent(seasonId)}`, { cache: "no-store" });
-      if (!response.ok) return;
-      const data = await response.json();
-      const games = getScheduleGames(data);
-
-      games.forEach(game => {
-        if (!isCompletedGame(game)) return;
-        const gType = Number(game.gameType ?? game.gameTypeId ?? 2);
-        if (gType === 1) return;
-
-        const gameAway = getGameTeamAbbrev(game.awayTeam);
-        const gameHome = getGameTeamAbbrev(game.homeTeam);
-
-        if ((gameAway === away && gameHome === home) || (gameAway === home && gameHome === away)) {
-          allGames.push({ ...game, __season: seasonId });
-        }
-      });
-    } catch (_) {}
-  }));
-
-  const unique = [];
-  const seen = new Set();
-  allGames
-    .sort((a, b) => (new Date(getGameDateValue(b)).getTime() || 0) - (new Date(getGameDateValue(a)).getTime() || 0))
-    .forEach(game => {
-      const key = String(game.id || `${getGameDateValue(game)}:${getGameTeamAbbrev(game.awayTeam)}:${getGameTeamAbbrev(game.homeTeam)}`);
-      if (!seen.has(key)) {
-        seen.add(key);
-        unique.push(game);
-      }
-    });
-
-  return unique.slice(0, 10);
-}
-
-function renderMatchupHistory(games, awayAbbrev, homeAbbrev) {
-  if (!games.length) {
-    return '<div class="empty">История личных встреч отсутствует</div>';
-  }
-
-  const wins = {
-    [String(awayAbbrev).toUpperCase()]: 0,
-    [String(homeAbbrev).toUpperCase()]: 0
-  };
-
-  games.forEach(game => {
-    const away = getGameTeamAbbrev(game.awayTeam) || awayAbbrev;
-    const home = getGameTeamAbbrev(game.homeTeam) || homeAbbrev;
-    const awayScore = getGameScore(game, "away");
-    const homeScore = getGameScore(game, "home");
-
-    if (awayScore !== null && homeScore !== null) {
-      if (awayScore > homeScore) wins[away] = (wins[away] || 0) + 1;
-      if (homeScore > awayScore) wins[home] = (wins[home] || 0) + 1;
-    }
-  });
-
-  let html = `
-    <div class="matchup-summary-box">
-      <div class="matchup-side-col left">
-        <div class="matchup-team-title">${escapeHtml(awayAbbrev)}</div>
-        <div class="matchup-rec-sub">Побед: ${wins[String(awayAbbrev).toUpperCase()] || 0}</div>
-      </div>
-      <div class="matchup-total-badge">${games.length} матчей</div>
-      <div class="matchup-side-col right">
-        <div class="matchup-team-title">${escapeHtml(homeAbbrev)}</div>
-        <div class="matchup-rec-sub">Побед: ${wins[String(homeAbbrev).toUpperCase()] || 0}</div>
-      </div>
-    </div>
-  `;
-
-  games.forEach(game => {
-    const gameAway = getGameTeamAbbrev(game.awayTeam) || awayAbbrev;
-    const gameHome = getGameTeamAbbrev(game.homeTeam) || homeAbbrev;
-    const awayScore = getGameScore(game, "away");
-    const homeScore = getGameScore(game, "home");
-    const date = getGameDateValue(game);
-    const dateText = date ? new Date(date).toLocaleDateString("ru-RU") : "";
-    const seasonText = game.__season ? String(game.__season).replace(/^(\d{4})(\d{4})$/, "$1-$2") : "";
-
-    const awayWinner = awayScore !== null && homeScore !== null && awayScore > homeScore;
-    const homeWinner = awayScore !== null && homeScore !== null && homeScore > awayScore;
-
-    html += `
-      <div class="h2h-game-row">
-        <div class="h2h-team-cell left ${awayWinner ? 'winner' : ''}">${escapeHtml(gameAway)}</div>
-        <div class="h2h-center-cell">
-          <div class="h2h-score-val">${awayScore !== null && homeScore !== null ? `${awayScore} : ${homeScore}` : '—'}</div>
-          ${dateText ? `<div class="h2h-date-sub">${escapeHtml(dateText)}${seasonText ? ` · ${escapeHtml(seasonText)}` : ''}</div>` : ''}
-        </div>
-        <div class="h2h-team-cell right ${homeWinner ? 'winner' : ''}">${escapeHtml(gameHome)}</div>
-      </div>
-    `;
-  });
-
-  return html;
-}
-
-function renderPregameSeasonSeries(series, awayAbbrev, homeAbbrev) {
-  if (!Array.isArray(series) || !series.length) return '';
-
-  let html = `
-    <div class="section-title">Очные встречи в этом сезоне</div>
-    <div class="card" style="padding:0;">
-  `;
-
-  series.forEach(game => {
-    const away = getTeamAbbrev(game.awayTeam) || awayAbbrev;
-    const home = getTeamAbbrev(game.homeTeam) || homeAbbrev;
-    const aScore = game.awayTeam?.score ?? game.awayScore ?? null;
-    const hScore = game.homeTeam?.score ?? game.homeScore ?? null;
-    const dStr = game.gameDate ? new Date(game.gameDate).toLocaleDateString("ru-RU") : "";
-
-    html += `
-      <div class="h2h-game-row">
-        <div class="h2h-team-cell left">${escapeHtml(away)}</div>
-        <div class="h2h-center-cell">
-          <div class="h2h-score-val">${aScore !== null && hScore !== null ? `${aScore} : ${hScore}` : 'Предстоит'}</div>
-          ${dStr ? `<div class="h2h-date-sub">${escapeHtml(dStr)}</div>` : ''}
-        </div>
-        <div class="h2h-team-cell right">${escapeHtml(home)}</div>
-      </div>
-    `;
-  });
-
-  html += '</div>';
-  return html;
-}
-
-async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo, dateStr) {
-  openDetail();
-  const body = document.getElementById("detail-body");
-
-  body.innerHTML = `
-    <div class="detail-head-game">
-      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_dark.svg';">
-      <div>
-        <div class="title">${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
-        <div class="subtitle">ПРЕДМАТЧЕВОЕ ПРЕВЬЮ</div>
-      </div>
-      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_dark.svg';">
-    </div>
-    <div class="loading">Загрузка предматчевой аналитики, вратарей и травм...</div>
-  `;
-
-  try {
-    const params = new URLSearchParams({
-      date: dateStr || "",
-      away: awayAbbrev || "",
-      home: homeAbbrev || ""
-    });
-
-    const res = await fetch(`${API_BASE}/api/pregame/${encodeURIComponent(gameId)}?${params}`);
-    const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
-
-    renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLogo);
-  } catch (err) {
-    body.innerHTML = `
-      <div class="detail-head-game">
-        <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(awayAbbrev)}_dark.svg';">
-        <div>
-          <div class="title">${escapeHtml(awayAbbrev)} — ${escapeHtml(homeAbbrev)}</div>
-          <div class="subtitle">Предстоящий матч</div>
-        </div>
-        <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(homeAbbrev)}_dark.svg';">
-      </div>
-      <div class="section-title">Последние 10 матчей между клубами</div>
-      <div class="card" style="padding:0;" id="pregame-h2h-box"><div class="loading">Загрузка очных встреч...</div></div>
-    `;
-
-    loadMatchupHistory(awayAbbrev, homeAbbrev).then(hGames => {
-      const box = document.getElementById("pregame-h2h-box");
-      if (box) box.innerHTML = renderMatchupHistory(hGames, awayAbbrev, homeAbbrev);
-    });
-  }
-}
-
-// Вспомогательная функция для отрисовки карточки вратаря
-function renderProbableGoalieCard(goalie, teamAbbrev) {
-  if (!goalie || !goalie.name || goalie.name === "Не объявлен") {
-    return `
-      <div class="pregame-goalie-box">
-        <div class="pregame-goalie-avatar">
-          <img src="https://assets.nhle.com/mugs/nhl/default-player.png" alt="">
-        </div>
-        <div class="pregame-goalie-name">Не объявлен</div>
-        <div class="pregame-goalie-sub">${escapeHtml(teamAbbrev)}</div>
-        <span class="pregame-status-badge badge-unannounced">Ожидается</span>
-      </div>
-    `;
-  }
-
-  const isConfirmed = goalie.confirmed || String(goalie.status || "").toLowerCase().includes("подтвержд");
-  const badgeClass = isConfirmed ? "badge-confirmed" : "badge-probable";
-  const statusText = isConfirmed ? "Подтверждён" : "Вероятен";
-  const headshot = goalie.headshot || "https://assets.nhle.com/mugs/nhl/default-player.png";
-
-  return `
-    <div class="pregame-goalie-box">
-      <div class="pregame-goalie-avatar">
-        <img src="${escapeHtml(headshot)}" alt="" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
-        ${goalie.jersey ? `<span class="pregame-goalie-num">#${escapeHtml(goalie.jersey)}</span>` : ""}
-      </div>
-      <div class="pregame-goalie-name">${escapeHtml(goalie.name)}</div>
-      <div class="pregame-goalie-sub">${escapeHtml(teamAbbrev)}</div>
-      <span class="pregame-status-badge ${badgeClass}">${statusText}</span>
-    </div>
-  `;
-}
-
-function renderFullPregameCenter(data, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
-  const body = document.getElementById("detail-body");
-  const away = data.awayTeam || {};
-  const home = data.homeTeam || {};
-  const injuries = data.injuries || { away: [], home: [] };
-  const preStats = data.preGameStats || [];
-  const seasonSeries = data.seasonSeries || [];
-  const probables = data.probableGoalies || { away: null, home: null };
-
-  const startTime = data.startTimeUTC
-    ? new Date(data.startTimeUTC).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) + " (МСК)"
-    : "Время уточняется";
-
-  let html = `
-    <div class="detail-head-game">
-      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(away.abbrev || awayAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(away.abbrev || awayAbbrev)}_dark.svg';">
-      <div>
-        <div class="title">${escapeHtml(away.abbrev || awayAbbrev)} — ${escapeHtml(home.abbrev || homeAbbrev)}</div>
-        <div class="subtitle" style="color:#2ecc71;font-weight:600;">НАЧАЛО: ${escapeHtml(startTime)}</div>
-      </div>
-      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(home.abbrev || homeAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(home.abbrev || homeAbbrev)}_dark.svg';">
-    </div>
-
-    <!-- БЛОК: СТАРТОВЫЕ ГОЛКИПЕРЫ -->
-    <div class="section-title">Стартовые голкиперы</div>
-    <div class="pregame-probables-grid">
-      ${renderProbableGoalieCard(probables.away, away.abbrev || awayAbbrev)}
-      ${renderProbableGoalieCard(probables.home, home.abbrev || homeAbbrev)}
-    </div>
-
-    <!-- СРАВНЕНИЕ ПОКАЗАТЕЛЕЙ КОМАНД -->
-    <div class="section-title">Сравнение показателей команд</div>
-    <div class="card" style="padding:10px 14px;">
-  `;
-
-  if (!preStats.length) {
-    html += '<div class="empty">Сравнительные данные формируются лигой перед матчем</div>';
-  } else {
-    preStats.forEach(st => {
-      const cat = st.category || "";
-      const label = st.label || formatPregameLabel(cat);
-      const isPct = cat.toLowerCase().includes("pct");
-      const higherIsBetter = st.higherIsBetter !== false && !cat.toLowerCase().includes("against");
-
-      const aVal = isPct ? formatPercentDisplay(st.awayValue) : val(st.awayValue);
-      const hVal = isPct ? formatPercentDisplay(st.homeValue) : val(st.homeValue);
-
-      const aNum = Number(st.awayValue ?? -999);
-      const hNum = Number(st.homeValue ?? -999);
-
-      let aBest = false;
-      let hBest = false;
-      if (Number.isFinite(aNum) && Number.isFinite(hNum) && aNum !== hNum && aNum !== -999) {
-        if (higherIsBetter) {
-          aBest = aNum > hNum;
-          hBest = hNum > aNum;
-        } else {
-          aBest = aNum < hNum;
-          hBest = hNum < aNum;
-        }
-      }
-
-      html += `
-        <div class="comp-row">
-          <div class="val away ${aBest ? 'best' : ''}">${escapeHtml(aVal)}</div>
-          <div class="metric">${escapeHtml(label)}</div>
-          <div class="val home ${hBest ? 'best' : ''}">${escapeHtml(hVal)}</div>
-        </div>
-      `;
-    });
-  }
-
-  html += `
-    </div>
-
-    <!-- СЕРИИ И ФОРМА КОМАНД -->
-    <div class="section-title">Серии и форма команд</div>
-    <div class="card" style="padding:10px 14px;">
-      <div class="comp-row">
-        <div class="val away" style="color:var(--silver);">${escapeHtml(formatStreakDisplay(away.streakCode, away.streakCount))}</div>
-        <div class="metric">Текущая серия</div>
-        <div class="val home" style="color:var(--silver);">${escapeHtml(formatStreakDisplay(home.streakCode, home.streakCount))}</div>
-      </div>
-      <div class="comp-row">
-        <div class="val away">${escapeHtml(away.l10Record || '—')}</div>
-        <div class="metric">Форма (посл. 10)</div>
-        <div class="val home">${escapeHtml(home.l10Record || '—')}</div>
-      </div>
-      <div class="comp-row">
-        <div class="val away">${escapeHtml(away.roadRecord || '—')} (В гостях)</div>
-        <div class="metric">Дома / В гостях</div>
-        <div class="val home">${escapeHtml(home.homeRecord || '—')} (Дома)</div>
-      </div>
-      <div class="comp-row">
-        <div class="val away" style="color:#ffffff !important;">${escapeHtml(away.record?.points ?? '—')} очков (${escapeHtml(away.record?.gamesPlayed ?? '—')} игр)</div>
-        <div class="metric">Очки в сезоне</div>
-        <div class="val home" style="color:#ffffff !important;">${escapeHtml(home.record?.points ?? '—')} очков (${escapeHtml(home.record?.gamesPlayed ?? '—')} игр)</div>
-      </div>
-    </div>
-
-    <!-- ТРАВМИРОВАННЫЕ ИГРОКИ -->
-    <div class="section-title">Список травмированных (Injuries)</div>
-    <div class="pregame-injuries-grid">
-      <div class="injury-team-col">
-        <h4><img src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(away.abbrev || awayAbbrev)}_light.svg" alt="" onerror="this.style.display='none'"> ${escapeHtml(away.abbrev || awayAbbrev)}</h4>
-        ${renderPregameInjuryList(injuries.away)}
-      </div>
-      <div class="injury-team-col">
-        <h4><img src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(home.abbrev || homeAbbrev)}_light.svg" alt="" onerror="this.style.display='none'"> ${escapeHtml(home.abbrev || homeAbbrev)}</h4>
-        ${renderPregameInjuryList(injuries.home)}
-      </div>
-    </div>
-
-    <!-- ПОСЛЕДНИЕ 10 МАТЧЕЙ МЕЖДУ КЛУБАМИ -->
-    <div class="section-title">Последние 10 матчей между клубами</div>
-    <div class="card" style="padding:0;" id="pregame-h2h-container">
-      <div class="loading">Загрузка очных встреч...</div>
-    </div>
-
-    <!-- ОЧНЫЕ ВСТРЕЧИ ТЕКУЩЕГО СЕЗОНА -->
-    ${renderPregameSeasonSeries(seasonSeries, away.abbrev || awayAbbrev, home.abbrev || homeAbbrev)}
-  `;
-
-  body.innerHTML = html;
-
-  loadMatchupHistory(away.abbrev || awayAbbrev, home.abbrev || homeAbbrev).then(h2hGames => {
-    const container = document.getElementById("pregame-h2h-container");
-    if (container) {
-      container.innerHTML = renderMatchupHistory(h2hGames, away.abbrev || awayAbbrev, home.abbrev || homeAbbrev);
-    }
-  });
-}
-
-function renderPregameInjuryList(list) {
-  if (!Array.isArray(list) || !list.length) {
-    return '<div class="empty" style="padding:10px 0;font-size:11px;">Нет травмированных</div>';
-  }
-
-  return list.map(item => {
-    const status = String(item.status || "Injured").toUpperCase();
-    const isOut = status.includes("OUT") || status.includes("IR");
-    const badgeClass = isOut ? "badge-out" : "badge-dtd";
-    const shortName = formatShortName(item.name);
-
-    return `
-      <div class="injury-item">
-        <div class="injury-item-top">
-          <div class="injury-name">${escapeHtml(shortName)} <small style="color:var(--silver-dim);font-weight:normal;">(${escapeHtml(item.position || '')})</small></div>
-          <span class="${badgeClass}">${escapeHtml(item.status)}</span>
-        </div>
-        ${item.details ? `<div class="injury-desc">${escapeHtml(item.details)}</div>` : ''}
-      </div>
-    `;
-  }).join("");
-}
-
-async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
-  const abbreviation = getTeamAbbrev(teamAbbrev);
-  const name = getTeamName(teamName) || abbreviation;
-  const logo = getTeamLogo(teamLogo);
-
-  openDetail();
-  if (!abbreviation) {
-    document.getElementById("detail-body").innerHTML = '<div class="empty">Не удалось определить клуб</div>';
-    return;
-  }
-
-  try {
-    const seasonId = seasonIdFromEndDate(selectedSeasonEndDate);
-    const params = new URLSearchParams();
-    if (seasonId) params.set("season", seasonId);
-    const query = params.toString() ? `?${params}` : "";
-
-    const rosterRes = await fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(abbreviation)}${query}`, {
-      cache: "no-store",
-      headers: { Accept: "application/json" }
-    });
-
-    const data = await rosterRes.json();
-    if (!rosterRes.ok || data?.error) throw new Error(data?.error || `HTTP ${rosterRes.status}`);
-
-    currentTeamFullData = data.data || data.result || data.roster || data;
-    currentTeamType = "regular";
-    currentTeamSortKey = "points";
-    currentTeamSortAsc = false;
-    currentTeamSchedule = null;
-    currentTeamScheduleSeason = "";
-    currentTeamScheduleSeasons = [];
-
-    renderTeamTabsAndTables(abbreviation, name, logo);
-    
-  } catch (error) {
-    document.getElementById("detail-body").innerHTML = `<div class="empty">Не удалось загрузить состав команды<br><small>${escapeHtml(error.message || "Ошибка сервера")}</small></div>`;
-  }
-}
-
-function renderTeamTabsAndTables(teamAbbrev, teamName, teamLogo) {
-  const body = document.getElementById("detail-body");
-
-  body.innerHTML = `
-    <div class="detail-head">
-      <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(teamAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(teamAbbrev)}_dark.svg';">
-      <div>
-        <div class="title">${escapeHtml(teamName || teamAbbrev)}</div>
-        <div class="subtitle">${escapeHtml(teamAbbrev)}</div>
-      </div>
-    </div>
-
-    <div class="cat-row" style="margin-top:14px;">
-      <button id="btn-team-reg" class="active">Регулярный сезон</button>
-      <button id="btn-team-po">Плей-офф</button>
-      <button id="btn-team-schedule">Расписание</button>
-    </div>
-    <div id="team-tables-container"></div>
-  `;
-
-  document.getElementById("btn-team-reg").onclick = async () => {
-    currentTeamType = "regular";
-    document.getElementById("btn-team-reg").classList.add("active");
-    document.getElementById("btn-team-po").classList.remove("active");
-    document.getElementById("btn-team-schedule").classList.remove("active");
-    buildTeamTablesBlock();
-  };
-
-  document.getElementById("btn-team-po").onclick = async () => {
-    currentTeamType = "playoff";
-    document.getElementById("btn-team-po").classList.add("active");
-    document.getElementById("btn-team-reg").classList.remove("active");
-    document.getElementById("btn-team-schedule").classList.remove("active");
-
-    const container = document.getElementById("team-tables-container");
-    container.innerHTML = '<div class="loading">Загрузка статистики плей-офф...</div>';
-
-    try {
-      const seasonId = seasonIdFromEndDate(selectedSeasonEndDate) || "now";
-      const res = await fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(teamAbbrev)}?season=${seasonId}&gameType=3`);
-      const poData = await res.json();
-      currentTeamPlayoffData = poData?.data || poData;
-      buildTeamPlayoffTablesBlock();
-    } catch (_) {
-      container.innerHTML = '<div class="empty">Команда не выступала в плей-офф в этом сезоне</div>';
-    }
-  };
-
-  document.getElementById("btn-team-schedule").onclick = async () => {
-    document.getElementById("btn-team-schedule").classList.add("active");
-    document.getElementById("btn-team-reg").classList.remove("active");
-    document.getElementById("btn-team-po").classList.remove("active");
-    await openTeamScheduleTab(teamAbbrev);
-  };
-
-  buildTeamTablesBlock();
-}
-
-let currentTeamPlayoffData = null;
-
-function buildTeamPlayoffTablesBlock() {
-  const container = document.getElementById("team-tables-container");
-  if (!container) return;
-  const dataset = normalizeTeamDataset(currentTeamPlayoffData);
-  const skaters = Array.isArray(dataset.skaters) ? dataset.skaters : [];
-  const goalies = Array.isArray(dataset.goalies) ? dataset.goalies : [];
-
-  if (!skaters.length && !goalies.length) {
-    container.innerHTML = '<div class="empty">Клуб не участвовал в плей-офф в выбранном сезоне</div>';
-    return;
-  }
-
-  let html = '<div class="section-title">Полевые игроки (Плей-офф)</div>';
-  html += `
-    <div class="table-scroll">
-      <table class="stat-table">
-        <thead>
-          <tr>
-            <th>Игрок</th><th>И</th><th>Г</th><th>П</th><th>О</th><th>+/-</th><th>Штр</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${skaters.map(p => `
-            <tr class="clickable-row" data-player-id="${escapeHtml(getPlayerId(p))}">
-              <td>${escapeHtml(`${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim() || "Игрок")}</td>
-              <td class="num">${val(p.gamesPlayed, 0)}</td>
-              <td class="num">${val(p.goals, 0)}</td>
-              <td class="num">${val(p.assists, 0)}</td>
-              <td class="num" style="color:#ffffff !important;font-weight:700;">${val(p.points, 0)}</td>
-              <td class="num">${val(p.plusMinus, 0)}</td>
-              <td class="num">${val(p.penaltyMinutes ?? p.pim, 0)}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
-
-  if (goalies.length) {
-    html += '<div class="section-title">Вратари (Плей-офф)</div>';
-    html += `
-      <div class="table-scroll">
-        <table class="stat-table">
-          <thead>
-            <tr><th>Игрок</th><th>И</th><th>В</th><th>П</th><th>%ОБ</th><th>ГКИ</th></tr>
-          </thead>
-          <tbody>
-            ${goalies.map(p => {
-              const sv = p.savePercentage ?? p.savePctg;
-              const gaa = p.goalsAgainstAverage ?? p.gaa;
-              return `
-                <tr class="clickable-row" data-player-id="${escapeHtml(getPlayerId(p))}">
-                  <td>${escapeHtml(`${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim() || "Вратарь")}</td>
-                  <td class="num">${val(p.gamesPlayed, 0)}</td>
-                  <td class="num">${val(p.wins, 0)}</td>
-                  <td class="num">${val(p.losses, 0)}</td>
-                  <td class="num" style="color:#ffffff !important;font-weight:700;">${typeof sv === "number" ? sv.toFixed(3) : val(sv)}</td>
-                  <td class="num">${typeof gaa === "number" ? gaa.toFixed(2) : val(gaa)}</td>
-                </tr>
-              `;
-            }).join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
-  }
-  container.innerHTML = html;
-  container.querySelectorAll(".clickable-row").forEach(r => {
-    r.onclick = () => r.dataset.playerId && openPlayerDetail(r.dataset.playerId);
-  });
-}
-
-async function openTeamScheduleTab(teamAbbrev) {
-  const container = document.getElementById("team-tables-container");
-  container.innerHTML = '<div class="loading">Загрузка расписания матчей команды...</div>';
-
-  try {
-    const seasonId = seasonIdFromEndDate(selectedSeasonEndDate) || "now";
-    const res = await fetch(`${API_BASE}/api/team-schedule/${encodeURIComponent(teamAbbrev)}?season=${seasonId}`);
-    const data = await res.json();
-    const games = getScheduleGames(data);
-
-    if (!games.length) {
-      container.innerHTML = '<div class="empty">Матчи не найдены</div>';
-      return;
-    }
-
-    let html = '<div class="section-title">Календарь матчей команды</div><div class="card" style="padding:0;">';
-    games.forEach(g => {
-      const away = getGameTeamAbbrev(g.awayTeam);
-      const home = getGameTeamAbbrev(g.homeTeam);
-      const aScore = getGameScore(g, "away");
-      const hScore = getGameScore(g, "home");
-      const isFin = isCompletedGame(g);
-      const d = getGameDateValue(g);
-      const dStr = d ? new Date(d).toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) : "";
-
-      const isWin = isFin && ((away === teamAbbrev && aScore > hScore) || (home === teamAbbrev && hScore > aScore));
-      
-      const lastPeriod = String(
-        g.gameOutcome?.lastPeriodType || 
-        g.periodDescriptor?.periodType || 
-        g.lastPeriodType || 
-        ""
-      ).toUpperCase();
-
-      let resBadge = '—';
-      if (isFin) {
-        if (isWin) {
-          resBadge = '<span style="color:#2ecc71;font-weight:700;">В</span>';
-        } else {
-          if (lastPeriod === 'SO') {
-            resBadge = '<span style="color:#e67e22;font-weight:700;" title="Поражение по буллитам">ПБ</span>';
-          } else if (lastPeriod === 'OT') {
-            resBadge = '<span style="color:#f39c12;font-weight:700;" title="Поражение в овертайме">ПО</span>';
-          } else {
-            resBadge = '<span style="color:#e74c3c;font-weight:700;" title="Поражение в основное время">П</span>';
-          }
-        }
-      }
-
-      html += `
-        <div class="h2h-game-row">
-          <div style="font-family:'Roboto Mono',monospace;font-size:11px;color:var(--silver-dim);width:45px;">${escapeHtml(dStr)}</div>
-          <div class="h2h-team-cell left" style="display:flex;align-items:center;gap:6px;">
-            <img src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(away)}_light.svg" style="width:18px;height:18px;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(away)}_dark.svg';">
-            <span>${escapeHtml(away)}</span>
-          </div>
-          <div class="h2h-center-cell">
-            <span class="h2h-score-val">${isFin ? `${aScore} : ${hScore}` : 'vs'}</span>
-          </div>
-          <div class="h2h-team-cell right" style="display:flex;align-items:center;justify-content:flex-end;gap:6px;">
-            <span>${escapeHtml(home)}</span>
-            <img src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(home)}_light.svg" style="width:18px;height:18px;" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(home)}_dark.svg';">
-          </div>
-          <div style="width:24px;text-align:right;font-family:'Oswald',sans-serif;">${resBadge}</div>
-        </div>
-      `;
-    });
-    html += '</div>';
-    container.innerHTML = html;
-  } catch (err) {
-    container.innerHTML = '<div class="empty">Не удалось загрузить календарь матчей команды</div>';
+    body.innerHTML = '<div class="empty">Не удалось загрузить вратарей</div>';
   }
 }
 
@@ -4403,10 +2260,29 @@ function renderCareerRow(season, position) {
   return `${html}</tr>`;
 }
 
-    html += '<div class="section-title">Полная статистика карьеры (все лиги)</div>';
-    // Выводим все сезоны без отсекания лиг: юниорские, молодежные, КХЛ, АХЛ, европейские чемпионаты и НХЛ
-    const history = Array.isArray(player.seasonTotals) ? player.seasonTotals : [];
+async function openPlayerDetail(playerId) {
+  openDetail();
+  const body = document.getElementById("detail-body");
 
+  try {
+    const response = await fetch(`${API_BASE}/api/player/${encodeURIComponent(playerId)}`);
+    const player = await response.json();
+    const fullName = `${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || player.fullName || "Игрок";
+    const position = player.positionCode || player.position || "";
+
+    let html = `
+      <div class="detail-head">
+        <img class="headshot" src="${escapeHtml(player.headshot || `https://assets.nhle.com/mugs/nhl/latest/${playerId}.png`)}" alt="" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
+        <div>
+          <div class="title">${escapeHtml(fullName)}</div>
+          <div class="subtitle">${escapeHtml(player.teamAbbrev || "")} · №${escapeHtml(val(player.sweaterNumber))} · ${escapeHtml(position)}</div>
+        </div>
+      </div>
+
+      <div class="section-title">Полная статистика карьеры (все лиги)</div>
+    `;
+
+    const history = Array.isArray(player.seasonTotals) ? player.seasonTotals : [];
     if (!history.length) {
       html += '<div class="empty">История выступлений отсутствует</div>';
     } else {
@@ -4441,174 +2317,63 @@ function renderCareerRow(season, position) {
 
     body.innerHTML = html;
   } catch (error) {
-    body.innerHTML = `<div class="empty">Не удалось загрузить карточку игрока<br><small>${escapeHtml(error.message)}</small></div>`;
+    body.innerHTML = '<div class="empty">Не удалось загрузить карточку игрока</div>';
   }
 }
 
-// 1. ЗАГРУЗКА ТРАНСФЕРОВ
 async function loadTransactions() {
   const container = document.getElementById("transactions-list");
   container.innerHTML = '<div class="loading">Загрузка свежих трансферов...</div>';
-
   try {
     const res = await fetch(`${API_BASE}/api/transactions`);
     const data = await res.json();
     const list = data.transactions || [];
-
     if (!list.length) {
       container.innerHTML = '<div class="empty">Нет последних трансферов</div>';
       return;
     }
-
-    container.innerHTML = list.map(t => {
-      const d = t.date ? new Date(t.date).toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : "";
-      return `
-        <div class="tx-item">
-          <div class="tx-date">${escapeHtml(d)} · <span class="tx-team">${escapeHtml(t.team)}</span></div>
-          <div class="tx-desc">${escapeHtml(t.description)}</div>
-        </div>
-      `;
-    }).join("");
+    container.innerHTML = list.map(t => `
+      <div class="tx-item">
+        <div class="tx-date">${escapeHtml(t.date)} · <span class="tx-team">${escapeHtml(t.team)}</span></div>
+        <div class="tx-desc">${escapeHtml(t.description)}</div>
+      </div>
+    `).join("");
   } catch (err) {
-    container.innerHTML = `<div class="empty">Не удалось загрузить трансферы</div>`;
+    container.innerHTML = '<div class="empty">Не удалось загрузить трансферы</div>';
   }
 }
 
-// 2. НАДЕЖНЫЙ ПЕРЕХОД ПО ССЫЛКЕ В TELEGRAM
-window.openPostInTelegram = function(url) {
-  if (!url) return;
-  try {
-    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openTelegramLink) {
-      window.Telegram.WebApp.openTelegramLink(url);
-      return;
-    }
-  } catch (e) {
-    console.error("Ошибка открытия ссылки в Telegram:", e);
-  }
-  window.open(url, "_blank");
-};
-
-// 3. ЗАГРУЗКА И ВЫВОД НОВОСТЕЙ КАНАЛА
 async function loadNews() {
   const container = document.getElementById("news-feed-container");
-  if (!container) return;
   container.innerHTML = '<div class="loading">Загрузка свежих новостей...</div>';
-
   try {
     const res = await fetch(`${API_BASE}/api/news`);
     const data = await res.json();
     const list = data.news || [];
-
     if (!list.length) {
-      container.innerHTML = `
-        <div class="card" style="text-align:center;padding:28px 14px;">
-          <div style="font-size:30px;margin-bottom:10px;">📢</div>
-          <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;margin-bottom:6px;text-transform:uppercase;">
-            В канале пока нет новостей
-          </div>
-          <div style="font-size:12px;color:var(--silver-dim);line-height:1.4;">
-            Опубликуйте пост с фотографией и заголовком в вашем канале — он мгновенно появится в этом разделе.
-          </div>
-        </div>
-      `;
+      container.innerHTML = '<div class="empty">В канале пока нет новостей</div>';
       return;
     }
-
-    container.innerHTML = list.map(item => {
-      // Поддержка прямой ссылки на изображение или через фото-прокси
-      const imgSrc = item.image || (item.photo_id ? `${API_BASE}/api/news/photo/${escapeHtml(item.photo_id)}` : "");
-      const imgHtml = imgSrc 
-        ? `<img src="${escapeHtml(imgSrc)}" 
-                alt="" 
-                loading="lazy" 
-                onclick="openPostInTelegram('${escapeHtml(item.link)}')">` 
-        : "";
-
-      return `
-        <div class="news-card">
-          ${imgHtml}
-          
-          <div class="news-meta">
-            <span>📅 ${escapeHtml(item.date)}</span>
-            <span class="news-tg-tag">✈ Telegram</span>
-          </div>
-
-          <a class="news-title-link" 
-             href="${escapeHtml(item.link)}" 
-             onclick="event.preventDefault(); openPostInTelegram('${escapeHtml(item.link)}');">
-            ${escapeHtml(item.title)}
-          </a>
-
-          <button class="news-read-btn" type="button" onclick="openPostInTelegram('${escapeHtml(item.link)}')">
-            Читать полностью ↗
-          </button>
+    container.innerHTML = list.map(item => `
+      <div class="news-card">
+        ${item.image ? `<img src="${escapeHtml(item.image)}" alt="" onclick="window.open('${escapeHtml(item.link)}', '_blank')">` : ''}
+        <div class="news-meta">
+          <span>📅 ${escapeHtml(item.date)}</span>
+          <span class="news-tg-tag">✈ Telegram</span>
         </div>
-      `;
-    }).join("");
-  } catch (err) {
+        <a class="news-title-link" href="${escapeHtml(item.link)}" target="_blank">${escapeHtml(item.title)}</a>
+        <button class="news-read-btn" onclick="window.open('${escapeHtml(item.link)}', '_blank')">Читать полностью ↗</button>
+      </div>
+    `).join("");
+  } catch (_) {
     container.innerHTML = '<div class="empty">Не удалось загрузить ленту новостей</div>';
   }
 }
 
-async function loadSpotlight() {
-  const games = document.getElementById("games");
-  try {
-    const response = await fetch(`${API_BASE}/api/leaders/points?limit=6`);
-    const data = await response.json();
-    const players = data.points || [];
-    if (!players.length) return;
-
-    let html = '<div class="spotlight-title">Лидеры лиги по очкам</div>';
-    html += players.map((player, index) => `
-      <div class="spotlight-card" data-player-id="${escapeHtml(getPlayerId(player))}">
-        <div class="spotlight-rank">${index + 1}</div>
-        <img class="spotlight-headshot" src="${escapeHtml(player.headshot || "")}" alt="" onerror="this.style.visibility='hidden'">
-        <div class="spotlight-info">
-          <div class="spotlight-name">
-            ${escapeHtml(`${nameStr(player.firstName)} ${nameStr(player.lastName)}`.trim() || "Игрок")}
-          </div>
-          <div class="spotlight-team">
-            <img class="team-logo" src="${escapeHtml(player.teamLogo || "")}" alt="" onerror="this.style.display='none'">
-            ${escapeHtml(player.teamAbbrev || "")}
-          </div>
-        </div>
-        <div class="spotlight-value" style="color:#ffffff !important;">${escapeHtml(player.value ?? "")}</div>
-      </div>
-    `).join("");
-
-    games.insertAdjacentHTML("beforeend", html);
-    games.querySelectorAll(".spotlight-card").forEach(card => {
-      card.addEventListener("click", () => {
-        if (card.dataset.playerId) openPlayerDetail(card.dataset.playerId);
-      });
-    });
-  } catch (_) {}
-}
-
 function initApp() {
-  try {
-    buildSeasonOptions();
-  } catch (e) {
-    console.error("Seasons load error:", e);
-  }
-
-  try {
-    updateMyTeamButton();
-  } catch (e) {
-    console.error("Team theme error:", e);
-  }
-
-  const params = new URLSearchParams(window.location.search);
-  const rawSection = params.get("section") || "schedule";
-  const safeSection = normalizeInitialSection(rawSection);
-
-  switchTab(safeSection);
-
-  if (rawSection === "goalies") {
-    setTimeout(() => {
-      document.getElementById("leaders-goalies-btn")?.click();
-    }, 100);
-  }
+  buildSeasonOptions();
+  updateMyTeamButton();
+  switchTab("schedule");
 }
 
 if (document.readyState === "loading") {
