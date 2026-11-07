@@ -1865,6 +1865,9 @@ function normalizeTeamAbbr(raw) {
   return String(raw).trim().toUpperCase();
 }
 
+// Кэш статистики игроков в НХЛ
+const draftCareerCache = new Map();
+
 async function loadDraft() {
   const container = document.getElementById("draft-picks-container");
   if (container) container.innerHTML = '<div class="loading">Загрузка результатов драфта...</div>';
@@ -1898,7 +1901,7 @@ async function loadDraft() {
     }
   } catch (_) {}
 
-  // 3. Обход блокировки CORS через прокси напрямую к API драфта NHL
+  // 3. Обход CORS через публичный прокси напрямую к API драфта NHL
   try {
     const target = `https://api-web.nhle.com/v1/draft/picks/${year}/all`;
     const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`);
@@ -1943,6 +1946,51 @@ async function loadDraft() {
   }
 }
 
+// Загрузка статистики в НХЛ для драфтованных игроков
+async function loadNhlStatsForPicks(picks) {
+  const toFetch = picks.filter(p => p.playerId && !draftCareerCache.has(p.playerId)).slice(0, 40);
+  if (!toFetch.length) return;
+
+  await Promise.all(toFetch.map(async p => {
+    try {
+      const res = await fetch(`${API_BASE}/api/player/${p.playerId}`);
+      if (!res.ok) {
+        draftCareerCache.set(p.playerId, "—");
+        return;
+      }
+      const data = await res.json();
+      const history = Array.isArray(data?.seasonTotals) ? data.seasonTotals : [];
+      const nhlSeasons = history.filter(s => s.leagueAbbrev === "NHL" && (s.gameTypeId === 2 || s.gameTypeCode === 2));
+
+      if (!nhlSeasons.length) {
+        draftCareerCache.set(p.playerId, "—");
+      } else if (p.positionCode === "G") {
+        const totalGP = nhlSeasons.reduce((sum, s) => sum + (Number(s.gamesPlayed) || 0), 0);
+        const totalW = nhlSeasons.reduce((sum, s) => sum + (Number(s.wins) || 0), 0);
+        draftCareerCache.set(p.playerId, totalGP > 0 ? `${totalGP} И, ${totalW} В` : "—");
+      } else {
+        const totalGP = nhlSeasons.reduce((sum, s) => sum + (Number(s.gamesPlayed) || 0), 0);
+        const totalG = nhlSeasons.reduce((sum, s) => sum + (Number(s.goals) || 0), 0);
+        const totalA = nhlSeasons.reduce((sum, s) => sum + (Number(s.assists) || 0), 0);
+        const totalPts = totalG + totalA;
+        draftCareerCache.set(p.playerId, totalGP > 0 ? `${totalGP} И, ${totalPts} О (${totalG}+${totalA})` : "—");
+      }
+    } catch (_) {
+      draftCareerCache.set(p.playerId, "—");
+    }
+
+    const span = document.getElementById(`draft-nhl-${p.playerId}`);
+    if (span) {
+      const valText = draftCareerCache.get(p.playerId) || "—";
+      span.textContent = valText;
+      if (valText !== "—") {
+        span.style.color = "#2ecc71";
+        span.style.fontWeight = "700";
+      }
+    }
+  }));
+}
+
 function renderDraftPicks() {
   const container = document.getElementById("draft-picks-container");
   if (!container) return;
@@ -1971,20 +2019,33 @@ function renderDraftPicks() {
     const logoUrl = getSafeTeamLogoUrl(teamAbbr, p.teamLogoLight || p.teamLogoDark);
     const pId = p.playerId || "";
     const clubInfo = p.amateurClubName || p.amateurLeague ? `${p.amateurClubName || ''} (${p.amateurLeague || ''})`.trim() : "—";
+    const headshotUrl = pId ? `https://assets.nhle.com/mugs/nhl/latest/${pId}.png` : "https://assets.nhle.com/mugs/nhl/default-player.png";
+
+    const nhlStat = pId ? (draftCareerCache.get(pId) || "Загрузка...") : "—";
+    const isStatActive = nhlStat !== "—" && nhlStat !== "Загрузка...";
 
     return `
-      <div class="draft-pick-card ${pId ? 'clickable-row' : ''}" ${pId ? `onclick="openPlayerDetail('${pId}')"` : ''}>
-        <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-          <div style="font-family:'Roboto Mono',monospace;font-size:15px;font-weight:700;color:#fff;width:34px;text-align:center;flex-shrink:0;">
+      <div class="draft-pick-card">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">
+          <div style="font-family:'Roboto Mono',monospace;font-size:15px;font-weight:700;color:#fff;width:32px;text-align:center;flex-shrink:0;">
             #${p.overallPick || p.pickInRound || 1}
           </div>
-          <img src="${escapeHtml(logoUrl)}" style="width:28px;height:28px;object-fit:contain;flex-shrink:0;" onerror="this.style.display='none'">
-          <div style="min-width:0;">
+          <img src="${headshotUrl}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:var(--surface-2);border:1px solid var(--border);flex-shrink:0;" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
+          <div style="min-width:0;flex:1;">
             <div style="font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${escapeHtml(fullName)} <span style="font-size:11px;color:var(--silver-dim);font-weight:normal;">(${escapeHtml(p.positionCode || '')})</span>
+              ${pId ? `<span class="tx-player-link" onclick="openPlayerDetail('${pId}')">${escapeHtml(fullName)}</span>` : escapeHtml(fullName)}
+              <span style="font-size:11px;color:var(--silver-dim);font-weight:normal;">(${escapeHtml(p.positionCode || '')})</span>
             </div>
-            <div style="font-size:11px;color:var(--silver-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${escapeHtml(teamAbbr)} · Раунд ${p.round} (#${p.pickInRound}) · ${escapeHtml(clubInfo)}
+            <div style="font-size:11px;color:var(--silver-dim);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <span style="display:inline-flex;align-items:center;gap:4px;">
+                <img src="${escapeHtml(logoUrl)}" style="width:16px;height:16px;object-fit:contain;" onerror="this.style.display='none'">
+                <strong>${escapeHtml(teamAbbr)}</strong>
+              </span>
+              <span>· Р${p.round} (#${p.pickInRound})</span>
+              <span>· ${escapeHtml(clubInfo)}</span>
+            </div>
+            <div style="font-family:'Roboto Mono',monospace;font-size:11px;color:var(--silver-dim);margin-top:2px;">
+              НХЛ: <span id="draft-nhl-${pId}" style="${isStatActive ? 'color:#2ecc71;font-weight:700;' : ''}">${escapeHtml(nhlStat)}</span>
             </div>
           </div>
         </div>
@@ -1994,6 +2055,9 @@ function renderDraftPicks() {
       </div>
     `;
   }).join("");
+
+  // Фоновая подгрузка статистики НХЛ для текущих игроков
+  loadNhlStatsForPicks(list);
 }
 
 async function loadSchedule() {
@@ -3314,6 +3378,11 @@ async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
 
   const isDuplicate = teamName && teamName.trim().toUpperCase() === teamAbbrev.trim().toUpperCase();
 
+  const select = document.getElementById("season-select");
+  const opt = select?.options[select.selectedIndex];
+  const startYear = opt?.dataset.startYear;
+  const targetSeason = startYear ? `${startYear}${Number(startYear) + 1}` : (seasonIdFromEndDate(selectedSeasonEndDate) || "now");
+
   body.innerHTML = `
     <div class="detail-head">
       <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(teamAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(teamAbbrev)}_dark.svg';">
@@ -3325,17 +3394,16 @@ async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
     <div class="cat-row" style="margin-top:14px;">
       <button id="btn-team-reg" class="active">Регулярный сезон</button>
       <button id="btn-team-po">Плей-офф</button>
+      <button id="btn-team-sched">Расписание</button>
     </div>
     <div id="team-tables-container"><div class="loading">Загрузка состава команды...</div></div>
   `;
-
-  // Получаем выбранный в таблице сезон
-  const targetSeason = seasonIdFromEndDate(selectedSeasonEndDate) || "now";
 
   safeOn("btn-team-reg", "click", () => {
     currentTeamType = "regular";
     document.getElementById("btn-team-reg")?.classList.add("active");
     document.getElementById("btn-team-po")?.classList.remove("active");
+    document.getElementById("btn-team-sched")?.classList.remove("active");
     renderTeamRosterView();
   });
 
@@ -3343,6 +3411,7 @@ async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
     currentTeamType = "playoff";
     document.getElementById("btn-team-po")?.classList.add("active");
     document.getElementById("btn-team-reg")?.classList.remove("active");
+    document.getElementById("btn-team-sched")?.classList.remove("active");
 
     const container = document.getElementById("team-tables-container");
     if (container) container.innerHTML = '<div class="loading">Загрузка статистики плей-офф...</div>';
@@ -3355,6 +3424,13 @@ async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
     }
   });
 
+  safeOn("btn-team-sched", "click", async () => {
+    document.getElementById("btn-team-sched")?.classList.add("active");
+    document.getElementById("btn-team-reg")?.classList.remove("active");
+    document.getElementById("btn-team-po")?.classList.remove("active");
+    await renderTeamScheduleView(teamAbbrev, targetSeason);
+  });
+
   try {
     const res = await fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(teamAbbrev)}?season=${targetSeason}&gameType=2`);
     currentTeamFullData = await res.json();
@@ -3364,6 +3440,105 @@ async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
   } catch (e) {
     const c = document.getElementById("team-tables-container");
     if (c) c.innerHTML = '<div class="empty">Не удалось загрузить состав</div>';
+  }
+}
+
+// Отрисовка календаря матчей команды с исходами (В, ВО, ВБ, П, ПО, ПБ)
+async function renderTeamScheduleView(teamAbbrev, seasonId) {
+  const container = document.getElementById("team-tables-container");
+  if (!container) return;
+  container.innerHTML = '<div class="loading">Загрузка расписания матчей команды...</div>';
+
+  try {
+    const sId = seasonId || "now";
+    let res = await fetch(`${API_BASE}/api/team-schedule/${encodeURIComponent(teamAbbrev)}?season=${sId}`);
+    if (!res.ok) {
+      res = await fetch(`https://api-web.nhle.com/v1/club-schedule-season/${encodeURIComponent(teamAbbrev)}/${sId}`);
+    }
+    const data = await res.json();
+    const games = getScheduleGames(data);
+
+    if (!games.length) {
+      container.innerHTML = '<div class="empty">Матчи не найдены за этот сезон</div>';
+      return;
+    }
+
+    let html = '<div class="section-title">Календарь и результаты матчей</div><div class="card" style="padding:0;">';
+    
+    games.forEach(g => {
+      const gAway = getGameTeamAbbrev(g.awayTeam);
+      const gHome = getGameTeamAbbrev(g.homeTeam);
+      const aScore = getGameScore(g, "away");
+      const hScore = getGameScore(g, "home");
+      const isFin = (g.gameState === "OFF" || g.gameState === "FINAL" || (aScore !== null && hScore !== null && g.gameState !== "FUT" && g.gameState !== "PRE"));
+      const dStr = g.gameDate ? new Date(g.gameDate).toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) : "";
+
+      let resBadge = '—';
+      if (isFin) {
+        const isWin = (gAway === teamAbbrev && aScore > hScore) || (gHome === teamAbbrev && hScore > aScore);
+        const lastPeriod = String(
+          g.gameOutcome?.lastPeriodType || 
+          g.periodDescriptor?.periodType || 
+          g.lastPeriodType || 
+          ""
+        ).toUpperCase();
+
+        if (isWin) {
+          if (lastPeriod === 'SO') {
+            resBadge = '<span style="color:#2ecc71;font-weight:700;" title="Победа по буллитам">ВБ</span>';
+          } else if (lastPeriod === 'OT') {
+            resBadge = '<span style="color:#2ecc71;font-weight:700;" title="Победа в овертайме">ВО</span>';
+          } else {
+            resBadge = '<span style="color:#2ecc71;font-weight:700;" title="Победа в основное время">В</span>';
+          }
+        } else {
+          if (lastPeriod === 'SO') {
+            resBadge = '<span style="color:#e67e22;font-weight:700;" title="Поражение по буллитам">ПБ</span>';
+          } else if (lastPeriod === 'OT') {
+            resBadge = '<span style="color:#f39c12;font-weight:700;" title="Поражение в овертайме">ПО</span>';
+          } else {
+            resBadge = '<span style="color:#e74c3c;font-weight:700;" title="Поражение в основное время">П</span>';
+          }
+        }
+      } else {
+        const timeStr = g.startTimeUTC ? new Date(g.startTimeUTC).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) : "vs";
+        resBadge = `<span style="color:var(--silver-dim);font-size:11px;">${timeStr}</span>`;
+      }
+
+      const awayLogo = getSafeTeamLogoUrl(gAway);
+      const homeLogo = getSafeTeamLogoUrl(gHome);
+
+      html += `
+        <div class="h2h-game-row clickable-row" style="cursor:pointer;" onclick="openGameOrPreview('${g.id}', '${gAway}', '${gHome}', '${awayLogo}', '${homeLogo}', '${g.gameDate || ''}', '${g.gameState || ''}')">
+          <div style="font-family:'Roboto Mono',monospace;font-size:11px;color:var(--silver-dim);width:45px;flex-shrink:0;">${escapeHtml(dStr)}</div>
+          <div class="h2h-team-cell left" style="display:flex;align-items:center;gap:6px;">
+            <img src="${escapeHtml(awayLogo)}" style="width:18px;height:18px;object-fit:contain;" onerror="this.style.display='none'">
+            <span style="${gAway === teamAbbrev ? 'font-weight:700;color:#fff;' : ''}">${escapeHtml(gAway)}</span>
+          </div>
+          <div class="h2h-center-cell">
+            <span class="h2h-score-val">${isFin ? `${aScore} : ${hScore}` : 'vs'}</span>
+          </div>
+          <div class="h2h-team-cell right" style="display:flex;align-items:center;justify-content:flex-end;gap:6px;">
+            <span style="${gHome === teamAbbrev ? 'font-weight:700;color:#fff;' : ''}">${escapeHtml(gHome)}</span>
+            <img src="${escapeHtml(homeLogo)}" style="width:18px;height:18px;object-fit:contain;" onerror="this.style.display='none'">
+          </div>
+          <div style="width:28px;text-align:right;font-family:'Oswald',sans-serif;flex-shrink:0;">${resBadge}</div>
+        </div>
+      `;
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = '<div class="empty">Не удалось загрузить календарь матчей команды</div>';
+  }
+}
+
+function openGameOrPreview(gameId, away, home, awayLogo, homeLogo, date, state) {
+  if (state === "FUT" || state === "PRE") {
+    openFutureGamePreview(gameId, away, home, awayLogo, homeLogo, date);
+  } else {
+    openGameDetail(gameId, away, home, awayLogo, homeLogo);
   }
 }
 
