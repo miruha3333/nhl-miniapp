@@ -142,32 +142,28 @@ nav {
   position: sticky;
   top: 54px;
   z-index: 900;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
-  padding: 10px 10px 0;
+  padding: 8px 10px;
   background: var(--bg);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-nav::-webkit-scrollbar {
-  display: none;
+  border-bottom: 1px solid var(--border);
 }
 
 nav button {
-  flex: 1 0 auto;
-  min-width: 68px;
-  padding: 10px 6px;
+  width: 100%;
+  padding: 8px 2px;
   font-family: "Oswald", sans-serif;
   font-size: 12px;
   letter-spacing: .03em;
   text-transform: uppercase;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   color: var(--silver-dim);
   background: var(--surface);
   cursor: pointer;
   white-space: nowrap;
+  text-align: center;
 }
 
 nav button.active {
@@ -176,6 +172,54 @@ nav button.active {
   background: var(--accent);
   font-weight: 700;
   box-shadow: 0 0 10px var(--accent-glow);
+}
+
+/* СТИЛИ ВКЛАДКИ ДРАФТ */
+.draft-rounds-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.draft-rounds-grid button {
+  width: 100%;
+  padding: 6px 0;
+  font-family: "Oswald", sans-serif;
+  font-size: 11px;
+  text-transform: uppercase;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--silver-dim);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.draft-rounds-grid button.active {
+  border-color: var(--accent);
+  color: #fff;
+  background: var(--accent);
+  font-weight: 700;
+}
+
+.draft-pick-card {
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.draft-pick-card.clickable-row {
+  cursor: pointer;
+}
+.draft-pick-card.clickable-row:active {
+  background: var(--surface-2);
 }
 
 main {
@@ -1206,6 +1250,7 @@ select.date-input option {
   <button id="tab-schedule" class="active">Матчи</button>
   <button id="tab-standings">Таблица</button>
   <button id="tab-players">Лидеры</button>
+  <button id="tab-draft">Драфт</button>
   <button id="tab-transactions">Трансферы</button>
   <button id="tab-news">Новости</button>
 </nav>
@@ -1335,7 +1380,31 @@ select.date-input option {
       </div>
     </div>
   </div>
+  <!-- ВКЛАДКА: ДРАФТ (ВСЕ ДРАФТЫ ДО 2026 ГОДА) -->
+  <div id="view-draft" style="display:none">
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;margin-bottom:10px;">
+      <span style="font-family:'Oswald',sans-serif;font-size:12px;color:var(--silver-dim);text-transform:uppercase;">
+        Год драфта
+      </span>
+      <select id="draft-year-select" class="date-input" style="width:auto;flex:1;"></select>
+    </div>
 
+    <!-- Фильтр по раундам (Все + с 1 по 7) -->
+    <div class="draft-rounds-grid" id="draft-rounds-bar">
+      <button class="active" data-draft-round="all">Все</button>
+      <button data-draft-round="1">Р1</button>
+      <button data-draft-round="2">Р2</button>
+      <button data-draft-round="3">Р3</button>
+      <button data-draft-round="4">Р4</button>
+      <button data-draft-round="5">Р5</button>
+      <button data-draft-round="6">Р6</button>
+      <button data-draft-round="7">Р7</button>
+    </div>
+
+    <div id="draft-picks-container">
+      <div class="loading">Загрузка драфта...</div>
+    </div>
+  </div>
   <!-- 4. ВКЛАДКА: ТРАНСФЕРЫ -->
   <div id="view-transactions" style="display:none">
     <div class="section-title">Свежие переходы и переподписания (ESPN)</div>
@@ -1437,6 +1506,11 @@ let currentBoxscoreData = null;
 let boxSortKey = {};
 let boxSortAsc = {};
 
+// Данные драфта
+let currentDraftYear = "2024";
+let currentDraftRound = "all";
+let cachedDraftPicks = [];
+
 let lastMainTab = "schedule";
 let currentDate = new Date();
 let currentCat = "points";
@@ -1451,6 +1525,7 @@ let cachedSkatersList = [];
 
 let myFavoriteTeam = localStorage.getItem("nhl_my_team") || "";
 const goalieHeadshotCache = new Map();
+const playerSearchCache = new Map();
 
 function safeOn(id, event, fn) {
   const el = document.getElementById(id);
@@ -1625,7 +1700,7 @@ function getGameScore(game, side) {
 
 function openDetail() {
   stopAllVideos();
-  ["view-schedule", "view-standings", "view-players", "view-transactions", "view-news"].forEach(v => {
+  ["view-schedule", "view-standings", "view-players", "view-draft", "view-transactions", "view-news"].forEach(v => {
     const el = document.getElementById(v);
     if (el) el.style.display = "none";
   });
@@ -1665,11 +1740,12 @@ function resetLeadersToSkaters() {
   });
 }
 
+// Переключение всех 6 основных вкладок
 function switchTab(tab) {
   stopAllVideos();
-  const safeTab = ["schedule", "standings", "players", "transactions", "news"].includes(tab) ? tab : "schedule";
+  const safeTab = ["schedule", "standings", "players", "draft", "transactions", "news"].includes(tab) ? tab : "schedule";
 
-  ["schedule", "standings", "players", "transactions", "news"].forEach(t => {
+  ["schedule", "standings", "players", "draft", "transactions", "news"].forEach(t => {
     document.getElementById(`tab-${t}`)?.classList.toggle("active", safeTab === t);
     const view = document.getElementById(`view-${t}`);
     if (view) view.style.display = safeTab === t ? "" : "none";
@@ -1679,7 +1755,7 @@ function switchTab(tab) {
   if (detail) detail.style.display = "none";
 
   const nav = document.getElementById("main-nav");
-  if (nav) nav.style.display = "flex";
+  if (nav) nav.style.display = "grid";
 
   const topBack = document.getElementById("header-back-btn") || document.getElementById("back-btn");
   if (topBack) topBack.style.display = "none";
@@ -1695,8 +1771,101 @@ function switchTab(tab) {
     resetLeadersToSkaters();
     loadPlayers();
   }
+  if (safeTab === "draft") {
+    loadDraft();
+  }
   if (safeTab === "transactions") loadTransactions();
   if (safeTab === "news") loadNews();
+}
+
+// === ЛОГИКА ВКЛАДКИ ДРАФТА ===
+function buildDraftYearOptions() {
+  const select = document.getElementById("draft-year-select");
+  if (!select) return;
+
+  // Все драфты вплоть до 2026 года и назад до 1963 года
+  let html = "";
+  for (let y = 2026; y >= 1963; y--) {
+    const isSelected = y === 2024 ? "selected" : "";
+    html += `<option value="${y}" ${isSelected}>Драфт ${y} года</option>`;
+  }
+  select.innerHTML = html;
+}
+
+async function loadDraft() {
+  const container = document.getElementById("draft-picks-container");
+  if (container) container.innerHTML = '<div class="loading">Загрузка результатов драфта...</div>';
+
+  try {
+    // Основной запрос к NHL API (с прямым fallback-переходом на api-web.nhle.com)
+    let res = await fetch(`${API_BASE}/api/draft/${currentDraftYear}?round=all`).catch(() => null);
+    if (!res || !res.ok) {
+      res = await fetch(`https://api-web.nhle.com/v1/draft/picks/${currentDraftYear}/all`);
+    }
+    const data = await res.json();
+    cachedDraftPicks = Array.isArray(data?.picks) ? data.picks : [];
+
+    renderDraftPicks();
+  } catch (err) {
+    if (container) {
+      container.innerHTML = `<div class="empty">Драфт ${currentDraftYear} года ещё не состоялся либо недоступен.<br><small>Выберите предыдущий год (например, 2024 или 2023)</small></div>`;
+    }
+  }
+}
+
+function renderDraftPicks() {
+  const container = document.getElementById("draft-picks-container");
+  if (!container) return;
+
+  if (!cachedDraftPicks.length) {
+    container.innerHTML = `<div class="empty">Драфт ${currentDraftYear} года ещё не состоялся либо данные формируются лигой</div>`;
+    return;
+  }
+
+  // Фильтрация по раунду
+  let list = cachedDraftPicks;
+  if (currentDraftRound !== "all") {
+    const rNum = Number(currentDraftRound);
+    list = list.filter(p => Number(p.round) === rNum);
+  }
+
+  if (!list.length) {
+    container.innerHTML = `<div class="empty">В раунде ${currentDraftRound} нет пиков за ${currentDraftYear} год</div>`;
+    return;
+  }
+
+  container.innerHTML = list.map(p => {
+    const first = nameStr(p.firstName);
+    const last = nameStr(p.lastName);
+    const fullName = `${first} ${last}`.trim() || "Игрок";
+    const teamAbbr = normalizeTeamAbbr ? normalizeTeamAbbr(p.teamAbbrev || p.triCode) : (p.teamAbbrev || "");
+    const logoUrl = getSafeTeamLogoUrl(teamAbbr, p.teamLogoLight || p.teamLogoDark);
+    const pId = p.playerId || "";
+
+    const clubInfo = p.amateurClubName || p.amateurLeague ? `${p.amateurClubName || ''} (${p.amateurLeague || ''})`.trim() : "—";
+
+    return `
+      <div class="draft-pick-card ${pId ? 'clickable-row' : ''}" ${pId ? `onclick="openPlayerDetail('${pId}')"` : ''}>
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+          <div style="font-family:'Roboto Mono',monospace;font-size:15px;font-weight:700;color:#fff;width:34px;text-align:center;flex-shrink:0;">
+            #${p.overallPick || p.pickInRound || 1}
+          </div>
+          <img src="${escapeHtml(logoUrl)}" style="width:28px;height:28px;object-fit:contain;flex-shrink:0;" onerror="this.style.display='none'">
+          <div style="min-width:0;">
+            <div style="font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${escapeHtml(fullName)} <span style="font-size:11px;color:var(--silver-dim);font-weight:normal;">(${escapeHtml(p.positionCode || '')})</span>
+            </div>
+            <div style="font-size:11px;color:var(--silver-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${escapeHtml(teamAbbr)} · Раунд ${p.round} (#${p.pickInRound}) · ${escapeHtml(clubInfo)}
+            </div>
+          </div>
+        </div>
+        <div style="font-family:'Roboto Mono',monospace;font-size:11px;color:var(--silver-dim);text-align:right;flex-shrink:0;">
+          ${escapeHtml(p.countryCode || '')}
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 
 async function loadSchedule() {
@@ -1995,7 +2164,6 @@ async function loadAdvancedStandings() {
       const calcUsat = +(calcSat * 0.985).toFixed(1);
       const calcOzsp = +(50 + (calcSat - 50) * 0.42).toFixed(1);
 
-      // Разбивка побед и поражений (овертаймы и буллиты)
       const wins = Number(st.wins || 0);
       const losses = Number(st.losses || 0);
       const otLosses = Number(st.otLosses || 0);
@@ -2053,7 +2221,6 @@ function renderAdvancedStandings() {
       </div>
       <div class="name sticky-col sticky-col-3">${escapeHtml(t.teamAbbrev)}</div>
       
-      <!-- В, ВОТ, ВБ, П, ПО, ПБ -->
       <div class="num" style="color:#ffffff;">${t.wins}</div>
       <div class="num" style="color:#2ecc71;">${t.otWins}</div>
       <div class="num" style="color:#2ecc71;">${t.soWins}</div>
@@ -2061,7 +2228,6 @@ function renderAdvancedStandings() {
       <div class="num" style="color:#ff4d4d;">${t.otLosses}</div>
       <div class="num" style="color:#ff4d4d;">${t.soLosses}</div>
 
-      <!-- SAT%, USAT%, PDO, OZ St% и остальные показатели -->
       <div class="num" style="color:${t.satPct >= 50 ? '#2ecc71' : '#ff4d4d'};font-weight:700;">${t.satPct}%</div>
       <div class="num" style="color:#ffffff;">${t.usatPct}%</div>
       <div class="num" style="color:#ffffff;">${t.pdo}</div>
@@ -2081,7 +2247,6 @@ function renderAdvancedStandings() {
   });
 }
 
-// Загрузка сетки плей-офф для выбранного сезона
 async function loadPlayoffBracket(playoffYear) {
   const container = document.getElementById("bracket-container");
   if (!container) return;
@@ -2424,7 +2589,7 @@ async function openPlayerDetail(playerId) {
   }
 }
 
-// === КАРТОЧКА ЗАВЕРШИВШЕГОСЯ МАТЧА С ТРЕМЯ ЗВЕЗДАМИ И СОРТИРОВКОЙ КАЖДОГО СТОЛБЦА ===
+// === КАРТОЧКА МАТЧА: ГОЛЫ, ЗВЕЗДЫ, СТАТИСТИКА КОМАНД, ИГРОКИ И ВРАТАРИ ===
 async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
   openDetail();
   const body = document.getElementById("detail-body");
@@ -2453,7 +2618,6 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
       <div id="video-recap-slot"></div>
     `;
 
-    // 1. Все 3 звезды с показателями
     let rawStars = score?.summary?.threeStars || box?.threeStars || score?.threeStars || [];
     if (!Array.isArray(rawStars) || rawStars.length < 3) {
       if (Array.isArray(box?.threeStars) && box.threeStars.length >= 3) rawStars = box.threeStars;
@@ -2495,7 +2659,6 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
       `;
     }
 
-    // 2. Голы
     html += '<div class="section-title">Голы</div>';
     const scoring = score?.summary?.scoring || [];
     let hasGoals = false;
@@ -2521,7 +2684,6 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
     });
     if (!hasGoals) html += '<div class="empty">Голов в матче не было</div>';
 
-    // 3. Статистика команд
     const stats = rail?.teamGameStats || [];
     if (stats.length) {
       const statLabels = {
@@ -2554,12 +2716,10 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
       html += '</div>';
     }
 
-    // Контейнер для таблиц полевых игроков и вратарей с сортировкой
     html += '<div id="boxscore-tables-container"></div>';
 
     if (body) body.innerHTML = html;
 
-    // Отрисовка интерактивных таблиц игроков с сортировкой
     renderBoxTables(awayAbbrev, homeAbbrev);
 
     const slot = document.getElementById("video-recap-slot");
@@ -2582,7 +2742,6 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
   }
 }
 
-// Сортировка таблиц игроков и вратарей для каждого столбца
 function renderBoxTables(awayAbbrev, homeAbbrev) {
   const container = document.getElementById("boxscore-tables-container");
   if (!container || !currentBoxscoreData) return;
@@ -2713,7 +2872,7 @@ function renderBoxTables(awayAbbrev, homeAbbrev) {
   });
 }
 
-// === ПРЕДМАТЧЕВЫЙ ЦЕНТР: СРАВНЕНИЕ (ЗЕЛЕНЫЙ/КРАСНЫЙ), ПОСЛЕДНИЕ 10 МАТЧЕЙ И ВРАТАРИ ===
+// === ПРЕДМАТЧЕВЫЙ ЦЕНТР С ТОЧНОЙ РАСКРАСКОЙ ПОКАЗАТЕЛЕЙ ===
 async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo, dateStr) {
   openDetail();
   const body = document.getElementById("detail-body");
@@ -2769,8 +2928,8 @@ async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, h
       <div class="card" style="padding:10px 14px;">
     `;
 
-    // Точная раскраска показателей:
-    // МЕНЬШЕ = ЛУЧШЕ (зеленый меньшему) ТОЛЬКО для:
+    // Точная раскраска показателей команд:
+    // МЕНЬШЕ = ЛУЧШЕ (зеленый меньшему) ТОЛЬКО ДЛЯ:
     // 1) "Пропущено за игру" (GA/G)
     // 2) "Броски соперника по своим воротам" (SA/G)
     //
@@ -2784,7 +2943,6 @@ async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, h
       const label = String(st.label || '').toLowerCase();
       const isPct = cat.includes('pct');
 
-      // Исключаем ошибочные совпадения по слову pergame
       const isGoalsAgainst = cat === "goalsagainstpergame" || cat === "ga" || label.includes("пропущено") || label.includes("ga/g");
       const isShotsAgainst = cat === "shotsagainstpergame" || cat === "sa" || label.includes("по своим") || label.includes("sa/g");
 
@@ -2915,7 +3073,6 @@ function renderPregameSeasonSeries(series, awayAbbrev, homeAbbrev) {
   return html;
 }
 
-// Загрузка 10 очных матчей
 async function loadMatchupHistory(awayAbbrev, homeAbbrev) {
   const away = String(awayAbbrev || "").toUpperCase();
   const home = String(homeAbbrev || "").toUpperCase();
@@ -2967,7 +3124,6 @@ async function loadMatchupHistory(awayAbbrev, homeAbbrev) {
   return unique.slice(0, 10);
 }
 
-// Победитель матча выделен зеленым (#2ecc71), проигравший — красным (#ff4d4d)
 function renderMatchupHistory(games, awayAbbrev, homeAbbrev) {
   if (!games.length) return '<div class="empty">История встреч формируется</div>';
   const away = String(awayAbbrev).toUpperCase();
@@ -3181,9 +3337,6 @@ function renderTeamRosterView() {
   });
 }
 
-// Кэш для быстрого перехода к игроку из текста трансфера
-const playerSearchCache = new Map();
-
 async function findAndOpenPlayer(playerName) {
   const clean = playerName.trim();
   if (playerSearchCache.has(clean)) {
@@ -3220,12 +3373,10 @@ async function loadTransactions() {
       container.innerHTML = list.map(t => {
         let desc = escapeHtml(t.description || '');
 
-        // Регулярное выражение ищет шаблон: "forward/defenseman/goaltender/center Firstname Lastname"
         desc = desc.replace(/(forward|defenseman|defenceman|goaltender|goalie|center|winger|left wing|right wing|F|D|G)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi, (match, pos, pName) => {
           return `${pos} <span class="tx-player-link" onclick="findAndOpenPlayer('${escapeHtml(pName)}')">${escapeHtml(pName)}</span>`;
         });
 
-        // Также распознает варианты "Signed/Traded/Recalled/Claimed Firstname Lastname"
         desc = desc.replace(/(Signed|Traded|Recalled|Claimed|Assigned|Activated|Placed)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi, (match, act, pName) => {
           return `${act} <span class="tx-player-link" onclick="findAndOpenPlayer('${escapeHtml(pName)}')">${escapeHtml(pName)}</span>`;
         });
@@ -3272,7 +3423,6 @@ async function loadNews() {
   }
 }
 
-// Загрузка сезонов с фильтрацией дублирующего сезона
 async function buildSeasonOptions() {
   const select = document.getElementById("season-select");
   if (!select) return;
@@ -3333,9 +3483,11 @@ function renderTeamSelectorModal() {
 }
 
 function initApp() {
+  // Навешивание 6 основных вкладок
   safeOn("tab-schedule", "click", () => switchTab("schedule"));
   safeOn("tab-standings", "click", () => switchTab("standings"));
   safeOn("tab-players", "click", () => switchTab("players"));
+  safeOn("tab-draft", "click", () => switchTab("draft"));
   safeOn("tab-transactions", "click", () => switchTab("transactions"));
   safeOn("tab-news", "click", () => switchTab("news"));
 
@@ -3367,6 +3519,21 @@ function initApp() {
     currentAdvancedTeamsData = [];
     loadStandings();
     loadCurrentPlayoffBracket();
+  });
+
+  // Элементы управления драфтом
+  safeOn("draft-year-select", "change", event => {
+    currentDraftYear = event.target.value;
+    loadDraft();
+  });
+
+  document.querySelectorAll("#draft-rounds-bar button").forEach(b => {
+    b.onclick = () => {
+      document.querySelectorAll("#draft-rounds-bar button").forEach(item => item.classList.remove("active"));
+      b.classList.add("active");
+      currentDraftRound = b.dataset.draftRound;
+      renderDraftPicks();
+    };
   });
 
   safeOn("std-mode-all", "click", () => setStandingsMode("all"));
@@ -3435,6 +3602,7 @@ function initApp() {
   });
 
   try { buildSeasonOptions(); } catch (_) {}
+  try { buildDraftYearOptions(); } catch (_) {}
   try { updateMyTeamButton(); } catch (_) {}
   switchTab("schedule");
 }
