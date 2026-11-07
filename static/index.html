@@ -221,7 +221,72 @@ nav button.active {
 .draft-pick-card.clickable-row:active {
   background: var(--surface-2);
 }
+/* СЕТКА И СЕРИИ ПЛЕЙ-ОФФ */
+.bracket-wrap {
+  margin-top: 16px;
+}
 
+.bracket-round-title {
+  margin: 14px 0 8px;
+  color: var(--silver-dim);
+  font-family: "Oswald", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.bracket-series {
+  margin-bottom: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.bracket-team-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.bracket-team-row .bt-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: "Oswald", sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--silver);
+}
+
+/* Строгое ограничение логотипа в плей-офф до 24px */
+.bracket-team-row .bt-name img {
+  width: 24px !important;
+  height: 24px !important;
+  max-width: 24px !important;
+  max-height: 24px !important;
+  object-fit: contain !important;
+  flex-shrink: 0;
+}
+
+.bracket-team-row.winner .bt-name {
+  color: #2ecc71 !important;
+  font-weight: 700;
+}
+
+.bracket-team-row .bt-wins {
+  font-family: "Roboto Mono", monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.bracket-team-row.winner .bt-wins {
+  color: #2ecc71 !important;
+}
 main {
   padding:14px 16px 0;
 }
@@ -1796,20 +1861,54 @@ async function loadDraft() {
   const container = document.getElementById("draft-picks-container");
   if (container) container.innerHTML = '<div class="loading">Загрузка результатов драфта...</div>';
 
-  try {
-    // Основной запрос к NHL API (с прямым fallback-переходом на api-web.nhle.com)
-    let res = await fetch(`${API_BASE}/api/draft/${currentDraftYear}?round=all`).catch(() => null);
-    if (!res || !res.ok) {
-      res = await fetch(`https://api-web.nhle.com/v1/draft/picks/${currentDraftYear}/all`);
-    }
-    const data = await res.json();
-    cachedDraftPicks = Array.isArray(data?.picks) ? data.picks : [];
+  const year = currentDraftYear;
 
-    renderDraftPicks();
-  } catch (err) {
-    if (container) {
-      container.innerHTML = `<div class="empty">Драфт ${currentDraftYear} года ещё не состоялся либо недоступен.<br><small>Выберите предыдущий год (например, 2024 или 2023)</small></div>`;
+  // 1. Для недавних сезонов запрашиваем раунды 1..7 параллельно
+  try {
+    const rounds = [1, 2, 3, 4, 5, 6, 7];
+    const results = await Promise.all(
+      rounds.map(r => 
+        fetch(`https://api-web.nhle.com/v1/draft/picks/${year}/${r}`)
+          .then(res => res.ok ? res.json() : null)
+          .catch(() => null)
+      )
+    );
+
+    const validPicks = results.filter(Boolean).flatMap(d => Array.isArray(d?.picks) ? d.picks : []);
+    if (validPicks.length > 0) {
+      cachedDraftPicks = validPicks;
+      renderDraftPicks();
+      return;
     }
+  } catch (_) {}
+
+  // 2. Официальная архивная база NHL Stats REST API (содержит драфты с 1963 года, включая 2020)
+  try {
+    const res = await fetch(`https://api.nhle.com/stats/rest/en/draft?cayenneExp=draftYear=${year}&start=0&limit=300`);
+    if (res.ok) {
+      const data = await res.json();
+      const rows = Array.isArray(data?.data) ? data.data : [];
+      if (rows.length > 0) {
+        cachedDraftPicks = rows.map(r => ({
+          overallPick: r.overallPickNumber || r.pickInDraft,
+          round: r.roundNumber,
+          pickInRound: r.pickInRound,
+          teamAbbrev: r.triCode || r.draftedByTeamAbbrev,
+          firstName: r.firstName,
+          lastName: r.lastName,
+          positionCode: r.positionCode || r.position,
+          countryCode: r.countryCode || r.nationalityCode,
+          amateurClubName: r.amateurClubName || r.lastAmateurClub,
+          playerId: r.playerId || r.id
+        }));
+        renderDraftPicks();
+        return;
+      }
+    }
+  } catch (_) {}
+
+  if (container) {
+    container.innerHTML = `<div class="empty">Драфт ${year} года ещё не состоялся либо недоступен.<br><small>Выберите предыдущий год (например, 2024, 2023 или 2020)</small></div>`;
   }
 }
 
@@ -1818,11 +1917,10 @@ function renderDraftPicks() {
   if (!container) return;
 
   if (!cachedDraftPicks.length) {
-    container.innerHTML = `<div class="empty">Драфт ${currentDraftYear} года ещё не состоялся либо данные формируются лигой</div>`;
+    container.innerHTML = `<div class="empty">Драфт ${currentDraftYear} года ещё не состоялся</div>`;
     return;
   }
 
-  // Фильтрация по раунду
   let list = cachedDraftPicks;
   if (currentDraftRound !== "all") {
     const rNum = Number(currentDraftRound);
@@ -1838,10 +1936,9 @@ function renderDraftPicks() {
     const first = nameStr(p.firstName);
     const last = nameStr(p.lastName);
     const fullName = `${first} ${last}`.trim() || "Игрок";
-    const teamAbbr = normalizeTeamAbbr ? normalizeTeamAbbr(p.teamAbbrev || p.triCode) : (p.teamAbbrev || "");
+    const teamAbbr = String(p.teamAbbrev || p.triCode || "").toUpperCase();
     const logoUrl = getSafeTeamLogoUrl(teamAbbr, p.teamLogoLight || p.teamLogoDark);
     const pId = p.playerId || "";
-
     const clubInfo = p.amateurClubName || p.amateurLeague ? `${p.amateurClubName || ''} (${p.amateurLeague || ''})`.trim() : "—";
 
     return `
