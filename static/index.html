@@ -1572,7 +1572,7 @@ let boxSortKey = {};
 let boxSortAsc = {};
 
 // Данные драфта
-let currentDraftYear = "2024";
+let currentDraftYear = "2026";
 let currentDraftRound = "all";
 let cachedDraftPicks = [];
 
@@ -1848,10 +1848,10 @@ function buildDraftYearOptions() {
   const select = document.getElementById("draft-year-select");
   if (!select) return;
 
-  // Все драфты вплоть до 2026 года и назад до 1963 года
+  // Все драфты вплоть до 2026 года и назад до 1963 года (2026 выбран по умолчанию)
   let html = "";
   for (let y = 2026; y >= 1963; y--) {
-    const isSelected = y === 2024 ? "selected" : "";
+    const isSelected = y === 2026 ? "selected" : "";
     html += `<option value="${y}" ${isSelected}>Драфт ${y} года</option>`;
   }
   select.innerHTML = html;
@@ -2009,10 +2009,14 @@ async function hydrateDraftPicks(picks) {
             const reg = pData?.careerTotals?.regularSeason;
             if (reg && (Number(reg.gamesPlayed) || 0) > 0) {
               if (p.positionCode === "G") {
-                statText = `${reg.gamesPlayed} И, ${reg.wins || 0} В, ${reg.losses || 0} П, ${typeof reg.savePctg === 'number' ? reg.savePctg.toFixed(3) : '—'} %ОБ`;
+                statText = `${reg.gamesPlayed} ${reg.wins || 0}-${reg.losses || 0} ${reg.pim ?? reg.penaltyMinutes ?? 0}`;
               } else {
-                // Игры, шайбы, передачи, очки, штрафное время
-                statText = `${reg.gamesPlayed} И, ${reg.goals || 0} Ш, ${reg.assists || 0} П, ${reg.points || 0} О, ${reg.pim ?? reg.penaltyMinutes ?? 0} Штр`;
+                // Формат строго без букв: игры шайбы+передачи=очки штрафные минуты (например: 17 5+6=11 6)
+                const g = Number(reg.goals) || 0;
+                const a = Number(reg.assists) || 0;
+                const pts = Number(reg.points) || (g + a);
+                const pim = Number(reg.pim ?? reg.penaltyMinutes) || 0;
+                statText = `${reg.gamesPlayed} ${g}+${a}=${pts} ${pim}`;
               }
             } else {
               statText = "—";
