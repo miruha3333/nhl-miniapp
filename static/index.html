@@ -1821,6 +1821,35 @@ function normalizeTeamAbbr(raw) {
   return String(raw).trim().toUpperCase();
 }
 
+function normalizeCompareName(str) {
+  return String(str || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-zа-яё]/g, "");
+}
+
+// Умное сопоставление имён (Alexander -> Alex, Mitchell -> Mitch, Matthew -> Matt, Yevgeni -> Evgeni)
+function isPlayerMatch(searchName, draftFull, draftFirst, draftLast) {
+  const sNorm = normalizeCompareName(searchName);
+  const targetNorm = normalizeCompareName(draftFull);
+  if (sNorm === targetNorm) return true;
+
+  const lNorm = normalizeCompareName(draftLast);
+  if (!sNorm.includes(lNorm)) return false;
+
+  const fNorm = normalizeCompareName(draftFirst);
+  if (!fNorm) return true;
+
+  // Совпадение по первым 3 буквам имени (Alex/Alexander, Matt/Matthew, Mitch/Mitchell)
+  if (sNorm.includes(fNorm.slice(0, 3))) return true;
+
+  // Совпадение по корню для славянских имён (Evgeni/Yevgeni, Ilia/Ilya)
+  if (fNorm.length >= 4 && sNorm.includes(fNorm.slice(2, 5))) return true;
+
+  return false;
+}
+
 const draftPlayerCache = new Map();
 
 async function handleDraftClick(fullName, pId) {
@@ -1842,31 +1871,6 @@ async function loadDraft() {
 
   const year = currentDraftYear;
   cachedDraftPicks = [];
-
-  try {
-    const statsUrl = `https://api.nhle.com/stats/rest/en/draft?cayenneExp=draftYear=${year}&limit=300`;
-    const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(statsUrl)}`);
-    if (res.ok) {
-      const data = await res.json();
-      const rows = Array.isArray(data?.data) ? data.data : [];
-      if (rows.length > 0) {
-        cachedDraftPicks = rows.map(r => ({
-          overallPick: r.overallPickNumber || r.pickInDraft,
-          round: r.roundNumber,
-          pickInRound: r.pickInRound,
-          teamAbbrev: r.triCode || r.draftedByTeamAbbrev,
-          firstName: r.firstName,
-          lastName: r.lastName,
-          positionCode: r.positionCode || r.position,
-          countryCode: r.countryCode || r.nationalityCode,
-          amateurClubName: r.amateurClubName || r.lastAmateurClub,
-          playerId: r.playerId || r.id || ""
-        }));
-        renderDraftPicks();
-        return;
-      }
-    }
-  } catch (_) {}
 
   try {
     const res = await fetch(`${API_BASE}/api/draft/${year}?round=all`);
@@ -1901,17 +1905,35 @@ async function loadDraft() {
 async function hydrateDraftPicks(picks) {
   const toProcess = picks.slice(0, 40);
 
-  for (const p of toProcess) {
+  for (let idx = 0; idx < toProcess.length; idx++) {
+    const p = toProcess[idx];
     const first = nameStr(p.firstName);
     const last = nameStr(p.lastName);
     const fullName = `${first} ${last}`.trim();
     if (!fullName) continue;
 
-    const pickNum = p.overallPick || p.pickInRound || 1;
+    const pickNum = p.overallPick || p.pickInRound || (idx + 1);
     let info = draftPlayerCache.get(fullName);
 
     if (!info) {
-      const pId = p.playerId || p.id || "";
+      let pId = p.playerId || p.id || "";
+
+      // Если в объекте драфта нет ID, ищем через базу поиска игроков NHL
+      if (!pId) {
+        try {
+          const sRes = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=10&q=${encodeURIComponent(last || fullName)}`);
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            if (Array.isArray(sData) && sData.length > 0) {
+              const matched = sData.find(item => isPlayerMatch(item.name, fullName, first, last)) || sData[0];
+              if (matched && matched.playerId) {
+                pId = matched.playerId;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
       let statText = "—";
       let headshot = pId ? `https://assets.nhle.com/mugs/nhl/latest/${pId}.png` : "https://assets.nhle.com/mugs/nhl/default-player.png";
 
@@ -1985,11 +2007,11 @@ function renderDraftPicks() {
     const fullName = `${first} ${last}`.trim() || "Игрок";
     const teamAbbr = normalizeTeamAbbr(p.teamAbbrev || p.triCode);
     const logoUrl = getSafeTeamLogoUrl(teamAbbr, p.teamLogoLight || p.teamLogoDark);
-    const pId = p.playerId || "";
     const clubInfo = p.amateurClubName || p.amateurLeague ? `${p.amateurClubName || ''} (${p.amateurLeague || ''})`.trim() : "—";
     const pickNum = p.overallPick || p.pickInRound || (idx + 1);
 
     const cached = draftPlayerCache.get(fullName);
+    const pId = cached?.playerId || p.playerId || "";
     const headshotUrl = cached?.headshot || (pId ? `https://assets.nhle.com/mugs/nhl/latest/${pId}.png` : "https://assets.nhle.com/mugs/nhl/default-player.png");
     const statText = cached ? cached.statText : "—";
     const isStatActive = statText !== "—";
@@ -3618,27 +3640,24 @@ async function findAndOpenPlayer(playerName) {
 
   try {
     const parts = clean.split(/\s+/);
-    const lastName = parts.length > 1 ? parts[parts.length - 1] : clean;
+    const lastName = parts.length > 1 ? parts.slice(1).join(" ") : clean;
+    const firstName = parts.length > 1 ? parts[0] : "";
 
-    const qUrl = `https://api.nhle.com/stats/rest/en/skater/summary?cayenneExp=lastName%20like%20%22${encodeURIComponent(lastName)}%25%22&limit=15`;
-    const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(qUrl)}`);
-    const data = await res.json();
-    const rows = Array.isArray(data?.data) ? data.data : [];
-
-    const matched = rows.find(r => {
-      const full = `${r.firstName || ''} ${r.lastName || ''}`.trim().toLowerCase();
-      return full === clean.toLowerCase() || (r.lastName && clean.toLowerCase().includes(r.lastName.toLowerCase()));
-    });
-
-    const playerId = matched?.playerId || rows[0]?.playerId;
-
-    if (playerId) {
-      playerSearchCache.set(clean, playerId);
-      openPlayerDetail(playerId);
-    } else {
-      playerSearchCache.set(clean, null);
-      alert(`Хоккеист ${clean} ещё не дебютировал в регулярных чемпионатах НХЛ.`);
+    const sRes = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=10&q=${encodeURIComponent(lastName || clean)}`);
+    if (sRes.ok) {
+      const sData = await sRes.json();
+      if (Array.isArray(sData) && sData.length > 0) {
+        const matched = sData.find(item => isPlayerMatch(item.name, clean, firstName, lastName)) || sData[0];
+        if (matched && matched.playerId) {
+          playerSearchCache.set(clean, matched.playerId);
+          openPlayerDetail(matched.playerId);
+          return;
+        }
+      }
     }
+
+    playerSearchCache.set(clean, null);
+    alert(`Хоккеист ${clean} ещё не зарегистрирован в официальной базе лиги.`);
   } catch (_) {
     alert(`Не удалось открыть карточку игрока ${clean}`);
   }
