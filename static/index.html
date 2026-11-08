@@ -1946,12 +1946,12 @@ async function hydrateDraftPicks(picks) {
             const reg = pData?.careerTotals?.regularSeason;
             if (reg && (Number(reg.gamesPlayed) || 0) > 0) {
               if (p.positionCode === "G") {
-                statText = `${reg.gamesPlayed}И ${reg.wins || 0}-${reg.losses || 0}`;
+                statText = `${reg.gamesPlayed} ${reg.wins || 0}-${reg.losses || 0}`;
               } else {
                 const g = Number(reg.goals) || 0;
                 const a = Number(reg.assists) || 0;
                 const pts = Number(reg.points) || (g + a);
-                statText = `${reg.gamesPlayed}И ${g}+${a}=${pts}`;
+                statText = `${reg.gamesPlayed} ${g}+${a}=${pts}`;
               }
             }
           }
