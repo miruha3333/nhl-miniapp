@@ -30,7 +30,7 @@
 
 body {
   margin: 0;
-  padding-top: 54px; /* Компенсирует высоту зафиксированной шапки */
+  padding-top: 54px;
   padding-bottom: 24px;
   color: var(--silver);
   background: var(--bg);
@@ -44,7 +44,6 @@ select {
   font: inherit;
 }
 
-/* ШАПКА ВСЕГДА ЗАФИКСИРОВАНА НАВЕРХУ ЭКРАНА */
 header {
   position: fixed;
   top: 0;
@@ -174,7 +173,6 @@ nav button.active {
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
-/* СТИЛИ ВКЛАДКИ ДРАФТ */
 .draft-rounds-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
@@ -221,7 +219,7 @@ nav button.active {
 .draft-pick-card.clickable-row:active {
   background: var(--surface-2);
 }
-/* СЕТКА И СЕРИИ ПЛЕЙ-ОФФ */
+
 .bracket-wrap {
   margin-top: 16px;
 }
@@ -262,7 +260,6 @@ nav button.active {
   color: var(--silver);
 }
 
-/* Строгое ограничение логотипа в плей-офф до 24px */
 .bracket-team-row .bt-name img {
   width: 24px !important;
   height: 24px !important;
@@ -287,232 +284,232 @@ nav button.active {
 .bracket-team-row.winner .bt-wins {
   color: #2ecc71 !important;
 }
+
 main {
-  padding:14px 16px 0;
+  padding: 14px 16px 0;
 }
 
 .cat-row {
-  display:flex;
-  gap:4px;
-  margin-bottom:12px;
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
 }
 
 .cat-row button {
-  flex:1;
-  min-width:0;
-  padding:8px 3px;
-  font-family:"Oswald",sans-serif;
-  font-size:clamp(9px, 2.5vw, 11px);
-  line-height:1.15;
-  letter-spacing:.02em;
-  text-transform:uppercase;
-  text-align:center;
-  border:1px solid var(--border);
-  border-radius:10px;
-  color:var(--silver-dim);
-  background:var(--surface);
-  cursor:pointer;
-  word-break:keep-all;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 3px;
+  font-family: "Oswald", sans-serif;
+  font-size: clamp(9px, 2.5vw, 11px);
+  line-height: 1.15;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--silver-dim);
+  background: var(--surface);
+  cursor: pointer;
+  word-break: keep-all;
 }
 
 .cat-row button.active {
-  border-color:var(--red);
-  color:#fff;
-  background:var(--red);
-  font-weight:700;
+  border-color: var(--red);
+  color: #fff;
+  background: var(--red);
+  font-weight: 700;
 }
 
 .cat-grid-2rows {
-  display:grid;
-  grid-template-columns:repeat(5, 1fr);
-  gap:6px;
-  margin-bottom:12px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
 .cat-grid-2rows button,
 .goalie-cat-grid button {
-  width:100%;
-  padding:8px 4px;
-  font-family:"Oswald",sans-serif;
-  font-size:12px;
-  letter-spacing:.04em;
-  text-transform:uppercase;
-  text-align:center;
-  border:1px solid var(--border);
-  border-radius:10px;
-  color:var(--silver-dim);
-  background:var(--surface);
-  cursor:pointer;
+  width: 100%;
+  padding: 8px 4px;
+  font-family: "Oswald", sans-serif;
+  font-size: 12px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--silver-dim);
+  background: var(--surface);
+  cursor: pointer;
 }
 
 .cat-grid-2rows button.active,
 .goalie-cat-grid button.active {
-  border-color:var(--red);
-  color:#fff;
-  background:var(--red);
-  font-weight:700;
+  border-color: var(--red);
+  color: #fff;
+  background: var(--red);
+  font-weight: 700;
 }
 
 .goalie-cat-grid {
-  display:grid;
-  grid-template-columns:repeat(4, 1fr);
-  gap:6px;
-  margin-bottom:12px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
 .date-row {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  margin:10px 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 10px 0 14px;
 }
 
 .date-input {
-  width:140px;
-  padding:6px 12px;
-  border:1px solid var(--border);
-  border-radius:8px;
-  outline:none;
-  color:var(--silver);
-  background:transparent;
-  font-family:"Roboto Mono",monospace;
-  font-size:14px;
-  text-align:center;
+  width: 140px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  color: var(--silver);
+  background: transparent;
+  font-family: "Roboto Mono", monospace;
+  font-size: 14px;
+  text-align: center;
 }
 
 .date-input::-webkit-calendar-picker-indicator {
-  filter:invert(1);
+  filter: invert(1);
 }
 
 select.date-input {
-  appearance:none;
-  -webkit-appearance:none;
-  background:var(--surface);
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--surface);
 }
 
 select.date-input option {
-  color:var(--silver);
-  background:#1a1a1a;
+  color: var(--silver);
+  background: #1a1a1a;
 }
 
 .date-row button {
-  width:34px;
-  height:34px;
-  color:var(--silver);
-  font-size:16px;
-  border:1px solid var(--border);
-  border-radius:8px;
-  background:var(--surface);
-  cursor:pointer;
+  width: 34px;
+  height: 34px;
+  color: var(--silver);
+  font-size: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
 }
 
 .card {
-  margin-bottom:10px;
-  padding:14px;
-  border:1px solid var(--border);
-  border-radius:14px;
-  background:var(--surface);
+  margin-bottom: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
 }
 
 .card.pinned {
-  border-color:var(--accent);
-  box-shadow:0 0 12px var(--accent-glow);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
 }
 
 .game-row {
-  display:grid;
-  grid-template-columns:1fr auto 1fr;
-  align-items:center;
-  gap:10px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
 }
 
 .team {
-  display:flex;
-  align-items:center;
-  gap:10px;
-  min-width:0;
-  cursor:pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  cursor: pointer;
 }
 
 .team.right {
-  justify-content:flex-end;
-  text-align:right;
+  justify-content: flex-end;
+  text-align: right;
 }
 
 .team-logo {
-  width:32px;
-  height:32px;
-  flex-shrink:0;
-  object-fit:contain;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 
 .abbr {
-  font-family:"Oswald",sans-serif;
-  font-size:15px;
-  font-weight:700;
-  letter-spacing:.04em;
+  font-family: "Oswald", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .04em;
 }
 
 .team-record {
-  margin-top:3px;
-  color:var(--silver-dim);
-  font-family:"Roboto Mono",monospace;
-  font-size:10px;
-  line-height:1.1;
-  white-space:nowrap;
+  margin-top: 3px;
+  color: var(--silver-dim);
+  font-family: "Roboto Mono", monospace;
+  font-size: 10px;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
 .team-record strong {
-  color:var(--silver);
+  color: var(--silver);
 }
 
 .score-box {
-  min-width:70px;
-  padding:4px 6px;
-  border-radius:10px;
-  text-align:center;
+  min-width: 70px;
+  padding: 4px 6px;
+  border-radius: 10px;
+  text-align: center;
 }
 
 .score-box.clickable,
 .score-box.game-center {
-  cursor:pointer;
+  cursor: pointer;
 }
 
 .score-box:active,
 .team:active,
 .player-row:active,
 .spotlight-card:active {
-  background:var(--surface-2);
+  background: var(--surface-2);
 }
 
 .score-box .score {
-  font-family:"Roboto Mono",monospace;
-  font-size:22px;
-  font-weight:700;
-  color:#ffffff !important;
+  font-family: "Roboto Mono", monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: #ffffff !important;
 }
 
 .score-box .status {
-  margin-top:2px;
-  color:var(--red);
-  font-size:10px;
-  letter-spacing:.08em;
-  text-transform:uppercase;
+  margin-top: 2px;
+  color: var(--red);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
 .score-box .status.live-pulse {
-  color:#2ecc71;
-  font-weight:700;
+  color: #2ecc71;
+  font-weight: 700;
 }
 
 .table-wrapper,
 .table-scroll {
-  width:100%;
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* Стандартная таблица */
 .standings-table {
   min-width: 580px;
 }
@@ -533,7 +530,6 @@ select.date-input option {
   background: var(--surface-2) !important;
 }
 
-/* Продвинутая таблица с расширенными победами/поражениями */
 .advanced-standings-table {
   min-width: 1180px;
 }
@@ -576,73 +572,73 @@ select.date-input option {
 }
 
 .standings-head > div {
-  color:var(--silver-dim);
-  font-size:10px;
-  text-transform:uppercase;
-  white-space:nowrap;
+  color: var(--silver-dim);
+  font-size: 10px;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .standings-head .sticky-col {
-  z-index:3;
+  z-index: 3;
 }
 
 .standings-head .sortable {
-  color:var(--silver);
-  cursor:pointer;
-  text-decoration:underline dotted;
+  color: var(--silver);
+  cursor: pointer;
+  text-decoration: underline dotted;
 }
 
 .standings-row .name {
-  width:100%;
-  justify-content:flex-start;
-  overflow:hidden;
-  padding-left:5px;
-  font-family:"Oswald",sans-serif;
-  font-weight:600;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-  display:flex;
-  align-items:center;
-  gap:4px;
+  width: 100%;
+  justify-content: flex-start;
+  overflow: hidden;
+  padding-left: 5px;
+  font-family: "Oswald", sans-serif;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .clinch-badge {
-  font-size:9px;
-  font-weight:700;
-  padding:1px 4px;
-  border-radius:4px;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 4px;
 }
-.clinch-x { background:rgba(46,204,113,.2); color:#2ecc71; border:1px solid rgba(46,204,113,.4); }
-.clinch-e { background:rgba(200,16,46,.2); color:#ff4d4d; border:1px solid rgba(200,16,46,.4); }
+.clinch-x { background: rgba(46,204,113,.2); color: #2ecc71; border: 1px solid rgba(46,204,113,.4); }
+.clinch-e { background: rgba(200,16,46,.2); color: #ff4d4d; border: 1px solid rgba(200,16,46,.4); }
 
 .standings-row .num,
 .standings-row .diff,
 .standings-row .pts,
 .stat-table .num {
-  font-family:"Roboto Mono",monospace;
+  font-family: "Roboto Mono", monospace;
 }
 
 .standings-row .num.sticky-col-1 {
-  color:var(--silver-dim);
+  color: var(--silver-dim);
 }
 
 .standings-row .team-logo {
-  width:20px;
-  height:20px;
+  width: 20px;
+  height: 20px;
 }
 
 .standings-row .pts,
 .special-team-pct {
-  color:#ffffff !important;
-  font-weight:700;
+  color: #ffffff !important;
+  font-weight: 700;
 }
 
 .player-row .pvalue {
-  flex-shrink:0;
-  color:#ffffff !important;
-  font-family:"Roboto Mono",monospace;
-  font-size:20px;
-  font-weight:700;
+  flex-shrink: 0;
+  color: #ffffff !important;
+  font-family: "Roboto Mono", monospace;
+  font-size: 20px;
+  font-weight: 700;
 }
 
 .player-row .pgames {
@@ -663,637 +659,633 @@ select.date-input option {
 }
 
 .group-header-row > div {
-  grid-column:1/-1;
-  padding:8px 10px;
-  border-bottom:1px solid var(--border);
-  color:var(--silver);
-  background:var(--surface-2);
-  font-family:"Oswald",sans-serif;
-  font-size:12px;
-  font-weight:700;
-  letter-spacing:.05em;
-  text-transform:uppercase;
+  grid-column: 1/-1;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--silver);
+  background: var(--surface-2);
+  font-family: "Oswald", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
 }
 
 .player-row {
-  display:flex;
-  align-items:center;
-  gap:12px;
-  padding:10px 0;
-  border-bottom:1px solid var(--border);
-  cursor:pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
 }
 
 .player-row:last-child {
-  border-bottom:none;
+  border-bottom: none;
 }
 
 .player-row .rank {
-  width:20px;
-  flex-shrink:0;
-  color:var(--silver-dim);
-  font-family:"Roboto Mono",monospace;
-  text-align:center;
+  width: 20px;
+  flex-shrink: 0;
+  color: var(--silver-dim);
+  font-family: "Roboto Mono", monospace;
+  text-align: center;
 }
 
 .player-row .headshot {
-  width:42px;
-  height:42px;
-  flex-shrink:0;
-  border:1px solid var(--border);
-  border-radius:50%;
-  background:var(--surface-2);
-  object-fit:cover;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface-2);
+  object-fit: cover;
 }
 
 .player-row .info {
-  min-width:0;
-  flex:1;
+  min-width: 0;
+  flex: 1;
 }
 
 .player-row .pname {
-  overflow:hidden;
-  font-family:"Oswald",sans-serif;
-  font-size:14px;
-  font-weight:600;
-  letter-spacing:.02em;
-  text-overflow:ellipsis;
-  white-space:nowrap;
+  overflow: hidden;
+  font-family: "Oswald", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .player-row .pteam {
-  display:flex;
-  align-items:center;
-  gap:6px;
-  margin-top:2px;
-  color:var(--silver-dim);
-  font-size:11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--silver-dim);
+  font-size: 11px;
 }
 
 .player-row .pteam .team-logo {
-  width:16px;
-  height:16px;
+  width: 16px;
+  height: 16px;
 }
 
 .show-more {
-  width:100%;
-  margin-top:10px;
-  padding:10px;
-  background:var(--surface-2);
-  font-family:"Oswald",sans-serif;
-  font-size:12px;
-  letter-spacing:.04em;
-  text-transform:uppercase;
-  border:1px solid var(--border);
-  border-radius:10px;
-  color:var(--silver-dim);
-  cursor:pointer;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  background: var(--surface-2);
+  font-family: "Oswald", sans-serif;
+  font-size: 12px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--silver-dim);
+  cursor: pointer;
 }
 
 .empty,
 .loading {
-  grid-column:1/-1;
-  padding:14px 0;
-  color:var(--silver-dim);
-  font-size:13px;
-  text-align:center;
+  grid-column: 1/-1;
+  padding: 14px 0;
+  color: var(--silver-dim);
+  font-size: 13px;
+  text-align: center;
 }
 
 .loading {
-  font-family:"Roboto Mono",monospace;
+  font-family: "Roboto Mono", monospace;
 }
 
 .detail-head-game,
 .detail-head {
-  display:flex;
-  align-items:center;
-  gap:14px;
-  margin-bottom:14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
 }
 
 .detail-head-game {
-  display:grid;
-  grid-template-columns:auto 1fr auto;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
 }
 
 .detail-head img.team-logo,
 .detail-head-game img.team-logo {
-  width:48px;
-  height:48px;
+  width: 48px;
+  height: 48px;
 }
 
 .detail-head img.headshot {
-  width:64px;
-  height:64px;
-  border:1px solid var(--border);
-  border-radius:50%;
-  background:var(--surface-2);
-  object-fit:cover;
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface-2);
+  object-fit: cover;
 }
 
 .detail-head .title,
 .detail-head-game .title {
-  font-family:"Oswald",sans-serif;
-  font-size:19px;
-  font-weight:700;
-  letter-spacing:.03em;
-  text-align:center;
-  text-transform:uppercase;
+  font-family: "Oswald", sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .detail-head .subtitle,
 .detail-head-game .subtitle {
-  margin-top:2px;
-  color:var(--silver-dim);
-  font-size:12px;
-  text-align:center;
+  margin-top: 2px;
+  color: var(--silver-dim);
+  font-size: 12px;
+  text-align: center;
 }
 
 .section-title {
-  margin:14px 0 8px;
-  color:var(--silver-dim);
-  font-family:"Oswald",sans-serif;
-  font-size:13px;
-  font-weight:700;
-  letter-spacing:.06em;
-  text-transform:uppercase;
+  margin: 14px 0 8px;
+  color: var(--silver-dim);
+  font-family: "Oswald", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
 }
 
 .bio-grid {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:8px 14px;
-  font-size:13px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 14px;
+  font-size: 13px;
 }
 
 .bio-grid .label {
-  color:var(--silver-dim);
-  font-size:11px;
-  text-transform:uppercase;
+  color: var(--silver-dim);
+  font-size: 11px;
+  text-transform: uppercase;
 }
 
 .bio-grid .value {
-  font-family:"Oswald",sans-serif;
-  font-weight:600;
+  font-family: "Oswald", sans-serif;
+  font-weight: 600;
 }
 
 .stat-table {
-  width:100%;
-  border-collapse:collapse;
-  font-size:12px;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
 }
 
 .stat-table th,
 .stat-table td {
-  padding:6px 6px;
-  border-bottom:1px solid var(--border);
-  text-align:center;
-  white-space:nowrap;
+  padding: 6px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+  white-space: nowrap;
 }
 
 .stat-table th {
-  color:var(--silver-dim);
-  font-size:10px;
-  font-weight:600;
-  letter-spacing:.04em;
-  text-transform:uppercase;
+  color: var(--silver-dim);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
 }
 
 .stat-table th.sortable {
-  color:var(--silver);
-  cursor:pointer;
-  text-decoration:underline dotted;
+  color: var(--silver);
+  cursor: pointer;
+  text-decoration: underline dotted;
 }
 
 .stat-table td:first-child,
 .stat-table th:first-child {
-  font-family:"Oswald",sans-serif;
-  font-weight:600;
-  text-align:left;
+  font-family: "Oswald", sans-serif;
+  font-weight: 600;
+  text-align: left;
 }
 
 .stat-table tbody tr.clickable-row {
-  cursor:pointer;
+  cursor: pointer;
 }
 
 .stat-table tbody tr.clickable-row:active {
-  background:var(--surface-2);
+  background: var(--surface-2);
 }
 
 .stat-table tbody tr.playoff-header-row td {
-  padding:6px 8px;
-  color:var(--silver);
-  background:var(--surface-2);
-  font-family:"Oswald",sans-serif;
-  font-size:11px;
-  font-weight:700;
-  letter-spacing:.05em;
-  text-align:left;
-  text-transform:uppercase;
+  padding: 6px 8px;
+  color: var(--silver);
+  background: var(--surface-2);
+  font-family: "Oswald", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-align: left;
+  text-transform: uppercase;
 }
 
 .stat-table tbody tr.playoff-border {
-  border-bottom:3px solid var(--accent);
+  border-bottom: 3px solid var(--accent);
 }
 
 .goal-row {
-  display:flex;
-  align-items:baseline;
-  gap:10px;
-  padding:8px 0;
-  border-bottom:1px solid var(--border);
-  font-size:13px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
 }
 
 .goal-row .time {
-  width:46px;
-  flex-shrink:0;
-  color:var(--silver-dim);
-  font-family:"Roboto Mono",monospace;
-  font-size:12px;
+  width: 46px;
+  flex-shrink: 0;
+  color: var(--silver-dim);
+  font-family: "Roboto Mono", monospace;
+  font-size: 12px;
 }
 
 .goal-row .desc {
-  flex:1;
+  flex: 1;
 }
 
 .goal-row .scorer {
-  font-family:"Oswald",sans-serif;
-  font-weight:600;
+  font-family: "Oswald", sans-serif;
+  font-weight: 600;
 }
 
 .goal-row .assists {
-  margin-top:2px;
-  color:var(--silver-dim);
-  font-size:11px;
+  margin-top: 2px;
+  color: var(--silver-dim);
+  font-size: 11px;
 }
 
 .goal-row .scoreline {
-  flex-shrink:0;
-  color:#ffffff !important;
-  font-family:"Roboto Mono",monospace;
-  font-weight:700;
+  flex-shrink: 0;
+  color: #ffffff !important;
+  font-family: "Roboto Mono", monospace;
+  font-weight: 700;
 }
 
 .period-label {
-  margin:10px 0 4px;
-  color:var(--silver-dim);
-  font-family:"Roboto Mono",monospace;
-  font-size:11px;
-  text-transform:uppercase;
+  margin: 10px 0 4px;
+  color: var(--silver-dim);
+  font-family: "Roboto Mono", monospace;
+  font-size: 11px;
+  text-transform: uppercase;
 }
 
 .video-container {
-  position:relative;
-  width:100%;
-  aspect-ratio:16/9;
-  background:#000;
-  border-radius:12px;
-  overflow:hidden;
-  margin-bottom:14px;
-  border:1px solid var(--border);
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
 }
 
 .video-container iframe {
-  width:100%;
-  height:100%;
-  border:0;
-  display:block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
 }
 
-/* Предматчевый центр */
 .pregame-probables-grid,
 .pregame-injuries-grid {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-  margin-bottom:12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .pregame-goalie-box {
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  text-align:center;
-  padding:12px 8px;
-  border:1px solid var(--border);
-  border-radius:12px;
-  background:var(--surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 12px 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
 }
 
 .pregame-goalie-avatar {
-  position:relative;
-  width:58px;
-  height:58px;
-  margin-bottom:8px;
+  position: relative;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 8px;
 }
 
 .pregame-goalie-avatar img {
-  width:100%;
-  height:100%;
-  border-radius:50%;
-  border:2px solid var(--border);
-  object-fit:cover;
-  background:var(--surface-2);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  object-fit: cover;
+  background: var(--surface-2);
 }
 
 .pregame-goalie-num {
-  position:absolute;
-  bottom:-4px;
-  right:-4px;
-  padding:1px 5px;
-  border-radius:6px;
-  background:var(--accent);
-  color:#fff;
-  font-family:"Roboto Mono",monospace;
-  font-size:10px;
-  font-weight:700;
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-family: "Roboto Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .pregame-goalie-name {
-  font-family:"Oswald",sans-serif;
-  font-size:14px;
-  font-weight:700;
-  line-height:1.2;
+  font-family: "Oswald", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .pregame-goalie-sub {
-  margin-top:2px;
-  color:var(--silver-dim);
-  font-size:11px;
+  margin-top: 2px;
+  color: var(--silver-dim);
+  font-size: 11px;
 }
 
 .pregame-status-badge {
-  display:inline-block;
-  margin-top:6px;
-  padding:3px 8px;
-  border-radius:20px;
-  font-size:10px;
-  font-weight:600;
-  letter-spacing:.03em;
-  text-transform:uppercase;
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .03em;
+  text-transform: uppercase;
 }
 
 .badge-confirmed {
-  color:#2ecc71;
-  background:rgba(46,204,113,.15);
-  border:1px solid rgba(46,204,113,.4);
+  color: #2ecc71;
+  background: rgba(46,204,113,.15);
+  border: 1px solid rgba(46,204,113,.4);
 }
 
 .badge-probable {
-  color:#f39c12;
-  background:rgba(243,156,18,.15);
-  border:1px solid rgba(243,156,18,.4);
+  color: #f39c12;
+  background: rgba(243,156,18,.15);
+  border: 1px solid rgba(243,156,18,.4);
 }
 
 .badge-unannounced {
-  color:var(--silver-dim);
-  background:var(--surface-2);
-  border:1px solid var(--border);
+  color: var(--silver-dim);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
 }
 
 .comp-row {
-  display:grid;
-  grid-template-columns:1fr 150px 1fr;
-  align-items:center;
-  padding:8px 0;
-  border-bottom:1px solid var(--border);
-  font-size:12px;
+  display: grid;
+  grid-template-columns: 1fr 150px 1fr;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
 }
 .comp-row:last-child {
-  border-bottom:none;
+  border-bottom: none;
 }
 
 .comp-row .val {
-  font-family:"Roboto Mono",monospace;
-  font-size:13px;
-  font-weight:700;
-  color:#ffffff !important;
+  font-family: "Roboto Mono", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff !important;
 }
 
-.comp-row .val.away { text-align:left; }
-.comp-row .val.home { text-align:right; }
+.comp-row .val.away { text-align: left; }
+.comp-row .val.home { text-align: right; }
 
 .comp-row .val.best {
-  color:#2ecc71 !important;
-  font-weight:800;
+  color: #2ecc71 !important;
+  font-weight: 800;
 }
 
 .comp-row .metric {
-  text-align:center;
-  font-family:"Oswald",sans-serif;
-  font-size:11px;
-  text-transform:uppercase;
-  color:var(--silver);
-  letter-spacing:.02em;
-  line-height:1.2;
+  text-align: center;
+  font-family: "Oswald", sans-serif;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--silver);
+  letter-spacing: .02em;
+  line-height: 1.2;
 }
 
 .injury-team-col h4 {
-  margin:0 0 8px;
-  font-family:"Oswald",sans-serif;
-  font-size:12px;
-  color:var(--silver-dim);
-  text-transform:uppercase;
-  display:flex;
-  align-items:center;
-  gap:6px;
+  margin: 0 0 8px;
+  font-family: "Oswald", sans-serif;
+  font-size: 12px;
+  color: var(--silver-dim);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .injury-team-col h4 img {
-  width:16px;
-  height:16px;
+  width: 16px;
+  height: 16px;
 }
 
 .injury-item {
-  padding:8px;
-  margin-bottom:6px;
-  border:1px solid var(--border);
-  border-radius:10px;
-  background:var(--surface);
-  font-size:11px;
+  padding: 8px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 11px;
 }
 
 .injury-item-top {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
 }
 
 .injury-name {
-  font-family:"Oswald",sans-serif;
-  font-size:13px;
-  font-weight:600;
-  color:var(--silver);
+  font-family: "Oswald", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--silver);
 }
 
 .badge-out {
-  padding:2px 6px;
-  border-radius:6px;
-  font-size:9px;
-  font-weight:700;
-  background:rgba(200,16,46,.25);
-  color:#ff4d4d;
-  border:1px solid rgba(200,16,46,.5);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(200,16,46,.25);
+  color: #ff4d4d;
+  border: 1px solid rgba(200,16,46,.5);
 }
 
 .badge-dtd {
-  padding:2px 6px;
-  border-radius:6px;
-  font-size:9px;
-  font-weight:700;
-  background:rgba(243,156,18,.2);
-  color:#f39c12;
-  border:1px solid rgba(243,156,18,.5);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(243,156,18,.2);
+  color: #f39c12;
+  border: 1px solid rgba(243,156,18,.5);
 }
 
 .injury-desc {
-  margin-top:4px;
-  color:var(--silver-dim);
-  font-size:10px;
-  line-height:1.2;
+  margin-top: 4px;
+  color: var(--silver-dim);
+  font-size: 10px;
+  line-height: 1.2;
 }
 
-/* Модалки и транзакции */
 .h2h-modal-wrap {
-  position:fixed;
-  inset:0;
-  z-index:2000;
-  background:rgba(0,0,0,0.85);
-  display:flex;
-  align-items:flex-end;
-  justify-content:center;
-  backdrop-filter:blur(4px);
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  backdrop-filter: blur(4px);
 }
 .h2h-modal {
-  width:100%;
-  max-width:540px;
-  max-height:90vh;
-  background:var(--surface);
-  border-radius:20px 20px 0 0;
-  border-top:2px solid var(--accent);
-  overflow-y:auto;
-  padding:16px;
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  border-top: 2px solid var(--accent);
+  overflow-y: auto;
+  padding: 16px;
 }
 
 .tx-item {
-  padding:10px 14px;
-  border-bottom:1px solid var(--border);
-  font-size:12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
 }
 .tx-item:last-child {
-  border-bottom:none;
+  border-bottom: none;
 }
 .tx-date {
-  font-family:"Roboto Mono",monospace;
-  font-size:10px;
-  color:var(--silver-dim);
-  margin-bottom:2px;
+  font-family: "Roboto Mono", monospace;
+  font-size: 10px;
+  color: var(--silver-dim);
+  margin-bottom: 2px;
 }
 .tx-desc {
-  color:var(--silver);
-  line-height:1.35;
+  color: var(--silver);
+  line-height: 1.35;
 }
 .tx-team {
-  font-family:"Oswald",sans-serif;
-  font-weight:700;
-  color:#ffffff !important;
+  font-family: "Oswald", sans-serif;
+  font-weight: 700;
+  color: #ffffff !important;
 }
 
-/* Новости */
 .news-card {
-  margin-bottom:14px;
-  padding:12px;
-  border:1px solid var(--border);
-  border-radius:14px;
-  background:var(--surface);
-  display:flex;
-  flex-direction:column;
-  gap:10px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .news-card img {
-  width:100%;
-  aspect-ratio:16/9;
-  max-height:220px;
-  object-fit:cover;
-  border-radius:10px;
-  border:1px solid var(--border);
-  cursor:pointer;
+  width: 100%;
+  aspect-ratio: 16/9;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  cursor: pointer;
 }
 .news-meta {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  font-family:"Roboto Mono",monospace;
-  font-size:11px;
-  color:var(--silver-dim);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: "Roboto Mono", monospace;
+  font-size: 11px;
+  color: var(--silver-dim);
 }
 .news-tg-tag {
-  color:#29b6f6;
-  font-weight:700;
+  color: #29b6f6;
+  font-weight: 700;
 }
 .news-title-link {
-  font-family:"Oswald",sans-serif;
-  font-size:17px;
-  font-weight:700;
-  line-height:1.35;
-  color:#ffffff;
-  text-decoration:none;
-  cursor:pointer;
+  font-family: "Oswald", sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #ffffff;
+  text-decoration: none;
+  cursor: pointer;
 }
 .news-read-btn {
-  width:100%;
-  margin-top:2px;
-  padding:10px;
-  border-radius:10px;
-  border:1px solid var(--accent);
-  background:rgba(31,95,206,0.15);
-  color:#ffffff;
-  font-family:"Oswald",sans-serif;
-  font-size:13px;
-  font-weight:700;
-  letter-spacing:.04em;
-  text-transform:uppercase;
-  text-align:center;
-  cursor:pointer;
+  width: 100%;
+  margin-top: 2px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--accent);
+  background: rgba(31,95,206,0.15);
+  color: #ffffff;
+  font-family: "Oswald", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
 }
 
 .matchup-summary-box {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:10px 14px;
-  border-bottom:1px solid var(--border);
-  text-align:center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
 }
-.matchup-side-col { flex:1; min-width:0; }
-.matchup-side-col.left { text-align:left; }
-.matchup-side-col.right { text-align:right; }
-.matchup-team-title { font-family:"Oswald",sans-serif; font-size:14px; font-weight:700; }
-.matchup-rec-sub { font-family:"Roboto Mono",monospace; font-size:11px; color:var(--silver-dim); margin-top:2px; }
-.matchup-total-badge { padding:4px 10px; border-radius:8px; background:var(--surface-2); font-family:"Roboto Mono",monospace; font-size:11px; font-weight:700; color:#fff; }
-.h2h-game-row { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-bottom:1px solid var(--border); font-size:12px; }
-.h2h-game-row:last-child { border-bottom:none; }
-.h2h-team-cell { flex:1; min-width:0; font-family:"Oswald",sans-serif; font-weight:600; }
-.h2h-team-cell.left { text-align:left; }
-.h2h-team-cell.right { text-align:right; }
-.h2h-team-cell.winner { color:#2ecc71; font-weight:700; }
-.h2h-center-cell { flex:0 0 auto; text-align:center; min-width:110px; }
-.h2h-date-sub { font-family:"Roboto Mono",monospace; font-size:9px; color:var(--silver-dim); margin-top:2px; }
-.h2h-score-val { font-family:"Roboto Mono",monospace; font-size:13px; font-weight:700; color:#ffffff !important; }
-.teamstat-header-flex { display:flex; align-items:center; justify-content:space-between; padding:6px 12px 10px; border-bottom:1px solid var(--border); }
-.teamstat-side-flex { display:flex; align-items:center; gap:8px; font-family:"Oswald",sans-serif; font-size:14px; font-weight:700; }
-.teamstat-side-flex.right { justify-content:flex-end; }
-.teamstat-side-flex img { width:26px; height:26px; object-fit:contain; }
-.teamstat-row-flex { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-bottom:1px solid var(--border); }
-.teamstat-row-flex:last-child { border-bottom:none; }
-.teamstat-val-flex { flex:1; font-family:"Roboto Mono",monospace; font-size:14px; font-weight:700; color:#ffffff !important; }
-.teamstat-val-flex.left { text-align:left; }
-.teamstat-val-flex.right { text-align:right; }
-.teamstat-label-flex { width:140px; text-align:center; font-family:"Oswald",sans-serif; font-size:11px; color:var(--silver-dim); text-transform:uppercase; line-height:1.2; }
+.matchup-side-col { flex: 1; min-width: 0; }
+.matchup-side-col.left { text-align: left; }
+.matchup-side-col.right { text-align: right; }
+.matchup-team-title { font-family: "Oswald", sans-serif; font-size: 14px; font-weight: 700; }
+.matchup-rec-sub { font-family: "Roboto Mono", monospace; font-size: 11px; color: var(--silver-dim); margin-top: 2px; }
+.matchup-total-badge { padding: 4px 10px; border-radius: 8px; background: var(--surface-2); font-family: "Roboto Mono", monospace; font-size: 11px; font-weight: 700; color: #fff; }
+.h2h-game-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 12px; }
+.h2h-game-row:last-child { border-bottom: none; }
+.h2h-team-cell { flex: 1; min-width: 0; font-family: "Oswald", sans-serif; font-weight: 600; }
+.h2h-team-cell.left { text-align: left; }
+.h2h-team-cell.right { text-align: right; }
+.h2h-team-cell.winner { color: #2ecc71; font-weight: 700; }
+.h2h-center-cell { flex: 0 0 auto; text-align: center; min-width: 110px; }
+.h2h-date-sub { font-family: "Roboto Mono", monospace; font-size: 9px; color: var(--silver-dim); margin-top: 2px; }
+.h2h-score-val { font-family: "Roboto Mono", monospace; font-size: 13px; font-weight: 700; color: #ffffff !important; }
+.teamstat-header-flex { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px 10px; border-bottom: 1px solid var(--border); }
+.teamstat-side-flex { display: flex; align-items: center; gap: 8px; font-family: "Oswald", sans-serif; font-size: 14px; font-weight: 700; }
+.teamstat-side-flex.right { justify-content: flex-end; }
+.teamstat-side-flex img { width: 26px; height: 26px; object-fit: contain; }
+.teamstat-row-flex { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.teamstat-row-flex:last-child { border-bottom: none; }
+.teamstat-val-flex { flex: 1; font-family: "Roboto Mono", monospace; font-size: 14px; font-weight: 700; color: #ffffff !important; }
+.teamstat-val-flex.left { text-align: left; }
+.teamstat-val-flex.right { text-align: right; }
+.teamstat-label-flex { width: 140px; text-align: center; font-family: "Oswald", sans-serif; font-size: 11px; color: var(--silver-dim); text-transform: uppercase; line-height: 1.2; }
 </style>
-
 </head>
 
 <body>
@@ -1328,7 +1320,6 @@ select.date-input option {
       <input type="date" id="date-picker" class="date-input">
       <button id="next-day">›</button>
     </div>
-
     <div id="games">
       <div class="loading">Загрузка...</div>
     </div>
@@ -1352,7 +1343,6 @@ select.date-input option {
 
     <div class="card" style="padding:0;">
       <div class="table-wrapper">
-        <!-- Обычная таблица (только классические показатели) -->
         <div class="standings-table" id="standings-table-regular">
           <div class="standings-head">
             <div class="sticky-col sticky-col-1"></div>
@@ -1372,7 +1362,6 @@ select.date-input option {
           </div>
         </div>
 
-        <!-- Продвинутая таблица с расширенными показателями -->
         <div class="advanced-standings-table" id="standings-table-advanced" style="display:none;">
           <div class="standings-head">
             <div class="sticky-col sticky-col-1"></div>
@@ -1413,7 +1402,6 @@ select.date-input option {
       <button id="leaders-goalies-btn">Вратари</button>
     </div>
 
-    <!-- ПОЛЕВЫЕ: 10 кнопок (2 ряда по 5) -->
     <div id="skater-categories" class="cat-grid-2rows">
       <button data-cat="points" class="active" title="Очки">PTS</button>
       <button data-cat="goals" title="Голы">G</button>
@@ -1427,7 +1415,6 @@ select.date-input option {
       <button data-cat="toiPerGame" title="Среднее время на льду за матч">ATOI</button>
     </div>
 
-    <!-- ВРАТАРИ: 8 кнопок (2 ряда по 4) -->
     <div id="goalie-categories" class="goalie-cat-grid" style="display:none;">
       <button data-goalie-sort="wins" class="active" title="Победы">W</button>
       <button data-goalie-sort="losses" title="Поражения">L</button>
@@ -1445,7 +1432,8 @@ select.date-input option {
       </div>
     </div>
   </div>
-  <!-- ВКЛАДКА: ДРАФТ (ВСЕ ДРАФТЫ ДО 2026 ГОДА) -->
+
+  <!-- ВКЛАДКА: ДРАФТ -->
   <div id="view-draft" style="display:none">
     <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;margin-bottom:10px;">
       <span style="font-family:'Oswald',sans-serif;font-size:12px;color:var(--silver-dim);text-transform:uppercase;">
@@ -1454,7 +1442,6 @@ select.date-input option {
       <select id="draft-year-select" class="date-input" style="width:auto;flex:1;"></select>
     </div>
 
-    <!-- Фильтр по раундам (Все + с 1 по 7) -->
     <div class="draft-rounds-grid" id="draft-rounds-bar">
       <button class="active" data-draft-round="all">Все</button>
       <button data-draft-round="1">Р1</button>
@@ -1470,6 +1457,7 @@ select.date-input option {
       <div class="loading">Загрузка драфта...</div>
     </div>
   </div>
+
   <!-- 4. ВКЛАДКА: ТРАНСФЕРЫ -->
   <div id="view-transactions" style="display:none">
     <div class="section-title">Свежие переходы и переподписания (ESPN)</div>
@@ -1494,7 +1482,6 @@ select.date-input option {
   </div>
 </main>
 
-<!-- МОДАЛЬНОЕ ОКНО: ВЫБОР ЛЮБИМОГО КЛУБА -->
 <div id="my-team-modal" class="h2h-modal-wrap" style="display:none;">
   <div class="h2h-modal">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -1505,33 +1492,6 @@ select.date-input option {
       Приложение подстроится под клубные цвета, а матчи выбранной команды будут первыми в списке расписания.
     </div>
     <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:8px;max-height:60vh;overflow-y:auto;padding-right:4px;" id="team-selector-grid"></div>
-  </div>
-</div>
-
-<!-- МОДАЛЬНОЕ ОКНО: ДУЭЛЬНОЕ СРАВНЕНИЕ ИГРОКОВ -->
-<div id="h2h-modal" class="h2h-modal-wrap" style="display:none;">
-  <div class="h2h-modal">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-      <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;">⚔️ Сравнение игроков (Head-to-Head)</div>
-      <button id="close-h2h-modal-btn" style="background:none;border:none;color:var(--silver-dim);font-size:22px;cursor:pointer;">✕</button>
-    </div>
-    
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-      <div>
-        <label style="font-size:10px;color:var(--silver-dim);text-transform:uppercase;font-family:'Oswald',sans-serif;display:block;margin-bottom:4px;">1. Клуб и Игрок</label>
-        <select id="h2h-team-1" class="date-input" style="width:100%;font-size:11px;padding:6px;margin-bottom:6px;"></select>
-        <select id="h2h-player-1" class="date-input" style="width:100%;font-size:11px;padding:6px;"></select>
-      </div>
-      <div>
-        <label style="font-size:10px;color:var(--silver-dim);text-transform:uppercase;font-family:'Oswald',sans-serif;display:block;margin-bottom:4px;">2. Клуб и Игрок</label>
-        <select id="h2h-team-2" class="date-input" style="width:100%;font-size:11px;padding:6px;margin-bottom:6px;"></select>
-        <select id="h2h-player-2" class="date-input" style="width:100%;font-size:11px;padding:6px;"></select>
-      </div>
-    </div>
-
-    <div id="h2h-comparison-content">
-      <div class="empty">Выберите клубы и игроков для детального сравнения</div>
-    </div>
   </div>
 </div>
 
@@ -1571,7 +1531,6 @@ let currentBoxscoreData = null;
 let boxSortKey = {};
 let boxSortAsc = {};
 
-// Данные драфта
 let currentDraftYear = "2026";
 let currentDraftRound = "all";
 let cachedDraftPicks = [];
@@ -1805,7 +1764,6 @@ function resetLeadersToSkaters() {
   });
 }
 
-// Переключение всех 6 основных вкладок
 function switchTab(tab) {
   stopAllVideos();
   const safeTab = ["schedule", "standings", "players", "draft", "transactions", "news"].includes(tab) ? tab : "schedule";
@@ -1843,12 +1801,10 @@ function switchTab(tab) {
   if (safeTab === "news") loadNews();
 }
 
-// === ЛОГИКА ВКЛАДКИ ДРАФТА ===
 function buildDraftYearOptions() {
   const select = document.getElementById("draft-year-select");
   if (!select) return;
 
-  // Все драфты вплоть до 2026 года и назад до 1963 года (2026 выбран по умолчанию)
   let html = "";
   for (let y = 2026; y >= 1963; y--) {
     const isSelected = y === 2026 ? "selected" : "";
@@ -1865,7 +1821,6 @@ function normalizeTeamAbbr(raw) {
   return String(raw).trim().toUpperCase();
 }
 
-// Кэш профилей и статистики игроков драфта
 const draftPlayerCache = new Map();
 
 async function handleDraftClick(fullName, pId) {
@@ -1881,7 +1836,6 @@ async function handleDraftClick(fullName, pId) {
   await findAndOpenPlayer(fullName);
 }
 
-// Загрузка драфта
 async function loadDraft() {
   const container = document.getElementById("draft-picks-container");
   if (container) container.innerHTML = '<div class="loading">Загрузка результатов драфта...</div>';
@@ -1889,7 +1843,6 @@ async function loadDraft() {
   const year = currentDraftYear;
   cachedDraftPicks = [];
 
-  // 1. Приоритетный источник: официальная база статистики NHL (содержит точные playerId игроков)
   try {
     const statsUrl = `https://api.nhle.com/stats/rest/en/draft?cayenneExp=draftYear=${year}&limit=300`;
     const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(statsUrl)}`);
@@ -1915,7 +1868,6 @@ async function loadDraft() {
     }
   } catch (_) {}
 
-  // 2. Резерв через backend
   try {
     const res = await fetch(`${API_BASE}/api/draft/${year}?round=all`);
     if (res.ok) {
@@ -1928,7 +1880,6 @@ async function loadDraft() {
     }
   } catch (_) {}
 
-  // 3. Прямой запрос к API NHL
   try {
     const target = `https://api-web.nhle.com/v1/draft/picks/${year}/all`;
     const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`);
@@ -1947,7 +1898,6 @@ async function loadDraft() {
   }
 }
 
-// Подгрузка статистики и фото в НХЛ
 async function hydrateDraftPicks(picks) {
   const toProcess = picks.slice(0, 40);
 
@@ -3655,7 +3605,7 @@ function renderTeamRosterView() {
   });
 }
 
-// ПОИСК ИГРОКА (без CORS-ошибок)
+// ПОИСК ИГРОКА
 async function findAndOpenPlayer(playerName) {
   const clean = playerName.trim();
   if (playerSearchCache.has(clean)) {
@@ -3693,6 +3643,9 @@ async function findAndOpenPlayer(playerName) {
     alert(`Не удалось открыть карточку игрока ${clean}`);
   }
 }
+
+async function loadTransactions() {
+  const container = document.getElementById("transactions-list");
   if (container) container.innerHTML = '<div class="loading">Загрузка свежих трансферов...</div>';
   try {
     const res = await fetch(`${API_BASE}/api/transactions`);
@@ -3817,7 +3770,6 @@ function renderTeamSelectorModal() {
 }
 
 function initApp() {
-  // Навешивание 6 основных вкладок
   safeOn("tab-schedule", "click", () => switchTab("schedule"));
   safeOn("tab-standings", "click", () => switchTab("standings"));
   safeOn("tab-players", "click", () => switchTab("players"));
@@ -3855,7 +3807,6 @@ function initApp() {
     loadCurrentPlayoffBracket();
   });
 
-  // Элементы управления драфтом
   safeOn("draft-year-select", "change", event => {
     currentDraftYear = event.target.value;
     loadDraft();
