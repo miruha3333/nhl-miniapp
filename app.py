@@ -18,7 +18,7 @@ ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl"
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 # Убираем возможный слэш на конце, чтобы ссылки формировались чисто
-WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://nhl-miniapp-1.onrender.com").rstrip("/")
+WEBAPP_URL = "https://nhl-miniapp-1.onrender.com"
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 CACHE_TTL = {
