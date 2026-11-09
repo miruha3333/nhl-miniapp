@@ -1829,30 +1829,60 @@ function normalizeCompareName(str) {
     .replace(/[^a-zа-яё]/g, "");
 }
 
-// Точное сопоставление имени (не берет чужих игроков с той же фамилией)
-function isPlayerStrictMatch(searchName, draftFull, draftFirst, draftLast) {
-  const sNorm = normalizeCompareName(searchName);
-  const targetNorm = normalizeCompareName(draftFull);
-  if (sNorm === targetNorm) return true;
+// Умный поиск с фильтрацией по амплуа и клубу (отсекает старых тезок из 70-х годов)
+function selectBestPlayerCandidate(candidates, draftFullName, draftFirst, draftLast, draftPos, draftTeam) {
+  if (!Array.isArray(candidates) || !candidates.length) return null;
 
+  const targetNorm = normalizeCompareName(draftFullName);
   const lNorm = normalizeCompareName(draftLast);
-  if (!sNorm.includes(lNorm)) return false;
-
   const fNorm = normalizeCompareName(draftFirst);
-  if (!fNorm) return false;
 
-  // Имя должно совпадать хотя бы по первым 3 буквам (Alex/Alexander, Matt/Matthew)
-  if (fNorm.length >= 3 && sNorm.includes(fNorm.slice(0, 3))) return true;
+  // 1. Оставляем только тех, у кого совпадает фамилия и хотя бы 2 буквы имени
+  const nameMatches = candidates.filter(item => {
+    const sNorm = normalizeCompareName(item.name);
+    if (sNorm === targetNorm) return true;
+    if (!sNorm.includes(lNorm)) return false;
+    if (fNorm.length >= 2 && sNorm.includes(fNorm.slice(0, 2))) return true;
+    return false;
+  });
 
-  // Первая буква имени обязана совпадать
-  const sParts = searchName.trim().split(/\s+/);
-  const sFirst = sParts[0] ? normalizeCompareName(sParts[0]) : "";
-  return sFirst.charAt(0) === fNorm.charAt(0);
+  if (!nameMatches.length) return null;
+  if (nameMatches.length === 1) return nameMatches[0];
+
+  // 2. Если тезок несколько (например, Jack Hughes): фильтруем по позиции (C / F / D / G)
+  if (draftPos) {
+    const posMatched = nameMatches.filter(item => {
+      const p = String(item.positionCode || item.position || "").toUpperCase();
+      if (!p) return true;
+      if (draftPos === "C" || draftPos === "RW" || draftPos === "LW" || draftPos === "F") {
+        return p === "C" || p === "RW" || p === "LW" || p === "F";
+      }
+      return p === draftPos;
+    });
+    if (posMatched.length === 1) return posMatched[0];
+    if (posMatched.length > 1) {
+      // Приоритет действующим игрокам или задрафтовавшему клубу
+      const byTeam = posMatched.find(item => normalizeTeamAbbr(item.lastTeamAbbrev) === draftTeam);
+      if (byTeam) return byTeam;
+      const active = posMatched.find(item => item.active === true || item.lastSeasonId > 20150000);
+      if (active) return active;
+      return posMatched[0];
+    }
+  }
+
+  // 3. Приоритет совпадению клуба или активности
+  const byTeam = nameMatches.find(item => normalizeTeamAbbr(item.lastTeamAbbrev) === draftTeam);
+  if (byTeam) return byTeam;
+
+  const active = nameMatches.find(item => item.active === true);
+  if (active) return active;
+
+  return nameMatches[0];
 }
 
 const draftPlayerCache = new Map();
 
-async function handleDraftClick(fullName, pId) {
+async function handleDraftClick(fullName, pId, teamAbbr, positionCode) {
   if (pId) {
     openPlayerDetail(pId);
     return;
@@ -1862,7 +1892,7 @@ async function handleDraftClick(fullName, pId) {
     openPlayerDetail(cached.playerId);
     return;
   }
-  await findAndOpenPlayer(fullName);
+  await findAndOpenPlayer(fullName, teamAbbr, positionCode);
 }
 
 async function loadDraft() {
@@ -1872,7 +1902,7 @@ async function loadDraft() {
   const year = currentDraftYear;
   cachedDraftPicks = [];
 
-  // 1. Официальный эндпоинт драфта NHL
+  // 1. Официальный драфт NHL
   try {
     const res = await fetch(`${API_BASE}/api/draft/${year}?round=all`);
     if (res.ok) {
@@ -1885,7 +1915,7 @@ async function loadDraft() {
     }
   } catch (_) {}
 
-  // 2. Резервный прямой запрос к API драфта NHL
+  // 2. Резервный запрос
   try {
     const target = `https://api-web.nhle.com/v1/draft/picks/${year}/all`;
     const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`);
@@ -1899,7 +1929,7 @@ async function loadDraft() {
     }
   } catch (_) {}
 
-  // 3. База статистики драфтов NHL
+  // 3. База данных статистики NHL
   try {
     const statsUrl = `https://api.nhle.com/stats/rest/en/draft?cayenneExp=draftYear=${year}&limit=300`;
     const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(statsUrl)}`);
@@ -1940,23 +1970,22 @@ async function hydrateDraftPicks(picks) {
     const fullName = `${first} ${last}`.trim();
     if (!fullName) continue;
 
+    const teamAbbr = normalizeTeamAbbr(p.teamAbbrev || p.triCode);
+    const pos = p.positionCode || "";
     let info = draftPlayerCache.get(fullName);
 
     if (!info) {
-      // Берём родной playerId из объекта драфта
       let pId = p.playerId || p.id || p.csPlayerId || "";
 
-      // Если в объекте драфта не было ID, делаем строгий поиск без подстановок
+      // Поиск с точной фильтрацией по позиции и клубу
       if (!pId) {
         try {
           const sRes = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=10&q=${encodeURIComponent(last || fullName)}`);
           if (sRes.ok) {
             const sData = await sRes.json();
-            if (Array.isArray(sData) && sData.length > 0) {
-              const matched = sData.find(item => isPlayerStrictMatch(item.name, fullName, first, last));
-              if (matched && matched.playerId) {
-                pId = matched.playerId;
-              }
+            const matched = selectBestPlayerCandidate(sData, fullName, first, last, pos, teamAbbr);
+            if (matched && matched.playerId) {
+              pId = matched.playerId;
             }
           }
         } catch (_) {}
@@ -1973,7 +2002,7 @@ async function hydrateDraftPicks(picks) {
             if (pData?.headshot) headshot = pData.headshot;
             const reg = pData?.careerTotals?.regularSeason;
             if (reg && (Number(reg.gamesPlayed) || 0) > 0) {
-              if (p.positionCode === "G") {
+              if (pos === "G") {
                 statText = `${reg.gamesPlayed} ${reg.wins || 0}-${reg.losses || 0}`;
               } else {
                 const g = Number(reg.goals) || 0;
@@ -2053,7 +2082,7 @@ function renderDraftPicks() {
           <img id="draft-img-${idx}" src="${headshotUrl}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:var(--surface-2);border:1px solid var(--border);flex-shrink:0;" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
           <div style="min-width:0;flex:1;">
             <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              <span id="draft-link-${idx}" class="tx-player-link" onclick="handleDraftClick('${escapeHtml(fullName)}', '${pId}')">${escapeHtml(fullName)}</span>
+              <span id="draft-link-${idx}" class="tx-player-link" onclick="handleDraftClick('${escapeHtml(fullName)}', '${pId}', '${escapeHtml(teamAbbr)}', '${escapeHtml(p.positionCode || '')}')">${escapeHtml(fullName)}</span>
               <span style="font-size:11px;color:var(--silver-dim);font-weight:normal;">(${escapeHtml(p.positionCode || '')})</span>
             </div>
             <div style="font-size:11px;color:var(--silver-dim);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
@@ -3656,7 +3685,7 @@ function renderTeamRosterView() {
 }
 
 // ПОИСК ИГРОКА
-async function findAndOpenPlayer(playerName) {
+async function findAndOpenPlayer(playerName, teamAbbr = "", posCode = "") {
   const clean = playerName.trim();
   if (playerSearchCache.has(clean)) {
     const cachedId = playerSearchCache.get(clean);
@@ -3674,13 +3703,11 @@ async function findAndOpenPlayer(playerName) {
     const sRes = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=10&q=${encodeURIComponent(lastName || clean)}`);
     if (sRes.ok) {
       const sData = await sRes.json();
-      if (Array.isArray(sData) && sData.length > 0) {
-        const matched = sData.find(item => isPlayerMatch(item.name, clean, firstName, lastName)) || sData[0];
-        if (matched && matched.playerId) {
-          playerSearchCache.set(clean, matched.playerId);
-          openPlayerDetail(matched.playerId);
-          return;
-        }
+      const matched = selectBestPlayerCandidate(sData, clean, firstName, lastName, posCode, teamAbbr);
+      if (matched && matched.playerId) {
+        playerSearchCache.set(clean, matched.playerId);
+        openPlayerDetail(matched.playerId);
+        return;
       }
     }
 
