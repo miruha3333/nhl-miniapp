@@ -1829,8 +1829,8 @@ function normalizeCompareName(str) {
     .replace(/[^a-zа-яё]/g, "");
 }
 
-// Умное сопоставление имён (Alexander -> Alex, Mitchell -> Mitch, Matthew -> Matt, Yevgeni -> Evgeni)
-function isPlayerMatch(searchName, draftFull, draftFirst, draftLast) {
+// Точное сопоставление имени (не берет чужих игроков с той же фамилией)
+function isPlayerStrictMatch(searchName, draftFull, draftFirst, draftLast) {
   const sNorm = normalizeCompareName(searchName);
   const targetNorm = normalizeCompareName(draftFull);
   if (sNorm === targetNorm) return true;
@@ -1839,15 +1839,15 @@ function isPlayerMatch(searchName, draftFull, draftFirst, draftLast) {
   if (!sNorm.includes(lNorm)) return false;
 
   const fNorm = normalizeCompareName(draftFirst);
-  if (!fNorm) return true;
+  if (!fNorm) return false;
 
-  // Совпадение по первым 3 буквам имени (Alex/Alexander, Matt/Matthew, Mitch/Mitchell)
-  if (sNorm.includes(fNorm.slice(0, 3))) return true;
+  // Имя должно совпадать хотя бы по первым 3 буквам (Alex/Alexander, Matt/Matthew)
+  if (fNorm.length >= 3 && sNorm.includes(fNorm.slice(0, 3))) return true;
 
-  // Совпадение по корню для славянских имён (Evgeni/Yevgeni, Ilia/Ilya)
-  if (fNorm.length >= 4 && sNorm.includes(fNorm.slice(2, 5))) return true;
-
-  return false;
+  // Первая буква имени обязана совпадать
+  const sParts = searchName.trim().split(/\s+/);
+  const sFirst = sParts[0] ? normalizeCompareName(sParts[0]) : "";
+  return sFirst.charAt(0) === fNorm.charAt(0);
 }
 
 const draftPlayerCache = new Map();
@@ -1872,6 +1872,7 @@ async function loadDraft() {
   const year = currentDraftYear;
   cachedDraftPicks = [];
 
+  // 1. Официальный эндпоинт драфта NHL
   try {
     const res = await fetch(`${API_BASE}/api/draft/${year}?round=all`);
     if (res.ok) {
@@ -1884,6 +1885,7 @@ async function loadDraft() {
     }
   } catch (_) {}
 
+  // 2. Резервный прямой запрос к API драфта NHL
   try {
     const target = `https://api-web.nhle.com/v1/draft/picks/${year}/all`;
     const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`);
@@ -1897,13 +1899,39 @@ async function loadDraft() {
     }
   } catch (_) {}
 
+  // 3. База статистики драфтов NHL
+  try {
+    const statsUrl = `https://api.nhle.com/stats/rest/en/draft?cayenneExp=draftYear=${year}&limit=300`;
+    const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(statsUrl)}`);
+    if (res.ok) {
+      const data = await res.json();
+      const rows = Array.isArray(data?.data) ? data.data : [];
+      if (rows.length > 0) {
+        cachedDraftPicks = rows.map(r => ({
+          overallPick: r.overallPickNumber || r.pickInDraft,
+          round: r.roundNumber,
+          pickInRound: r.pickInRound,
+          teamAbbrev: r.triCode || r.draftedByTeamAbbrev,
+          firstName: r.firstName,
+          lastName: r.lastName,
+          positionCode: r.positionCode || r.position,
+          countryCode: r.countryCode || r.nationalityCode,
+          amateurClubName: r.amateurClubName || r.lastAmateurClub,
+          playerId: r.playerId || r.id || ""
+        }));
+        renderDraftPicks();
+        return;
+      }
+    }
+  } catch (_) {}
+
   if (container) {
     container.innerHTML = `<div class="empty">Драфт ${year} года ещё не состоялся либо формируется лигой.</div>`;
   }
 }
 
 async function hydrateDraftPicks(picks) {
-  const toProcess = picks.slice(0, 40);
+  const toProcess = picks.slice(0, 50);
 
   for (let idx = 0; idx < toProcess.length; idx++) {
     const p = toProcess[idx];
@@ -1912,20 +1940,20 @@ async function hydrateDraftPicks(picks) {
     const fullName = `${first} ${last}`.trim();
     if (!fullName) continue;
 
-    const pickNum = p.overallPick || p.pickInRound || (idx + 1);
     let info = draftPlayerCache.get(fullName);
 
     if (!info) {
-      let pId = p.playerId || p.id || "";
+      // Берём родной playerId из объекта драфта
+      let pId = p.playerId || p.id || p.csPlayerId || "";
 
-      // Если в объекте драфта нет ID, ищем через базу поиска игроков NHL
+      // Если в объекте драфта не было ID, делаем строгий поиск без подстановок
       if (!pId) {
         try {
           const sRes = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=10&q=${encodeURIComponent(last || fullName)}`);
           if (sRes.ok) {
             const sData = await sRes.json();
             if (Array.isArray(sData) && sData.length > 0) {
-              const matched = sData.find(item => isPlayerMatch(item.name, fullName, first, last)) || sData[0];
+              const matched = sData.find(item => isPlayerStrictMatch(item.name, fullName, first, last));
               if (matched && matched.playerId) {
                 pId = matched.playerId;
               }
@@ -1962,10 +1990,10 @@ async function hydrateDraftPicks(picks) {
       draftPlayerCache.set(fullName, info);
     }
 
-    const imgEl = document.getElementById(`draft-img-${pickNum}`);
+    const imgEl = document.getElementById(`draft-img-${idx}`);
     if (imgEl && info.headshot) imgEl.src = info.headshot;
 
-    const statEl = document.getElementById(`draft-stat-${pickNum}`);
+    const statEl = document.getElementById(`draft-stat-${idx}`);
     if (statEl) {
       statEl.textContent = info.statText;
       if (info.statText !== "—") {
@@ -1974,7 +2002,7 @@ async function hydrateDraftPicks(picks) {
       }
     }
 
-    const linkEl = document.getElementById(`draft-link-${pickNum}`);
+    const linkEl = document.getElementById(`draft-link-${idx}`);
     if (linkEl && info.playerId) {
       linkEl.setAttribute("onclick", `openPlayerDetail('${info.playerId}')`);
     }
@@ -2011,7 +2039,7 @@ function renderDraftPicks() {
     const pickNum = p.overallPick || p.pickInRound || (idx + 1);
 
     const cached = draftPlayerCache.get(fullName);
-    const pId = cached?.playerId || p.playerId || "";
+    const pId = cached?.playerId || p.playerId || p.id || "";
     const headshotUrl = cached?.headshot || (pId ? `https://assets.nhle.com/mugs/nhl/latest/${pId}.png` : "https://assets.nhle.com/mugs/nhl/default-player.png");
     const statText = cached ? cached.statText : "—";
     const isStatActive = statText !== "—";
@@ -2022,10 +2050,10 @@ function renderDraftPicks() {
           <div style="font-family:'Roboto Mono',monospace;font-size:15px;font-weight:700;color:#fff;width:32px;text-align:center;flex-shrink:0;">
             #${pickNum}
           </div>
-          <img id="draft-img-${pickNum}" src="${headshotUrl}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:var(--surface-2);border:1px solid var(--border);flex-shrink:0;" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
+          <img id="draft-img-${idx}" src="${headshotUrl}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:var(--surface-2);border:1px solid var(--border);flex-shrink:0;" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
           <div style="min-width:0;flex:1;">
             <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              <span id="draft-link-${pickNum}" class="tx-player-link" onclick="handleDraftClick('${escapeHtml(fullName)}', '${pId}')">${escapeHtml(fullName)}</span>
+              <span id="draft-link-${idx}" class="tx-player-link" onclick="handleDraftClick('${escapeHtml(fullName)}', '${pId}')">${escapeHtml(fullName)}</span>
               <span style="font-size:11px;color:var(--silver-dim);font-weight:normal;">(${escapeHtml(p.positionCode || '')})</span>
             </div>
             <div style="font-size:11px;color:var(--silver-dim);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
@@ -2037,7 +2065,7 @@ function renderDraftPicks() {
               <span>· ${escapeHtml(clubInfo)}</span>
             </div>
             <div style="font-family:'Roboto Mono',monospace;font-size:11px;color:var(--silver-dim);margin-top:3px;">
-              НХЛ: <span id="draft-stat-${pickNum}" style="${isStatActive ? 'color:#2ecc71;font-weight:700;' : ''}">${escapeHtml(statText)}</span>
+              НХЛ: <span id="draft-stat-${idx}" style="${isStatActive ? 'color:#2ecc71;font-weight:700;' : ''}">${escapeHtml(statText)}</span>
             </div>
           </div>
         </div>
