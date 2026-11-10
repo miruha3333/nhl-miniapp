@@ -3053,6 +3053,14 @@ function renderBoxTables(awayAbbrev, homeAbbrev) {
       if (k === "points") {
         va = (Number(a.goals) || 0) + (Number(a.assists) || 0);
         vb = (Number(b.goals) || 0) + (Number(b.assists) || 0);
+      } else if (k === "toi") {
+        const toSec = (t) => {
+          if (!t) return 0;
+          const parts = String(t).split(":").map(Number);
+          return (parts[0] || 0) * 60 + (parts[1] || 0);
+        };
+        va = toSec(a.toi || a.timeOnIce);
+        vb = toSec(b.toi || b.timeOnIce);
       }
       return isAsc ? Number(va) - Number(vb) : Number(vb) - Number(va);
     });
@@ -3078,12 +3086,14 @@ function renderBoxTables(awayAbbrev, homeAbbrev) {
               <th class="sortable" data-sec="${sec}" data-col="plusMinus">+/-${arrow(sec, "plusMinus")}</th>
               <th class="sortable" data-sec="${sec}" data-col="sog">Б${arrow(sec, "sog")}</th>
               <th class="sortable" data-sec="${sec}" data-col="pim">Штр${arrow(sec, "pim")}</th>
+              <th class="sortable" data-sec="${sec}" data-col="toi" title="Время на льду">ВП${arrow(sec, "toi")}</th>
             </tr>
           </thead>
           <tbody>
             ${sorted.map(p => {
               const pName = `${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim() || nameStr(p.name);
               const pts = (Number(p.goals) || 0) + (Number(p.assists) || 0);
+              const toiStr = p.toi || p.timeOnIce || "0:00";
               return `
                 <tr class="clickable-row" onclick="openPlayerDetail('${getPlayerId(p)}')">
                   <td>${escapeHtml(pName)}</td>
@@ -3093,6 +3103,7 @@ function renderBoxTables(awayAbbrev, homeAbbrev) {
                   <td class="num">${val(p.plusMinus, 0)}</td>
                   <td class="num">${val(p.sog ?? p.shots, 0)}</td>
                   <td class="num">${val(p.pim ?? p.penaltyMinutes, 0)}</td>
+                  <td class="num" style="font-family:'Roboto Mono',monospace;color:var(--silver-dim);">${escapeHtml(toiStr)}</td>
                 </tr>
               `;
             }).join('')}
@@ -3118,12 +3129,14 @@ function renderBoxTables(awayAbbrev, homeAbbrev) {
               <th class="sortable" data-sec="${sec}" data-col="saves">ОБ${arrow(sec, "saves")}</th>
               <th class="sortable" data-sec="${sec}" data-col="savePctg">%ОБ${arrow(sec, "savePctg")}</th>
               <th class="sortable" data-sec="${sec}" data-col="goalsAgainst">ПШ${arrow(sec, "goalsAgainst")}</th>
+              <th class="sortable" data-sec="${sec}" data-col="toi" title="Время на льду">ВП${arrow(sec, "toi")}</th>
             </tr>
           </thead>
           <tbody>
             ${sorted.map(g => {
               const gName = `${nameStr(g.firstName)} ${nameStr(g.lastName)}`.trim() || nameStr(g.name);
               const sv = g.savePctg ?? g.savePercentage;
+              const toiStr = g.toi || g.timeOnIce || "—";
               return `
                 <tr class="clickable-row" onclick="openPlayerDetail('${getPlayerId(g)}')">
                   <td>${escapeHtml(gName)}</td>
@@ -3131,6 +3144,7 @@ function renderBoxTables(awayAbbrev, homeAbbrev) {
                   <td class="num">${val(g.saves, 0)}</td>
                   <td class="num" style="color:#ffffff !important;font-weight:700;">${typeof sv === 'number' ? sv.toFixed(3) : val(sv)}</td>
                   <td class="num">${val(g.goalsAgainst, 0)}</td>
+                  <td class="num" style="font-family:'Roboto Mono',monospace;color:var(--silver-dim);">${escapeHtml(toiStr)}</td>
                 </tr>
               `;
             }).join('')}
@@ -4008,7 +4022,19 @@ function initApp() {
   try { buildSeasonOptions(); } catch (_) {}
   try { buildDraftYearOptions(); } catch (_) {}
   try { updateMyTeamButton(); } catch (_) {}
-  switchTab("schedule");
+  const params = new URLSearchParams(window.location.search);
+  const sec = params.get("section");
+  const tabMap = {
+    matches: "schedule",
+    schedule: "schedule",
+    standings: "standings",
+    leaders: "players",
+    players: "players",
+    draft: "draft",
+    transactions: "transactions",
+    news: "news"
+  };
+  switchTab(tabMap[sec] || "schedule");
 }
 
 if (document.readyState === "loading") {
