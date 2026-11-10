@@ -1722,8 +1722,29 @@ function getGameScore(game, side) {
   return value === undefined || value === null ? null : Number(value);
 }
 
-function openDetail() {
+// === СИСТЕМА ПОШАГОВОЙ НАВИГАЦИИ (ИСТОРИЯ ПЕРЕХОДОВ) ===
+let navStack = [];
+let currentViewState = { type: 'main', tab: 'schedule' };
+let isNavigatingBack = false;
+
+function updateBackButtonVisibility() {
+  const show = navStack.length > 0;
+  const topBack = document.getElementById("header-back-btn") || document.getElementById("back-btn");
+  if (topBack) topBack.style.display = show ? "inline-flex" : "none";
+  if (tg?.BackButton) {
+    if (show) tg.BackButton.show();
+    else tg.BackButton.hide();
+  }
+}
+
+function openDetail(nextState) {
   stopAllVideos();
+  if (nextState && !isNavigatingBack) {
+    navStack.push(currentViewState);
+    currentViewState = nextState;
+  }
+  updateBackButtonVisibility();
+
   ["view-schedule", "view-standings", "view-players", "view-draft", "view-transactions", "view-news"].forEach(v => {
     const el = document.getElementById(v);
     if (el) el.style.display = "none";
@@ -1734,13 +1755,32 @@ function openDetail() {
   
   const nav = document.getElementById("main-nav");
   if (nav) nav.style.display = "none";
-  
-  const topBack = document.getElementById("header-back-btn") || document.getElementById("back-btn");
-  if (topBack) topBack.style.display = "inline-flex";
 
   const body = document.getElementById("detail-body");
   if (body) body.innerHTML = '<div class="loading">Загрузка...</div>';
   window.scrollTo(0, 0);
+}
+
+function goBack() {
+  stopAllVideos();
+  if (!navStack.length) {
+    switchTab(lastMainTab);
+    return;
+  }
+
+  isNavigatingBack = true;
+  const target = navStack.pop();
+  currentViewState = target;
+  updateBackButtonVisibility();
+
+  if (target.type === 'main') {
+    switchTab(target.tab, true);
+  } else if (typeof target.fn === 'function') {
+    target.fn();
+  } else {
+    switchTab(lastMainTab, true);
+  }
+  isNavigatingBack = false;
 }
 
 function resetLeadersToSkaters() {
@@ -1764,9 +1804,15 @@ function resetLeadersToSkaters() {
   });
 }
 
-function switchTab(tab) {
+function switchTab(tab, fromBack = false) {
   stopAllVideos();
   const safeTab = ["schedule", "standings", "players", "draft", "transactions", "news"].includes(tab) ? tab : "schedule";
+
+  if (!fromBack) {
+    navStack = [];
+    currentViewState = { type: 'main', tab: safeTab };
+  }
+  updateBackButtonVisibility();
 
   ["schedule", "standings", "players", "draft", "transactions", "news"].forEach(t => {
     document.getElementById(`tab-${t}`)?.classList.toggle("active", safeTab === t);
@@ -1779,9 +1825,6 @@ function switchTab(tab) {
 
   const nav = document.getElementById("main-nav");
   if (nav) nav.style.display = "grid";
-
-  const topBack = document.getElementById("header-back-btn") || document.getElementById("back-btn");
-  if (topBack) topBack.style.display = "none";
 
   lastMainTab = safeTab;
 
@@ -1829,7 +1872,7 @@ function normalizeCompareName(str) {
     .replace(/[^a-zа-яё]/g, "");
 }
 
-// Умный поиск с фильтрацией по амплуа и клубу (отсекает старых тезок из 70-х годов)
+// Умный выбор кандидата: отсекает однофамильцев и подбирает точного хоккеиста
 function selectBestPlayerCandidate(candidates, draftFullName, draftFirst, draftLast, draftPos, draftTeam) {
   if (!Array.isArray(candidates) || !candidates.length) return null;
 
@@ -1837,47 +1880,83 @@ function selectBestPlayerCandidate(candidates, draftFullName, draftFirst, draftL
   const lNorm = normalizeCompareName(draftLast);
   const fNorm = normalizeCompareName(draftFirst);
 
-  // 1. Оставляем только тех, у кого совпадает фамилия и хотя бы 2 буквы имени
-  const nameMatches = candidates.filter(item => {
-    const sNorm = normalizeCompareName(item.name);
-    if (sNorm === targetNorm) return true;
-    if (!sNorm.includes(lNorm)) return false;
-    if (fNorm.length >= 2 && sNorm.includes(fNorm.slice(0, 2))) return true;
-    return false;
+  const surnameMatches = candidates.filter(item => {
+    const sNorm = normalizeCompareName(item.name || "");
+    return sNorm.includes(lNorm);
   });
 
-  if (!nameMatches.length) return null;
-  if (nameMatches.length === 1) return nameMatches[0];
+  if (!surnameMatches.length) return null;
 
-  // 2. Если тезок несколько (например, Jack Hughes): фильтруем по позиции (C / F / D / G)
+  const nameMatches = surnameMatches.filter(item => {
+    const sNorm = normalizeCompareName(item.name || "");
+    if (sNorm === targetNorm) return true;
+    if (!fNorm) return true;
+    const fPref = fNorm.slice(0, 3);
+    if (fPref.length >= 3 && sNorm.includes(fPref)) return true;
+    const parts = (item.name || "").trim().split(/\s+/);
+    const sFirst = parts[0] ? normalizeCompareName(parts[0]) : "";
+    return sFirst.charAt(0) === fNorm.charAt(0);
+  });
+
+  const pool = nameMatches.length > 0 ? nameMatches : surnameMatches;
+
+  if (draftTeam) {
+    const byTeam = pool.find(item => normalizeTeamAbbr(item.lastTeamAbbrev) === draftTeam);
+    if (byTeam) return byTeam;
+  }
+
   if (draftPos) {
-    const posMatched = nameMatches.filter(item => {
+    const byPos = pool.find(item => {
       const p = String(item.positionCode || item.position || "").toUpperCase();
-      if (!p) return true;
-      if (draftPos === "C" || draftPos === "RW" || draftPos === "LW" || draftPos === "F") {
-        return p === "C" || p === "RW" || p === "LW" || p === "F";
-      }
+      if (!p) return false;
+      if (["C", "LW", "RW", "F"].includes(draftPos)) return ["C", "LW", "RW", "F"].includes(p);
       return p === draftPos;
     });
-    if (posMatched.length === 1) return posMatched[0];
-    if (posMatched.length > 1) {
-      // Приоритет действующим игрокам или задрафтовавшему клубу
-      const byTeam = posMatched.find(item => normalizeTeamAbbr(item.lastTeamAbbrev) === draftTeam);
-      if (byTeam) return byTeam;
-      const active = posMatched.find(item => item.active === true || item.lastSeasonId > 20150000);
-      if (active) return active;
-      return posMatched[0];
+    if (byPos) return byPos;
+  }
+
+  const active = pool.find(item => item.active === true || (item.lastSeasonId && item.lastSeasonId >= 20180000));
+  if (active) return active;
+
+  return pool[0];
+}
+
+// Надежный поиск по полному имени и алиасам
+async function searchPlayerSmart(fullName, draftFirst, draftLast, draftPos, draftTeam) {
+  const clean = fullName.trim();
+  let candidates = [];
+
+  // 1. Поиск по полному имени ("Will Smith")
+  try {
+    const res = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=15&q=${encodeURIComponent(clean)}`);
+    if (res.ok) candidates = await res.json();
+  } catch (_) {}
+
+  // 2. Поиск по распространенным сокращениям (Will -> William, Alex -> Alexander, Matt -> Matthew)
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    const aliasMap = {
+      "will": "William", "alex": "Alexander", "matt": "Matthew",
+      "mitch": "Mitchell", "nick": "Nicholas", "zach": "Zachary",
+      "dan": "Daniel", "brad": "Bradley", "chris": "Christopher"
+    };
+    const expandedFirst = aliasMap[draftFirst.toLowerCase()];
+    if (expandedFirst) {
+      try {
+        const resAlias = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=15&q=${encodeURIComponent(expandedFirst + " " + draftLast)}`);
+        if (resAlias.ok) candidates = await resAlias.json();
+      } catch (_) {}
     }
   }
 
-  // 3. Приоритет совпадению клуба или активности
-  const byTeam = nameMatches.find(item => normalizeTeamAbbr(item.lastTeamAbbrev) === draftTeam);
-  if (byTeam) return byTeam;
+  // 3. Резервный поиск по фамилии с расширенным лимитом (35 вместо 10)
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    try {
+      const resLast = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=35&q=${encodeURIComponent(draftLast)}`);
+      if (resLast.ok) candidates = await resLast.json();
+    } catch (_) {}
+  }
 
-  const active = nameMatches.find(item => item.active === true);
-  if (active) return active;
-
-  return nameMatches[0];
+  return selectBestPlayerCandidate(candidates, clean, draftFirst, draftLast, draftPos, draftTeam);
 }
 
 const draftPlayerCache = new Map();
@@ -1902,7 +1981,6 @@ async function loadDraft() {
   const year = currentDraftYear;
   cachedDraftPicks = [];
 
-  // 1. Официальный драфт NHL
   try {
     const res = await fetch(`${API_BASE}/api/draft/${year}?round=all`);
     if (res.ok) {
@@ -1915,7 +1993,6 @@ async function loadDraft() {
     }
   } catch (_) {}
 
-  // 2. Резервный запрос
   try {
     const target = `https://api-web.nhle.com/v1/draft/picks/${year}/all`;
     const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`);
@@ -1923,32 +2000,6 @@ async function loadDraft() {
       const data = await res.json();
       if (Array.isArray(data?.picks) && data.picks.length > 0) {
         cachedDraftPicks = data.picks;
-        renderDraftPicks();
-        return;
-      }
-    }
-  } catch (_) {}
-
-  // 3. База данных статистики NHL
-  try {
-    const statsUrl = `https://api.nhle.com/stats/rest/en/draft?cayenneExp=draftYear=${year}&limit=300`;
-    const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(statsUrl)}`);
-    if (res.ok) {
-      const data = await res.json();
-      const rows = Array.isArray(data?.data) ? data.data : [];
-      if (rows.length > 0) {
-        cachedDraftPicks = rows.map(r => ({
-          overallPick: r.overallPickNumber || r.pickInDraft,
-          round: r.roundNumber,
-          pickInRound: r.pickInRound,
-          teamAbbrev: r.triCode || r.draftedByTeamAbbrev,
-          firstName: r.firstName,
-          lastName: r.lastName,
-          positionCode: r.positionCode || r.position,
-          countryCode: r.countryCode || r.nationalityCode,
-          amateurClubName: r.amateurClubName || r.lastAmateurClub,
-          playerId: r.playerId || r.id || ""
-        }));
         renderDraftPicks();
         return;
       }
@@ -1977,18 +2028,11 @@ async function hydrateDraftPicks(picks) {
     if (!info) {
       let pId = p.playerId || p.id || p.csPlayerId || "";
 
-      // Поиск с точной фильтрацией по позиции и клубу
       if (!pId) {
-        try {
-          const sRes = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=10&q=${encodeURIComponent(last || fullName)}`);
-          if (sRes.ok) {
-            const sData = await sRes.json();
-            const matched = selectBestPlayerCandidate(sData, fullName, first, last, pos, teamAbbr);
-            if (matched && matched.playerId) {
-              pId = matched.playerId;
-            }
-          }
-        } catch (_) {}
+        const candidate = await searchPlayerSmart(fullName, first, last, pos, teamAbbr);
+        if (candidate && candidate.playerId) {
+          pId = candidate.playerId;
+        }
       }
 
       let statText = "—";
@@ -2017,6 +2061,7 @@ async function hydrateDraftPicks(picks) {
 
       info = { playerId: pId, headshot, statText };
       draftPlayerCache.set(fullName, info);
+      if (pId) playerSearchCache.set(fullName, pId);
     }
 
     const imgEl = document.getElementById(`draft-img-${idx}`);
@@ -2063,6 +2108,7 @@ function renderDraftPicks() {
     const last = nameStr(p.lastName);
     const fullName = `${first} ${last}`.trim() || "Игрок";
     const teamAbbr = normalizeTeamAbbr(p.teamAbbrev || p.triCode);
+    const pos = p.positionCode || "";
     const logoUrl = getSafeTeamLogoUrl(teamAbbr, p.teamLogoLight || p.teamLogoDark);
     const clubInfo = p.amateurClubName || p.amateurLeague ? `${p.amateurClubName || ''} (${p.amateurLeague || ''})`.trim() : "—";
     const pickNum = p.overallPick || p.pickInRound || (idx + 1);
@@ -2082,8 +2128,8 @@ function renderDraftPicks() {
           <img id="draft-img-${idx}" src="${headshotUrl}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:var(--surface-2);border:1px solid var(--border);flex-shrink:0;" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
           <div style="min-width:0;flex:1;">
             <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              <span id="draft-link-${idx}" class="tx-player-link" onclick="handleDraftClick('${escapeHtml(fullName)}', '${pId}', '${escapeHtml(teamAbbr)}', '${escapeHtml(p.positionCode || '')}')">${escapeHtml(fullName)}</span>
-              <span style="font-size:11px;color:var(--silver-dim);font-weight:normal;">(${escapeHtml(p.positionCode || '')})</span>
+              <span id="draft-link-${idx}" class="tx-player-link" onclick="handleDraftClick('${escapeHtml(fullName)}', '${pId}', '${escapeHtml(teamAbbr)}', '${escapeHtml(pos)}')">${escapeHtml(fullName)}</span>
+              <span style="font-size:11px;color:var(--silver-dim);font-weight:normal;">(${escapeHtml(pos)})</span>
             </div>
             <div style="font-size:11px;color:var(--silver-dim);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               <span style="display:inline-flex;align-items:center;gap:4px;">
@@ -2757,7 +2803,7 @@ function renderCareerRow(season, position) {
 
 // КАРТОЧКА ИГРОКА
 async function openPlayerDetail(playerId) {
-  openDetail();
+  openDetail({ type: 'player', fn: () => openPlayerDetail(playerId) });
   const body = document.getElementById("detail-body");
 
   try {
@@ -2835,7 +2881,7 @@ async function openPlayerDetail(playerId) {
 
 // КАРТОЧКА МАТЧА
 async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo) {
-  openDetail();
+  openDetail({ type: 'game', fn: () => openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo) });
   const body = document.getElementById("detail-body");
 
   try {
@@ -3118,7 +3164,7 @@ function renderBoxTables(awayAbbrev, homeAbbrev) {
 
 // ПРЕДМАТЧЕВЫЙ ЦЕНТР
 async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo, dateStr) {
-  openDetail();
+  openDetail({ type: 'pregame', fn: () => openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo, dateStr) });
   const body = document.getElementById("detail-body");
 
   try {
@@ -3415,7 +3461,7 @@ function renderMatchupHistory(games, awayAbbrev, homeAbbrev) {
 
 // СОСТАВ И КАРТОЧКА КЛУБА
 async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
-  openDetail();
+  openDetail({ type: 'team', fn: () => openTeamDetail(teamAbbrev, teamName, teamLogo) });
   const body = document.getElementById("detail-body");
 
   const isDuplicate = teamName && teamName.trim().toUpperCase() === teamAbbrev.trim().toUpperCase();
@@ -3700,15 +3746,11 @@ async function findAndOpenPlayer(playerName, teamAbbr = "", posCode = "") {
     const lastName = parts.length > 1 ? parts.slice(1).join(" ") : clean;
     const firstName = parts.length > 1 ? parts[0] : "";
 
-    const sRes = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=10&q=${encodeURIComponent(lastName || clean)}`);
-    if (sRes.ok) {
-      const sData = await sRes.json();
-      const matched = selectBestPlayerCandidate(sData, clean, firstName, lastName, posCode, teamAbbr);
-      if (matched && matched.playerId) {
-        playerSearchCache.set(clean, matched.playerId);
-        openPlayerDetail(matched.playerId);
-        return;
-      }
+    const candidate = await searchPlayerSmart(clean, firstName, lastName, posCode, teamAbbr);
+    if (candidate && candidate.playerId) {
+      playerSearchCache.set(clean, candidate.playerId);
+      openPlayerDetail(candidate.playerId);
+      return;
     }
 
     playerSearchCache.set(clean, null);
@@ -3851,8 +3893,11 @@ function initApp() {
   safeOn("tab-transactions", "click", () => switchTab("transactions"));
   safeOn("tab-news", "click", () => switchTab("news"));
 
-  safeOn("header-back-btn", "click", () => { stopAllVideos(); switchTab(lastMainTab); });
-  safeOn("back-btn", "click", () => { stopAllVideos(); switchTab(lastMainTab); });
+  safeOn("header-back-btn", "click", goBack);
+  safeOn("back-btn", "click", goBack);
+  if (tg?.BackButton) {
+    tg.BackButton.onClick(goBack);
+  }
 
   safeOn("prev-day", "click", () => { currentDate.setDate(currentDate.getDate() - 1); loadSchedule(); });
   safeOn("next-day", "click", () => { currentDate.setDate(currentDate.getDate() + 1); loadSchedule(); });
