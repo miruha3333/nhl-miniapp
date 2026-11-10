@@ -1113,20 +1113,21 @@ async def telegram_webhook(request: Request):
     if text.startswith("/start") or text in ("/matches", "/standings", "/leaders", "/news", "/donate", "/help"):
         DONATE_URL = "https://t.me/tribute/app?startapp=dTl8"
 
-        # Добавлен параметр ?v=2 для принудительного сброса старого кэша Telegram на всех кнопках
         keyboard = {
             "inline_keyboard": [
-                [{"text": "🏒 ОТКРЫТЬ NHL LIVE", "web_app": {"url": f"{WEBAPP_URL}/?v=2"}}],
                 [
                     {"text": "📅 Матчи", "web_app": {"url": f"{WEBAPP_URL}/?v=2&section=matches"}},
                     {"text": "📊 Таблица", "web_app": {"url": f"{WEBAPP_URL}/?v=2&section=standings"}},
                 ],
                 [
                     {"text": "🏆 Лидеры", "web_app": {"url": f"{WEBAPP_URL}/?v=2&section=leaders"}},
-                    {"text": "🔄 Трансферы", "web_app": {"url": f"{WEBAPP_URL}/?v=2&section=transactions"}},
+                    {"text": "🎯 Драфт", "web_app": {"url": f"{WEBAPP_URL}/?v=2&section=draft"}},
                 ],
                 [
+                    {"text": "🔄 Трансферы", "web_app": {"url": f"{WEBAPP_URL}/?v=2&section=transactions"}},
                     {"text": "📢 Новости", "web_app": {"url": f"{WEBAPP_URL}/?v=2&section=news"}},
+                ],
+                [
                     {"text": "☕ Поддержать проект", "url": DONATE_URL},
                 ],
             ],
@@ -1144,6 +1145,7 @@ async def telegram_webhook(request: Request):
                             "📅 <b>Матчи</b> — счёт live, голы, звёзды и видеообзоры\n"
                             "📊 <b>Таблица</b> — общая, по дивизионам и продвинутая статистика\n"
                             "🏆 <b>Лидеры</b> — гонка бомбардиров и вратарей\n"
+                            "🎯 <b>Драфт</b> — вся история ярмарок талантов с 1963 года\n"
                             "🔄 <b>Трансферы</b> — переходы и травмы лиги\n"
                             "📢 <b>Новости</b> — свежие инсайды нашего канала\n\n"
                             "Выбери нужный раздел кнопками ниже:"
