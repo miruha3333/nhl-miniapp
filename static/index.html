@@ -3787,15 +3787,30 @@ async function loadTransactions() {
     }
 
     if (container) {
+      // Список служебных слов, которые гарантированно отсекаются от имени
+      const stopWords = /\b(from|to|on|and|for|with|in|at|into|off|injured|reserve|waivers|roster|non-roster|long-term|conditioning|loan|assignment|suspension|cleared)\b/i;
+
+      function formatPlayerLink(prefix, rawName) {
+        let cleanName = rawName.trim();
+        const stopMatch = cleanName.match(stopWords);
+        if (stopMatch && stopMatch.index !== undefined) {
+          cleanName = cleanName.slice(0, stopMatch.index).trim();
+        }
+        if (!cleanName || cleanName.split(/\s+/).length < 2) return `${prefix} ${rawName}`;
+        return `${prefix} <span class="tx-player-link" onclick="findAndOpenPlayer('${escapeHtml(cleanName)}')">${escapeHtml(cleanName)}</span>`;
+      }
+
       container.innerHTML = list.map(t => {
         let desc = escapeHtml(t.description || '');
 
-        desc = desc.replace(/(forward|defenseman|defenceman|goaltender|goalie|center|winger|left wing|right wing|F|D|G)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi, (match, pos, pName) => {
-          return `${pos} <span class="tx-player-link" onclick="findAndOpenPlayer('${escapeHtml(pName)}')">${escapeHtml(pName)}</span>`;
+        // 1. Позиция перед именем: F, D, G, C, LW, RW, Forward и т.д. (без /i, чтобы не цеплять маленькие буквы)
+        desc = desc.replace(/\b(forward|defenseman|defenceman|goaltender|goalie|center|winger|left wing|right wing|F|D|G|C|LW|RW)\b\s+([A-ZÀ-ÿ][a-zA-ZÀ-ÿ'\-]+(?:\s+[A-ZÀ-ÿ][a-zA-ZÀ-ÿ'\-]+){1,2})/g, (match, pos, pName) => {
+          return formatPlayerLink(pos, pName);
         });
 
-        desc = desc.replace(/(Signed|Traded|Recalled|Claimed|Assigned|Activated|Placed)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi, (match, act, pName) => {
-          return `${act} <span class="tx-player-link" onclick="findAndOpenPlayer('${escapeHtml(pName)}')">${escapeHtml(pName)}</span>`;
+        // 2. Действие перед именем: Activated, Placed, Waived, Signed и т.д.
+        desc = desc.replace(/\b(Signed|Traded|Recalled|Claimed|Assigned|Activated|Placed|Waived|Loaned|Acquired|Released)\b\s+([A-ZÀ-ÿ][a-zA-ZÀ-ÿ'\-]+(?:\s+[A-ZÀ-ÿ][a-zA-ZÀ-ÿ'\-]+){1,2})/g, (match, act, pName) => {
+          return formatPlayerLink(act, pName);
         });
 
         return `
