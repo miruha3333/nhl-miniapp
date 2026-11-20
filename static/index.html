@@ -1804,6 +1804,14 @@ select.date-input option {
 </div>
 
 <script>
+window.addEventListener("error", function (e) {
+  var box = document.getElementById("games");
+  if (box && box.textContent.indexOf("Загрузка") !== -1) {
+    box.innerHTML = '<div class="empty">Ошибка JS: ' + (e.message || "SyntaxError") + " (стр. " + (e.lineno || "?") + ")</div>";
+  }
+});
+</script>
+<script>
 const tg = window.Telegram?.WebApp;
 tg?.ready();
 tg?.expand();
@@ -2233,12 +2241,7 @@ function switchTab(tab, fromBack = false) {
   }
   if (safeTab === "news") loadNews();
 }
-```
 
-Напишите «Дальше», и я сразу выдам **Часть 3.2 из 3 (`index.html`)**.
-### Часть 3.2 из 3: `index.html` (Продолжение `<script>`: Драфт, Матчи, Таблица, Лидеры, Поиск, Избранное, Карточка игрока + Game Log + NHL EDGE)
-
-```javascript
 function buildDraftYearOptions() {
   const select = document.getElementById("draft-year-select");
   if (!select) return;
@@ -3635,13 +3638,6 @@ async function openPlayerDetail(playerId) {
     if (body) body.innerHTML = '<div class="empty">Не удалось загрузить карточку игрока</div>';
   }
 }
-```
-
-Напишите «Дальше», и я сразу отправлю финальную **Часть 3.3 из 3 (`index.html`)** (Карточка матча + Карта бросков + Удаления + Судьи/Вне заявки, Превью матча с бомбардирами/вратарями/Pick'em, Карточка клуба с NHL EDGE, Трансферы с переводом и фильтрами + Травмы лиги, Новости, Инициализация и глобальное делегирование кликов).
-
-### Часть 3.3 из 3: `index.html` (Финал файла: Карточка матча + Карта бросков + Удаления + Судьи, Превью матча, Карточка клуба + NHL EDGE, Трансферы с переводом + Травмы лиги, Новости и Инициализация)
-
-```javascript
 const PENALTY_TRANSLATIONS = {
   "tripping": "Подножка",
   "slashing": "Удар клюшкой",
@@ -3723,7 +3719,7 @@ function renderShotMapBlock(pbp, awayAbbrev, homeAbbrev) {
     });
 
     let awaySog = 0, homeSog = 0, awayGoals = 0, homeGoals = 0;
-    const circles = filtered.map((pl, i) => {
+    const circles = filtered.map(pl => {
       const x = Number(pl.details.xCoord);
       const y = Number(pl.details.yCoord);
       const svgX = (x + 100) * 2;
@@ -3971,7 +3967,6 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
     });
     if (!hasGoals) html += '<div class="empty">Голов в матче не было</div>';
 
-    // Протокол удалений
     html += '<div class="section-title">Удаления (Penalties)</div>';
     const penaltiesPeriods = Array.isArray(score?.summary?.penalties) ? score.summary.penalties : [];
     let hasPenalties = false;
@@ -4059,7 +4054,6 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
       html += "</div>";
     }
 
-    // Судьи, тренеры и игроки вне заявки (scratches)
     const gi = rail?.gameInfo || score?.gameInfo || {};
     const referees = Array.isArray(gi.referees) ? gi.referees.map(r => nameStr(r)).filter(Boolean) : [];
     const linesmen = Array.isArray(gi.linesmen) ? gi.linesmen.map(r => nameStr(r)).filter(Boolean) : [];
@@ -4407,7 +4401,6 @@ async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, h
 
     html += `</div>`;
 
-    // Топ-3 бомбардира каждого клуба
     if ((topScorers.away?.length || 0) > 0 || (topScorers.home?.length || 0) > 0) {
       const renderScorerCol = (list, teamLabel) => `
         <div class="injury-team-col">
@@ -4433,7 +4426,6 @@ async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, h
       `;
     }
 
-    // Статистика вратарей команд в сезоне
     if ((clubGoalies.away?.length || 0) > 0 || (clubGoalies.home?.length || 0) > 0) {
       const renderGoalieStatsCol = (list, teamLabel) => `
         <div class="injury-team-col">
@@ -4901,7 +4893,7 @@ async function renderTeamScheduleView(teamAbbrev, seasonId) {
           <div class="h2h-center-cell">
             <span class="h2h-score-val">${isFin ? `${aScore} : ${hScore}` : "vs"}</span>
           </div>
-         <div class="h2h-team-cell right" style="display:flex;align-items:center;justify-content:flex-end;gap:6px;">
+          <div class="h2h-team-cell right" style="display:flex;align-items:center;justify-content:flex-end;gap:6px;">
             <span style="${gHome === teamAbbrev ? "font-weight:700;color:#fff;" : ""}">${escapeHtml(gHome)}</span>
             <img src="${escapeHtml(homeLogo)}" style="width:18px;height:18px;object-fit:contain;" onerror="this.style.display='none'">
           </div>
@@ -5121,7 +5113,6 @@ function translateTransactionDescription(rawDesc, teamAbbr = "") {
 
   let text = String(rawDesc || "");
 
-  // 1. Выделяем имена игроков до перевода, чтобы имена остались на английском
   text = text.replace(/\b(forward|forwards|defenseman|defenceman|defensemen|goaltender|goalie|center|centre|winger|left wing|right wing|F|D|G|C|LW|RW)\b\s+([A-ZÀ-ÿ][a-zA-ZÀ-ÿ'\-]+(?:\s+[A-ZÀ-ÿ][a-zA-ZÀ-ÿ'\-]+){1,2})/g, (m, pos, pName) => {
     return `${pos} ${savePlayerToken(pName)}`;
   });
@@ -5130,7 +5121,6 @@ function translateTransactionDescription(rawDesc, teamAbbr = "") {
     return `${act} ${savePlayerToken(pName)}`;
   });
 
-  // 2. Переводим стандартные формулировки ESPN на русский (клубы и лиги остаются на английском)
   const rules = [
     [/\bAgreed to terms with\b/gi, "Согласован контракт с"],
     [/\bSigned\b/gi, "Подписан контракт:"],
@@ -5574,7 +5564,7 @@ function initApp() {
   safeOn("leaders-def-btn", "click", () => setLeadersSubgroup("defensemen"));
   safeOn("leaders-rookies-btn", "click", () => setLeadersSubgroup("rookies"));
   safeOn("leaders-favs-btn", "click", renderFavoritePlayers);
-  safeOn("leaders-goalies-btn", "click", () => {
+  safeOn("leaders-goalies-btn", () => {
     leadersMode = "goalies";
     document.getElementById("leaders-goalies-btn")?.classList.add("active");
     document.getElementById("leaders-all-btn")?.classList.remove("active");
