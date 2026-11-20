@@ -2272,8 +2272,8 @@ function normalizeCompareName(str) {
     .replace(/[^a-zа-яё]/g, "");
 }
 
-function selectBestPlayerCandidate(candidates, draftFullName, draftFirst, draftLast, draftPos, draftTeam) {
-  if (!Array.isArray(candidates) || !candidates.length) return null;
+function rankPlayerCandidates(candidates, draftFullName, draftFirst, draftLast, draftPos, draftTeam, draftYear = 0) {
+  if (!Array.isArray(candidates) || !candidates.length) return [];
 
   const targetNorm = normalizeCompareName(draftFullName);
   const lNorm = normalizeCompareName(draftLast);
@@ -2283,8 +2283,7 @@ function selectBestPlayerCandidate(candidates, draftFullName, draftFirst, draftL
     const sNorm = normalizeCompareName(item.name || "");
     return sNorm.includes(lNorm);
   });
-
-  if (!surnameMatches.length) return null;
+  if (!surnameMatches.length) return [];
 
   const nameMatches = surnameMatches.filter(item => {
     const sNorm = normalizeCompareName(item.name || "");
@@ -2298,32 +2297,47 @@ function selectBestPlayerCandidate(candidates, draftFullName, draftFirst, draftL
   });
 
   const pool = nameMatches.length > 0 ? nameMatches : surnameMatches;
+  const targetYearNum = Number(draftYear) || 0;
 
-  if (draftTeam) {
-    const byTeam = pool.find(item => normalizeTeamAbbr(item.lastTeamAbbrev) === draftTeam);
-    if (byTeam) return byTeam;
-  }
+  return [...pool].sort((a, b) => {
+    const scoreOf = (item) => {
+      let sc = 0;
+      const sNorm = normalizeCompareName(item.name || "");
+      if (sNorm === targetNorm) sc += 50;
 
-  if (draftPos) {
-    const byPos = pool.find(item => {
-      const p = String(item.positionCode || item.position || "").toUpperCase();
-      if (!p) return false;
-      if (["C", "LW", "RW", "F"].includes(draftPos)) return ["C", "LW", "RW", "F"].includes(p);
-      return p === draftPos;
-    });
-    if (byPos) return byPos;
-  }
+      const itemTeam = normalizeTeamAbbr(item.teamAbbrev || item.lastTeamAbbrev || "");
+      if (draftTeam && itemTeam === draftTeam) sc += 45;
 
-  const active = pool.find(item => item.active === true || (item.lastSeasonId && item.lastSeasonId >= 20180000));
-  return active || pool[0];
+      if (draftPos) {
+        const p = String(item.positionCode || item.position || "").toUpperCase();
+        if (p === draftPos) sc += 25;
+        else if (["C", "LW", "RW", "F"].includes(draftPos) && ["C", "LW", "RW", "F"].includes(p)) sc += 15;
+      }
+
+      if (targetYearNum) {
+        const lastEndYear = item.lastSeasonId ? Number(String(item.lastSeasonId).slice(4, 8) || String(item.lastSeasonId).slice(0, 4)) : 0;
+        if (lastEndYear && lastEndYear < targetYearNum) sc -= 300;
+        if (targetYearNum >= 2008 && item.active === true) sc += 20;
+        if (targetYearNum <= 1995 && item.active === true) sc -= 100;
+      } else if (item.active === true) {
+        sc += 15;
+      }
+      return sc;
+    };
+    return scoreOf(b) - scoreOf(a);
+  });
 }
 
-async function searchPlayerSmart(fullName, draftFirst, draftLast, draftPos, draftTeam) {
+function selectBestPlayerCandidate(candidates, draftFullName, draftFirst, draftLast, draftPos, draftTeam, draftYear = 0) {
+  return rankPlayerCandidates(candidates, draftFullName, draftFirst, draftLast, draftPos, draftTeam, draftYear)[0] || null;
+}
+
+async function searchPlayerCandidates(fullName, draftFirst, draftLast, draftPos, draftTeam, draftYear = 0) {
   const clean = fullName.trim();
   let candidates = [];
 
   try {
-    const res = await fetch(`${API_BASE}/api/player-search?limit=15&q=${encodeURIComponent(clean)}`);
+    const res = await fetch(`${API_BASE}/api/player-search?limit=25&q=${encodeURIComponent(clean)}`);
     if (res.ok) {
       const data = await res.json();
       candidates = Array.isArray(data?.results) ? data.results : [];
@@ -2340,7 +2354,7 @@ async function searchPlayerSmart(fullName, draftFirst, draftLast, draftPos, draf
     const expandedFirst = aliasMap[draftFirst.toLowerCase()];
     if (expandedFirst) {
       try {
-        const resAlias = await fetch(`${API_BASE}/api/player-search?limit=15&q=${encodeURIComponent(`${expandedFirst} ${draftLast}`)}`);
+        const resAlias = await fetch(`${API_BASE}/api/player-search?limit=20&q=${encodeURIComponent(`${expandedFirst} ${draftLast}`)}`);
         if (resAlias.ok) {
           const data = await resAlias.json();
           candidates = Array.isArray(data?.results) ? data.results : [];
@@ -2359,7 +2373,12 @@ async function searchPlayerSmart(fullName, draftFirst, draftLast, draftPos, draf
     } catch (_) {}
   }
 
-  return selectBestPlayerCandidate(candidates, clean, draftFirst, draftLast, draftPos, draftTeam);
+  return rankPlayerCandidates(candidates, clean, draftFirst, draftLast, draftPos, draftTeam, draftYear);
+}
+
+async function searchPlayerSmart(fullName, draftFirst, draftLast, draftPos, draftTeam, draftYear = 0) {
+  const ranked = await searchPlayerCandidates(fullName, draftFirst, draftLast, draftPos, draftTeam, draftYear);
+  return ranked[0] || null;
 }
 
 async function loadDraft() {
@@ -2386,9 +2405,26 @@ async function loadDraft() {
   }
 }
 
+function matchesDraftPlayer(pData, draftYear, overallPick) {
+  if (!pData || typeof pData !== "object") return false;
+  const y = Number(draftYear) || 0;
+  const d = pData.draftDetails;
+  if (d && d.year) {
+    if (Number(d.year) !== y) return false;
+    if (overallPick && d.overallPick && Number(d.overallPick) !== Number(overallPick)) return false;
+    return true;
+  }
+  if (pData.birthDate && y) {
+    const bYear = Number(String(pData.birthDate).slice(0, 4));
+    if (bYear && (bYear < y - 24 || bYear > y - 17)) return false;
+  }
+  return true;
+}
+
 async function hydrateDraftBatch(picks, startIdx, endIdx) {
   const slice = picks.slice(startIdx, endIdx);
   const batchSize = 5;
+  const draftYearNum = Number(currentDraftYear) || 0;
 
   for (let i = 0; i < slice.length; i += batchSize) {
     const chunk = slice.slice(i, i + batchSize);
@@ -2401,44 +2437,54 @@ async function hydrateDraftBatch(picks, startIdx, endIdx) {
 
       const teamAbbr = normalizeTeamAbbr(p.teamAbbrev || p.triCode);
       const pos = p.positionCode || "";
-      let info = draftPlayerCache.get(fullName);
+      const cacheKey = `${fullName}:${currentDraftYear}:${teamAbbr}`;
+      let info = draftPlayerCache.get(cacheKey);
 
       if (!info) {
-        let pId = p.playerId || p.id || p.csPlayerId || "";
-        if (!pId) {
-          const candidate = await searchPlayerSmart(fullName, first, last, pos, teamAbbr);
-          if (candidate?.playerId) pId = candidate.playerId;
-        }
+        const candIds = [];
+        const directId = p.playerId || p.id || p.csPlayerId || "";
+        if (directId) candIds.push(String(directId));
 
+        const ranked = await searchPlayerCandidates(fullName, first, last, pos, teamAbbr, draftYearNum);
+        ranked.slice(0, 5).forEach(c => {
+          if (c?.playerId && !candIds.includes(String(c.playerId))) {
+            candIds.push(String(c.playerId));
+          }
+        });
+
+        let matchedId = "";
         let statText = "—";
-        let headshot = pId
-          ? `https://assets.nhle.com/mugs/nhl/latest/${pId}.png`
-          : "https://assets.nhle.com/mugs/nhl/default-player.png";
+        let headshot = "https://assets.nhle.com/mugs/nhl/default-player.png";
 
-        if (pId) {
+        for (const candId of candIds) {
           try {
-            const pRes = await fetch(`${API_BASE}/api/player/${encodeURIComponent(pId)}`);
-            if (pRes.ok) {
-              const pData = await pRes.json();
-              if (pData?.headshot) headshot = pData.headshot;
-              const reg = pData?.careerTotals?.regularSeason;
-              if (reg && (Number(reg.gamesPlayed) || 0) > 0) {
-                if (pos === "G") {
-                  statText = `${reg.gamesPlayed} и, ${reg.wins || 0}-${reg.losses || 0}`;
-                } else {
-                  const g = Number(reg.goals) || 0;
-                  const a = Number(reg.assists) || 0;
-                  const pts = Number(reg.points) || (g + a);
-                  statText = `${reg.gamesPlayed} и, ${g}+${a}=${pts}`;
-                }
+            const pRes = await fetch(`${API_BASE}/api/player/${encodeURIComponent(candId)}`);
+            if (!pRes.ok) continue;
+            const pData = await pRes.json();
+            if (!matchesDraftPlayer(pData, draftYearNum, p.overallPick)) continue;
+
+            matchedId = candId;
+            if (pData?.headshot) headshot = pData.headshot;
+            else headshot = `https://assets.nhle.com/mugs/nhl/latest/${candId}.png`;
+
+            const reg = pData?.careerTotals?.regularSeason;
+            if (reg && (Number(reg.gamesPlayed) || 0) > 0) {
+              if (pos === "G") {
+                statText = `${reg.gamesPlayed} и, ${reg.wins || 0}-${reg.losses || 0}`;
+              } else {
+                const g = Number(reg.goals) || 0;
+                const a = Number(reg.assists) || 0;
+                const pts = Number(reg.points) || (g + a);
+                statText = `${reg.gamesPlayed} и, ${g}+${a}=${pts}`;
               }
             }
+            break;
           } catch (_) {}
         }
 
-        info = { playerId: pId, headshot, statText };
-        draftPlayerCache.set(fullName, info);
-        if (pId) playerSearchCache.set(fullName, pId);
+        info = { playerId: matchedId, headshot, statText };
+        draftPlayerCache.set(cacheKey, info);
+        if (matchedId) playerSearchCache.set(cacheKey, matchedId);
       }
 
       const imgEl = document.getElementById(`draft-img-${idx}`);
@@ -2491,7 +2537,7 @@ function renderDraftPicks() {
     const clubInfo = p.amateurClubName || p.amateurLeague ? `${p.amateurClubName || ""} (${p.amateurLeague || ""})`.trim() : "—";
     const pickNum = p.overallPick || p.pickInRound || (idx + 1);
 
-    const cached = draftPlayerCache.get(fullName);
+    const cached = draftPlayerCache.get(`${fullName}:${currentDraftYear}:${teamAbbr}`);
     const pId = cached?.playerId || p.playerId || p.id || "";
     const headshotUrl = cached?.headshot || (pId ? `https://assets.nhle.com/mugs/nhl/latest/${pId}.png` : "https://assets.nhle.com/mugs/nhl/default-player.png");
     const statText = cached ? cached.statText : "—";
@@ -2506,8 +2552,9 @@ function renderDraftPicks() {
           <img id="draft-img-${idx}" src="${escapeHtml(headshotUrl)}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:var(--surface-2);border:1px solid var(--border);flex-shrink:0;" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
           <div style="min-width:0;flex:1;">
             <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              <span id="draft-link-${idx}" class="tx-player-link" data-player-id="${escapeHtml(pId)}" data-find-player="${escapeHtml(fullName)}" data-team="${escapeHtml(teamAbbr)}" data-pos="${escapeHtml(pos)}">${escapeHtml(fullName)}</span>
+              <span id="draft-link-${idx}" class="tx-player-link" data-player-id="${escapeHtml(pId)}" data-find-player="${escapeHtml(fullName)}" data-team="${escapeHtml(teamAbbr)}" data-pos="${escapeHtml(pos)}" data-draft-year="${escapeHtml(currentDraftYear)}" data-overall-pick="${escapeHtml(p.overallPick || "")}">${escapeHtml(fullName)}</span>
               <span style="font-size:11px;color:var(--silver-dim);font-weight:normal;">(${escapeHtml(pos)})</span>
+            </div>
             </div>
             <div style="font-size:11px;color:var(--silver-dim);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               <span style="display:inline-flex;align-items:center;gap:4px;">
@@ -3648,41 +3695,43 @@ const PENALTY_TRANSLATIONS = {
   "high-sticking-double-minor": "Высоко поднятая клюшка (4 мин)",
   "interference": "Блокировка",
   "goaltender-interference": "Помеха вратарю",
+  "interference-goalkeeper": "Помеха вратарю",
+  "goalie-interference": "Помеха вратарю",
   "roughing": "Грубость",
   "cross-checking": "Толчок клюшкой",
   "boarding": "Толчок на борт",
   "charging": "Неправильная атака",
   "elbowing": "Удар локтем",
   "kneeing": "Удар коленом",
+  "clipping": "Подсечка",
+  "checking-to-the-head": "Удар в голову",
+  "illegal-check-to-head": "Удар в голову",
   "fighting": "Драка",
   "unsportsmanlike-conduct": "Неспортивное поведение",
+  "unsportsmanlike-conduct-bench": "Неспортивное поведение скамейки",
+  "abuse-of-officials": "Споры с судьёй",
   "delay-of-game": "Задержка игры",
+  "delay-of-game-puck-over-glass": "Выброс шайбы за пределы площадки",
   "delaying-game-puck-over-glass": "Выброс шайбы за пределы площадки",
+  "delaying-game-bench": "Задержка игры (скамейка)",
+  "delaying-game-illegal-challenge": "Неудачный запрос тренера",
   "too-many-men-on-the-ice": "Нарушение численного состава",
+  "too-many-men": "Нарушение численного состава",
+  "bench-minor": "Командный штраф",
   "misconduct": "Дисциплинарный штраф",
   "game-misconduct": "Дисциплинарный штраф до конца игры",
   "embellishment": "Симуляция",
+  "diving": "Симуляция",
   "checking-from-behind": "Толчок в спину",
   "spearing": "Удар концом клюшки",
   "butt-ending": "Удар торцом клюшки",
   "closing-hand-on-puck": "Задержка шайбы рукой",
   "throwing-equipment": "Бросок клюшки",
-};
-
-const SHOT_TYPE_LABELS = {
-  "wrist": "Кистевой",
-  "slap": "Щелчок",
-  "snap": "Снэпшот",
-  "backhand": "С неудобной",
-  "tip-in": "Подправление",
-  "deflected": "Рикошет",
-  "wrap-around": "Заворот",
-  "poke": "Тычок",
-  "bat": "С лёта",
+  "broken-stick": "Игра сломанной клюшкой",
 };
 
 function formatPenaltyName(descKey) {
-  const clean = String(descKey || "").toLowerCase().trim();
+  const clean = String(descKey || "").toLowerCase().trim().replace(/[\s_]+/g, "-");
   if (PENALTY_TRANSLATIONS[clean]) return PENALTY_TRANSLATIONS[clean];
   return clean ? clean.replace(/-/g, " ") : "Нарушение";
 }
@@ -3969,23 +4018,60 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
 
     html += '<div class="section-title">Удаления (Penalties)</div>';
     const penaltiesPeriods = Array.isArray(score?.summary?.penalties) ? score.summary.penalties : [];
+    const pbpPenaltyMap = new Map();
+    const pbpRosterMap = new Map();
+    (Array.isArray(pbp?.rosterSpots) ? pbp.rosterSpots : []).forEach(r => {
+      if (r.playerId) pbpRosterMap.set(r.playerId, `${nameStr(r.firstName)} ${nameStr(r.lastName)}`.trim());
+    });
+    (Array.isArray(pbp?.plays) ? pbp.plays : []).forEach(pl => {
+      if (pl.typeDescKey !== "penalty") return;
+      const perNum = pl.periodDescriptor?.number || 1;
+      const t = pl.timeInPeriod || "";
+      const pId = pl.details?.committedByPlayerId || pl.details?.servedByPlayerId || "";
+      if (pId) {
+        pbpPenaltyMap.set(`${perNum}:${t}:${pl.details?.descKey || ""}`, pId);
+        if (!pbpPenaltyMap.has(`${perNum}:${t}`)) pbpPenaltyMap.set(`${perNum}:${t}`, pId);
+      }
+    });
+
+    function extractPenaltyPlayer(obj) {
+      if (!obj) return "";
+      if (typeof obj === "string") return obj.trim();
+      if (obj.firstName || obj.lastName) {
+        return `${nameStr(obj.firstName)} ${nameStr(obj.lastName)}`.trim();
+      }
+      return nameStr(obj).trim();
+    }
+
     let hasPenalties = false;
     let penHtml = "";
     penaltiesPeriods.forEach(period => {
       const list = period.penalties || [];
       if (!list.length) return;
       hasPenalties = true;
+      const perNum = period.periodDescriptor?.number || 1;
       penHtml += `<div class="period-label">${escapeHtml(formatPeriodLabel(period.periodDescriptor))}</div>`;
       list.forEach(pen => {
-        const offender = nameStr(pen.committedByPlayer) || "Командный штраф";
+        const offenderName = extractPenaltyPlayer(pen.committedByPlayer);
+        const servedName = extractPenaltyPlayer(pen.servedBy);
+        const offenderId = pen.committedByPlayer?.id || pen.committedByPlayer?.playerId ||
+          pbpPenaltyMap.get(`${perNum}:${pen.timeInPeriod || ""}:${pen.descKey || ""}`) ||
+          pbpPenaltyMap.get(`${perNum}:${pen.timeInPeriod || ""}`) || "";
+        const displayOffender = offenderName || (servedName ? `Командный штраф (отб. ${servedName})` : (offenderId && pbpRosterMap.get(offenderId)) || "Командный штраф");
         const reason = formatPenaltyName(pen.descKey);
         const mins = pen.duration ?? 2;
         const tAbbr = pen.teamAbbrev?.default || pen.teamAbbrev || "";
+        const offenderHtml = offenderId
+          ? `<span class="player-link-inline" data-player-id="${escapeHtml(offenderId)}">${escapeHtml(displayOffender)}</span>`
+          : (offenderName
+              ? `<span class="player-link-inline" data-find-player="${escapeHtml(offenderName)}" data-team="${escapeHtml(tAbbr)}">${escapeHtml(displayOffender)}</span>`
+              : escapeHtml(displayOffender));
+
         penHtml += `
           <div class="goal-row">
             <div class="time">${escapeHtml(val(pen.timeInPeriod))}</div>
             <div class="desc">
-              <div class="scorer">${escapeHtml(offender)} <span style="color:var(--silver-dim);font-weight:400;">(${escapeHtml(tAbbr)})</span></div>
+              <div class="scorer">${offenderHtml} <span style="color:var(--silver-dim);font-weight:400;">(${escapeHtml(tAbbr)})</span></div>
               <div class="assists">${escapeHtml(reason)}</div>
             </div>
             <div class="scoreline" style="color:#ff4d4d !important;">${escapeHtml(mins)} мин</div>
@@ -3998,19 +4084,15 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
       const pbpPenalties = pbp.plays.filter(pl => pl.typeDescKey === "penalty");
       if (pbpPenalties.length) {
         hasPenalties = true;
-        const rosterMap = new Map();
-        (pbp.rosterSpots || []).forEach(r => {
-          rosterMap.set(r.playerId, `${nameStr(r.firstName)} ${nameStr(r.lastName)}`.trim());
-        });
         pbpPenalties.forEach(pl => {
-          const pId = pl.details?.committedByPlayerId;
-          const offender = rosterMap.get(pId) || "Командный штраф";
+          const pId = pl.details?.committedByPlayerId || pl.details?.servedByPlayerId || "";
+          const offender = pbpRosterMap.get(pId) || "Командный штраф";
           const tAbbr = pl.details?.eventOwnerTeamId === pbp.awayTeam?.id ? awayAbbrev : homeAbbrev;
           penHtml += `
             <div class="goal-row">
               <div class="time">${escapeHtml(val(pl.timeInPeriod))}</div>
               <div class="desc">
-                <div class="scorer"><span class="${pId ? "player-link-inline" : ""}" data-player-id="${escapeHtml(pId || "")}">${escapeHtml(offender)}</span> (${escapeHtml(tAbbr)})</div>
+                <div class="scorer"><span class="${pId ? "player-link-inline" : ""}" data-player-id="${escapeHtml(pId)}">${escapeHtml(offender)}</span> (${escapeHtml(tAbbr)})</div>
                 <div class="assists">${escapeHtml(formatPenaltyName(pl.details?.descKey))}</div>
               </div>
               <div class="scoreline" style="color:#ff4d4d !important;">${escapeHtml(pl.details?.duration ?? 2)} мин</div>
@@ -4410,7 +4492,7 @@ async function openFutureGamePreview(gameId, awayAbbrev, homeAbbrev, awayLogo, h
               <img src="${escapeHtml(p.headshot || "https://assets.nhle.com/mugs/nhl/default-player.png")}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;background:var(--surface-2);flex-shrink:0;" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
               <div style="min-width:0;flex:1;">
                 <div class="injury-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(formatShortName(p.name, p.firstName, p.lastName))}</div>
-                <div style="font-family:'Roboto Mono',monospace;font-size:10px;color:#2ecc71;font-weight:700;">${p.points} очк (${p.goals}+${p.assists}) · ${p.gamesPlayed} и</div>
+                <div style="font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;"><span style="color:#3a86ff;">${p.gamesPlayed}</span> <span style="color:#2ecc71;">${p.goals}+${p.assists}=${p.points}</span></div>
               </div>
             </div>
           `).join("") || '<div class="empty">Нет данных</div>'}
@@ -5019,11 +5101,13 @@ function renderTeamRosterView() {
 }
 
 // ПОИСК ИГРОКА ПО ИМЕНИ
-async function findAndOpenPlayer(playerName, teamAbbr = "", posCode = "") {
+async function findAndOpenPlayer(playerName, teamAbbr = "", posCode = "", draftYear = 0, overallPick = 0) {
   const clean = String(playerName || "").trim();
   if (!clean) return;
-  if (playerSearchCache.has(clean)) {
-    const cachedId = playerSearchCache.get(clean);
+  const cKey = draftYear ? `${clean}:${draftYear}:${teamAbbr}` : clean;
+
+  if (playerSearchCache.has(cKey)) {
+    const cachedId = playerSearchCache.get(cKey);
     if (cachedId) {
       openPlayerDetail(cachedId);
       return;
@@ -5035,14 +5119,25 @@ async function findAndOpenPlayer(playerName, teamAbbr = "", posCode = "") {
     const lastName = parts.length > 1 ? parts.slice(1).join(" ") : clean;
     const firstName = parts.length > 1 ? parts[0] : "";
 
-    const candidate = await searchPlayerSmart(clean, firstName, lastName, posCode, teamAbbr);
-    if (candidate && candidate.playerId) {
-      playerSearchCache.set(clean, candidate.playerId);
+    const candidates = await searchPlayerCandidates(clean, firstName, lastName, posCode, teamAbbr, Number(draftYear) || 0);
+    for (const candidate of candidates.slice(0, 5)) {
+      if (!candidate?.playerId) continue;
+      if (draftYear) {
+        try {
+          const pRes = await fetch(`${API_BASE}/api/player/${encodeURIComponent(candidate.playerId)}`);
+          if (!pRes.ok) continue;
+          const pData = await pRes.json();
+          if (!matchesDraftPlayer(pData, Number(draftYear), Number(overallPick) || 0)) continue;
+        } catch (_) {
+          continue;
+        }
+      }
+      playerSearchCache.set(cKey, candidate.playerId);
       openPlayerDetail(candidate.playerId);
       return;
     }
 
-    playerSearchCache.set(clean, null);
+    playerSearchCache.set(cKey, null);
     alert(`Хоккеист ${clean} ещё не найден в официальной базе лиги.`);
   } catch (_) {
     alert(`Не удалось открыть карточку игрока ${clean}`);
@@ -5121,25 +5216,36 @@ function translateTransactionDescription(rawDesc, teamAbbr = "") {
     return `${act} ${savePlayerToken(pName)}`;
   });
 
+  // Переставляем "Глагол [Позиция] @@PLAYER_k@@" -> "[Позиция] @@PLAYER_k@@ глагол"
+  text = text.replace(
+    /(^|[.;]\s*)(Agreed to terms with|Signed|Re-signed|Traded|Recalled|Claimed|Assigned|Reassigned|Activated|Placed|Waived|Loaned|Acquired|Released|Suspended|Returned|Designated)\s+(?:(?:unrestricted |restricted )?free agent\s+)?((?:forward|forwards|defenseman|defenceman|defensemen|goaltender|goalie|center|centre|winger|left wing|right wing|F|D|G|C|LW|RW)\s+)?(@@PLAYER_\d+@@)/gi,
+    (m, lead, verb, posPart, playerTok) => {
+      return `${lead}${posPart || ""}${playerTok} ${verb.toLowerCase()}`;
+    }
+  );
+
   const rules = [
-    [/\bAgreed to terms with\b/gi, "Согласован контракт с"],
-    [/\bSigned\b/gi, "Подписан контракт:"],
-    [/\bRe-signed\b/gi, "Переподписан"],
-    [/\bTraded\b/gi, "Обменян"],
-    [/\bAcquired\b/gi, "Приобретён"],
-    [/\bRecalled\b/gi, "Вызван из фарма"],
-    [/\bReassigned\b/gi, "Отправлен в фарм-клуб"],
-    [/\bAssigned\b/gi, "Отправлен в фарм-клуб"],
-    [/\bLoaned\b/gi, "Отдан в аренду"],
-    [/\bActivated\b/gi, "Активирован"],
-    [/\bPlaced\b/gi, "Помещён"],
-    [/\bClaimed\b/gi, "Забран"],
-    [/\bWaived\b/gi, "Выставлен на драфт отказов:"],
-    [/\bReleased\b/gi, "Отчислен"],
-    [/\bSuspended\b/gi, "Дисквалифицирован"],
-    [/\bReturned\b/gi, "Возвращён"],
-    [/\bDesignated\b/gi, "Переведён"],
-    [/\bCleared waivers\b/gi, "Прошёл драфт отказов"],
+    [/\bagreed to terms on\b/gi, "согласовал"],
+    [/\bagreed to terms with\b/gi, "согласовал контракт с"],
+    [/\bsigned to a\b/gi, "подписал"],
+    [/\bsigned\b/gi, "подписал контракт"],
+    [/\bre-signed to a\b/gi, "переподписал"],
+    [/\bre-signed\b/gi, "переподписал контракт"],
+    [/\btraded\b/gi, "обменян"],
+    [/\bacquired\b/gi, "приобретён"],
+    [/\brecalled\b/gi, "вызван из фарма"],
+    [/\breassigned\b/gi, "отправлен в фарм-клуб"],
+    [/\bassigned\b/gi, "отправлен в фарм-клуб"],
+    [/\bloaned\b/gi, "отдан в аренду"],
+    [/\bactivated\b/gi, "выведен"],
+    [/\bplaced\b/gi, "помещён"],
+    [/\bclaimed\b/gi, "забран"],
+    [/\bwaived\b/gi, "выставлен на драфт отказов"],
+    [/\breleased\b/gi, "отчислен"],
+    [/\bsuspended\b/gi, "дисквалифицирован"],
+    [/\breturned\b/gi, "возвращён"],
+    [/\bdesignated\b/gi, "переведён"],
+    [/\bcleared waivers\b/gi, "прошёл драфт отказов"],
     [/\boff waivers\b/gi, "с драфта отказов"],
     [/\bon waivers\b/gi, "на драфт отказов"],
     [/\bfor the purpose of contract termination\b/gi, "для расторжения контракта"],
@@ -5188,6 +5294,8 @@ function translateTransactionDescription(rawDesc, teamAbbr = "") {
   rules.forEach(([regex, repl]) => {
     text = text.replace(regex, repl);
   });
+
+  text = text.replace(/^[а-яё]/, ch => ch.toUpperCase());
 
   let safeHtml = escapeHtml(text);
   tokens.forEach((pName, idx) => {
@@ -5462,7 +5570,13 @@ document.addEventListener("click", (event) => {
 
   const findEl = event.target.closest("[data-find-player]");
   if (findEl && findEl.dataset.findPlayer) {
-    findAndOpenPlayer(findEl.dataset.findPlayer, findEl.dataset.team || "", findEl.dataset.pos || "");
+    findAndOpenPlayer(
+      findEl.dataset.findPlayer,
+      findEl.dataset.team || "",
+      findEl.dataset.pos || "",
+      findEl.dataset.draftYear || 0,
+      findEl.dataset.overallPick || 0
+    );
   }
 });
 
