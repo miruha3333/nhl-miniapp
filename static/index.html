@@ -3726,6 +3726,18 @@ const PENALTY_TRANSLATIONS = {
   "broken-stick": "Игра сломанной клюшкой",
 };
 
+const SHOT_TYPE_LABELS = {
+  "wrist": "Кистевой",
+  "slap": "Щелчок",
+  "snap": "Снэпшот",
+  "backhand": "С неудобной",
+  "tip-in": "Подправление",
+  "deflected": "Рикошет",
+  "wrap-around": "Заворот",
+  "poke": "Тычок",
+  "bat": "С лёта",
+};
+
 function formatPenaltyName(descKey) {
   const clean = String(descKey || "").toLowerCase().trim().replace(/[\s_]+/g, "-");
   if (PENALTY_TRANSLATIONS[clean]) return PENALTY_TRANSLATIONS[clean];
