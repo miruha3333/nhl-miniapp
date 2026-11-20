@@ -2421,6 +2421,20 @@ function matchesDraftPlayer(pData, draftYear, overallPick) {
   return true;
 }
 
+function formatDraftStatHtml(reg, pos) {
+  if (!reg || !(Number(reg.gamesPlayed) > 0)) {
+    return '<span style="color:var(--silver-dim);">—</span>';
+  }
+  const gp = Number(reg.gamesPlayed) || 0;
+  if (pos === "G") {
+    return `<span style="color:#3a86ff;">${gp}</span> <span style="color:#2ecc71;">${Number(reg.wins) || 0}-${Number(reg.losses) || 0}</span>`;
+  }
+  const g = Number(reg.goals) || 0;
+  const a = Number(reg.assists) || 0;
+  const pts = Number(reg.points) || (g + a);
+  return `<span style="color:#3a86ff;">${gp}</span> <span style="color:#2ecc71;">${g}+${a}=${pts}</span>`;
+}
+
 async function hydrateDraftBatch(picks, startIdx, endIdx) {
   const slice = picks.slice(startIdx, endIdx);
   const batchSize = 5;
@@ -2453,7 +2467,7 @@ async function hydrateDraftBatch(picks, startIdx, endIdx) {
         });
 
         let matchedId = "";
-        let statText = "—";
+        let statHtml = '<span style="color:var(--silver-dim);">—</span>';
         let headshot = "https://assets.nhle.com/mugs/nhl/default-player.png";
 
         for (const candId of candIds) {
@@ -2464,25 +2478,13 @@ async function hydrateDraftBatch(picks, startIdx, endIdx) {
             if (!matchesDraftPlayer(pData, draftYearNum, p.overallPick)) continue;
 
             matchedId = candId;
-            if (pData?.headshot) headshot = pData.headshot;
-            else headshot = `https://assets.nhle.com/mugs/nhl/latest/${candId}.png`;
-
-            const reg = pData?.careerTotals?.regularSeason;
-            if (reg && (Number(reg.gamesPlayed) || 0) > 0) {
-              if (pos === "G") {
-                statText = `${reg.gamesPlayed} и, ${reg.wins || 0}-${reg.losses || 0}`;
-              } else {
-                const g = Number(reg.goals) || 0;
-                const a = Number(reg.assists) || 0;
-                const pts = Number(reg.points) || (g + a);
-                statText = `${reg.gamesPlayed} и, ${g}+${a}=${pts}`;
-              }
-            }
+            headshot = pData?.headshot || `https://assets.nhle.com/mugs/nhl/latest/${candId}.png`;
+            statHtml = formatDraftStatHtml(pData?.careerTotals?.regularSeason, pos);
             break;
           } catch (_) {}
         }
 
-        info = { playerId: matchedId, headshot, statText };
+        info = { playerId: matchedId, headshot, statHtml };
         draftPlayerCache.set(cacheKey, info);
         if (matchedId) playerSearchCache.set(cacheKey, matchedId);
       }
@@ -2492,11 +2494,7 @@ async function hydrateDraftBatch(picks, startIdx, endIdx) {
 
       const statEl = document.getElementById(`draft-stat-${idx}`);
       if (statEl) {
-        statEl.textContent = info.statText;
-        if (info.statText !== "—") {
-          statEl.style.color = "#2ecc71";
-          statEl.style.fontWeight = "700";
-        }
+        statEl.innerHTML = info.statHtml;
       }
 
       const linkEl = document.getElementById(`draft-link-${idx}`);
@@ -2540,8 +2538,7 @@ function renderDraftPicks() {
     const cached = draftPlayerCache.get(`${fullName}:${currentDraftYear}:${teamAbbr}`);
     const pId = cached?.playerId || p.playerId || p.id || "";
     const headshotUrl = cached?.headshot || (pId ? `https://assets.nhle.com/mugs/nhl/latest/${pId}.png` : "https://assets.nhle.com/mugs/nhl/default-player.png");
-    const statText = cached ? cached.statText : "—";
-    const isStatActive = statText !== "—";
+    const statHtml = cached ? cached.statHtml : '<span style="color:var(--silver-dim);">—</span>';
 
     return `
       <div class="draft-pick-card">
@@ -2555,7 +2552,6 @@ function renderDraftPicks() {
               <span id="draft-link-${idx}" class="tx-player-link" data-player-id="${escapeHtml(pId)}" data-find-player="${escapeHtml(fullName)}" data-team="${escapeHtml(teamAbbr)}" data-pos="${escapeHtml(pos)}" data-draft-year="${escapeHtml(currentDraftYear)}" data-overall-pick="${escapeHtml(p.overallPick || "")}">${escapeHtml(fullName)}</span>
               <span style="font-size:11px;color:var(--silver-dim);font-weight:normal;">(${escapeHtml(pos)})</span>
             </div>
-            </div>
             <div style="font-size:11px;color:var(--silver-dim);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               <span style="display:inline-flex;align-items:center;gap:4px;">
                 <img src="${escapeHtml(logoUrl)}" style="width:16px;height:16px;object-fit:contain;" onerror="this.style.display='none'">
@@ -2564,8 +2560,8 @@ function renderDraftPicks() {
               <span>· Р${p.round} (#${p.pickInRound})</span>
               <span>· ${escapeHtml(clubInfo)}</span>
             </div>
-            <div style="font-family:'Roboto Mono',monospace;font-size:11px;color:var(--silver-dim);margin-top:3px;">
-              НХЛ: <span id="draft-stat-${idx}" style="${isStatActive ? "color:#2ecc71;font-weight:700;" : ""}">${escapeHtml(statText)}</span>
+            <div style="font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;color:var(--silver-dim);margin-top:3px;">
+              НХЛ: <span id="draft-stat-${idx}">${statHtml}</span>
             </div>
           </div>
         </div>
@@ -3905,17 +3901,31 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
   }
 
   try {
+    const safeJson = async (res) => {
+      if (!res || !res.ok) return {};
+      try {
+        return await res.json();
+      } catch (_) {
+        return {};
+      }
+    };
+
     const [scoreRes, railRes, boxRes, pbpRes] = await Promise.all([
-      fetch(`${API_BASE}/api/score/${encodeURIComponent(gameId)}`),
+      fetch(`${API_BASE}/api/score/${encodeURIComponent(gameId)}`).catch(() => null),
       fetch(`${API_BASE}/api/right-rail/${encodeURIComponent(gameId)}`).catch(() => null),
       fetch(`${API_BASE}/api/boxscore/${encodeURIComponent(gameId)}`).catch(() => null),
       fetch(`${API_BASE}/api/pbp/${encodeURIComponent(gameId)}`).catch(() => null),
     ]);
 
-    const score = await scoreRes.json();
-    const rail = railRes ? await railRes.json() : {};
-    const box = boxRes ? await boxRes.json() : {};
-    const pbp = pbpRes && pbpRes.ok ? await pbpRes.json() : {};
+    const [score, rail, box, pbp] = await Promise.all([
+      safeJson(scoreRes),
+      safeJson(railRes),
+      safeJson(boxRes),
+      safeJson(pbpRes),
+    ]);
+    if (!score || score.error || (!score.awayTeam && !score.homeTeam)) {
+      throw new Error(score?.error || "Нет данных протокола");
+    }
     currentBoxscoreData = box;
 
     const isLive = score.gameState === "LIVE" || score.gameState === "CRIT";
@@ -4021,10 +4031,10 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
     const pbpPenaltyMap = new Map();
     const pbpRosterMap = new Map();
     (Array.isArray(pbp?.rosterSpots) ? pbp.rosterSpots : []).forEach(r => {
-      if (r.playerId) pbpRosterMap.set(r.playerId, `${nameStr(r.firstName)} ${nameStr(r.lastName)}`.trim());
+      if (r && r.playerId) pbpRosterMap.set(r.playerId, `${nameStr(r.firstName)} ${nameStr(r.lastName)}`.trim());
     });
     (Array.isArray(pbp?.plays) ? pbp.plays : []).forEach(pl => {
-      if (pl.typeDescKey !== "penalty") return;
+      if (!pl || pl.typeDescKey !== "penalty") return;
       const perNum = pl.periodDescriptor?.number || 1;
       const t = pl.timeInPeriod || "";
       const pId = pl.details?.committedByPlayerId || pl.details?.servedByPlayerId || "";
@@ -4034,30 +4044,35 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
       }
     });
 
-    function extractPenaltyPlayer(obj) {
+    const extractPenaltyPlayer = (obj) => {
       if (!obj) return "";
       if (typeof obj === "string") return obj.trim();
       if (obj.firstName || obj.lastName) {
         return `${nameStr(obj.firstName)} ${nameStr(obj.lastName)}`.trim();
       }
       return nameStr(obj).trim();
-    }
+    };
 
     let hasPenalties = false;
     let penHtml = "";
     penaltiesPeriods.forEach(period => {
-      const list = period.penalties || [];
+      const list = Array.isArray(period?.penalties) ? period.penalties : [];
       if (!list.length) return;
       hasPenalties = true;
       const perNum = period.periodDescriptor?.number || 1;
       penHtml += `<div class="period-label">${escapeHtml(formatPeriodLabel(period.periodDescriptor))}</div>`;
       list.forEach(pen => {
-        const offenderName = extractPenaltyPlayer(pen.committedByPlayer);
+        if (!pen) return;
+        const rawOffender = pen.committedByPlayer || pen.committedBy || pen.player || null;
+        const offenderName = extractPenaltyPlayer(rawOffender);
         const servedName = extractPenaltyPlayer(pen.servedBy);
-        const offenderId = pen.committedByPlayer?.id || pen.committedByPlayer?.playerId ||
+        const offenderId = rawOffender?.id || rawOffender?.playerId || pen.committedByPlayerId ||
           pbpPenaltyMap.get(`${perNum}:${pen.timeInPeriod || ""}:${pen.descKey || ""}`) ||
           pbpPenaltyMap.get(`${perNum}:${pen.timeInPeriod || ""}`) || "";
-        const displayOffender = offenderName || (servedName ? `Командный штраф (отб. ${servedName})` : (offenderId && pbpRosterMap.get(offenderId)) || "Командный штраф");
+        const displayOffender = offenderName ||
+          (servedName ? `Командный штраф (отб. ${servedName})` : "") ||
+          (offenderId && pbpRosterMap.get(offenderId)) ||
+          "Командный штраф";
         const reason = formatPenaltyName(pen.descKey);
         const mins = pen.duration ?? 2;
         const tAbbr = pen.teamAbbrev?.default || pen.teamAbbrev || "";
@@ -4081,7 +4096,7 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
     });
 
     if (!hasPenalties && Array.isArray(pbp?.plays)) {
-      const pbpPenalties = pbp.plays.filter(pl => pl.typeDescKey === "penalty");
+      const pbpPenalties = pbp.plays.filter(pl => pl && pl.typeDescKey === "penalty");
       if (pbpPenalties.length) {
         hasPenalties = true;
         pbpPenalties.forEach(pl => {
@@ -4200,7 +4215,9 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
       stopLivePolling();
     }
   } catch (e) {
-    if (!silent && body) body.innerHTML = '<div class="empty">Не удалось загрузить протокол матча</div>';
+    if (!silent && body) {
+      body.innerHTML = `<div class="empty">Не удалось загрузить протокол матча (${escapeHtml(e?.message || "ошибка")})</div>`;
+    }
   }
 }
 
