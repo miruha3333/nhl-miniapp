@@ -5235,7 +5235,10 @@ function translateTransactionDescription(rawDesc, teamAbbr = "") {
     return `@@PLAYER_${idx}@@`;
   }
 
-  let text = String(rawDesc || "");
+ let text = String(rawDesc || "")
+    .replace(/\bRe-assigned\b/gi, "Reassigned")
+    .replace(/\bRe-called\b/gi, "Recalled")
+    .replace(/\bRe-activated\b/gi, "Activated");
 
   text = text.replace(/\b(forward|forwards|defenseman|defenceman|defensemen|goaltender|goalie|center|centre|winger|left wing|right wing|F|D|G|C|LW|RW)\b\s+([A-ZÀ-ÿ][a-zA-ZÀ-ÿ'\-]+(?:\s+[A-ZÀ-ÿ][a-zA-ZÀ-ÿ'\-]+){1,2})/g, (m, pos, pName) => {
     return `${pos} ${savePlayerToken(pName)}`;
