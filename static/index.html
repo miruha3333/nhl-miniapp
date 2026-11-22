@@ -4016,18 +4016,33 @@ async function openGameDetail(gameId, awayAbbrev, homeAbbrev, awayLogo, homeLogo
       goals.forEach(goal => {
         const scorer = `${nameStr(goal.firstName)} ${nameStr(goal.lastName)}`.trim();
         const scorerId = goal.playerId || "";
-        const assists = Array.isArray(goal.assists) ? goal.assists.map(item => `${nameStr(item.firstName)} ${nameStr(item.lastName)}`).join(", ") : "";
+        const gCountHtml = goal.goalsToDate != null
+          ? ` <span style="color:#2ecc71;font-family:'Roboto Mono',monospace;font-weight:700;">(${goal.goalsToDate})</span>`
+          : "";
+        const assistsHtml = Array.isArray(goal.assists) && goal.assists.length
+          ? goal.assists.map(item => {
+              const aName = `${nameStr(item.firstName)} ${nameStr(item.lastName)}`.trim();
+              const aId = item.playerId || "";
+              const aCount = item.assistsToDate != null
+                ? ` <span style="color:#3a86ff;font-family:'Roboto Mono',monospace;font-weight:700;">(${item.assistsToDate})</span>`
+                : "";
+              const nameEl = aId
+                ? `<span class="player-link-inline" data-player-id="${escapeHtml(aId)}">${escapeHtml(aName)}</span>`
+                : escapeHtml(aName);
+              return `${nameEl}${aCount}`;
+            }).join(", ")
+          : "";
         const clipUrl = goal.highlightClipSharingUrl || "";
         html += `
           <div class="goal-row">
             <div class="time">${escapeHtml(val(goal.timeInPeriod))}</div>
             <div class="desc">
               <div class="scorer">
-                <span class="${scorerId ? "player-link-inline" : ""}" data-player-id="${escapeHtml(scorerId)}">${escapeHtml(scorer)}</span>
+                <span class="${scorerId ? "player-link-inline" : ""}" data-player-id="${escapeHtml(scorerId)}">${escapeHtml(scorer)}</span>${gCountHtml}
                 (${escapeHtml(goal.teamAbbrev?.default || goal.teamAbbrev || "")})
                 ${goal.strength && goal.strength !== "ev" ? `<span style="font-size:10px;color:#f39c12;">[${escapeHtml(String(goal.strength).toUpperCase())}]</span>` : ""}
               </div>
-              ${assists ? `<div class="assists">Передачи: ${escapeHtml(assists)}</div>` : ""}
+              ${assistsHtml ? `<div class="assists">Передачи: ${assistsHtml}</div>` : ""}
             </div>
             <div class="scoreline">
               <span>${escapeHtml(val(goal.awayScore))} : ${escapeHtml(val(goal.homeScore))}</span>
@@ -4294,11 +4309,14 @@ function renderBoxTables(awayAbbrev, homeAbbrev) {
           <tbody>
             ${sorted.map(p => {
               const pName = `${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim() || nameStr(p.name);
+              const rawPos = String(p.position || p.positionCode || "").toUpperCase();
+              const posMap = { L: "LW", R: "RW" };
+              const posLabel = posMap[rawPos] || rawPos;
               const pts = (Number(p.goals) || 0) + (Number(p.assists) || 0);
               const toiStr = p.toi || p.timeOnIce || "0:00";
               return `
                 <tr class="clickable-row" data-player-id="${escapeHtml(getPlayerId(p))}">
-                  <td>${escapeHtml(pName)}</td>
+                  <td>${escapeHtml(pName)}${posLabel ? ` <span style="color:var(--silver-dim);font-size:10px;font-weight:400;">${escapeHtml(posLabel)}</span>` : ""}</td>
                   <td class="num">${val(p.goals, 0)}</td>
                   <td class="num">${val(p.assists, 0)}</td>
                   <td class="num" style="color:#ffffff !important;font-weight:700;">${pts}</td>
