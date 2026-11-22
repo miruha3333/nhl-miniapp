@@ -1741,9 +1741,10 @@ select.date-input option {
     </div>
 
     <div id="tx-filters-wrap">
-      <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;margin-bottom:8px;">
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;margin-bottom:8px;">
         <span style="font-family:'Oswald',sans-serif;font-size:11px;color:var(--silver-dim);text-transform:uppercase;">Клуб</span>
         <select id="tx-team-filter" class="date-input" style="width:auto;flex:1;font-size:12px;"></select>
+        <button id="tx-refresh-btn" type="button" title="Обновить трансферы" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:#fff;font-family:'Oswald',sans-serif;font-size:13px;cursor:pointer;white-space:nowrap;">↻</button>
       </div>
       <div class="filter-chips-row" id="tx-type-bar">
         <button class="filter-chip active" data-tx-type="all">Все</button>
@@ -5206,14 +5207,18 @@ function formatTxDate(raw) {
   if (!raw) return "—";
   const ts = Date.parse(raw);
   if (Number.isNaN(ts)) return raw;
+  const d = new Date(ts);
+  const isDefaultMidnight = /T0[78]:00(?::00)?Z$/i.test(String(raw).trim());
   try {
-    return new Date(ts).toLocaleDateString("ru-RU", {
+    if (isDefaultMidnight) {
+      return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+    }
+    return d.toLocaleDateString("ru-RU", {
       day: "2-digit",
       month: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
-      timeZone: "Europe/Moscow",
-    }) + " (МСК)";
+    });
   } catch (_) {
     return raw;
   }
@@ -5382,11 +5387,12 @@ function renderTransactionsList() {
   }).join("");
 }
 
-async function loadTransactions() {
+async function loadTransactions(forceRefresh = false) {
   const container = document.getElementById("transactions-list");
   if (container) container.innerHTML = '<div class="loading">Загрузка свежих трансферов...</div>';
   try {
-    const res = await fetch(`${API_BASE}/api/transactions`);
+    const url = forceRefresh ? `${API_BASE}/api/transactions?refresh=1` : `${API_BASE}/api/transactions`;
+    const res = await fetch(url);
     const data = await res.json();
     cachedTransactionsList = Array.isArray(data.transactions) ? data.transactions : [];
     renderTransactionsList();
@@ -5770,6 +5776,8 @@ function initApp() {
     if (!cachedInjuriesMap) loadLeagueInjuries();
     else renderLeagueInjuriesList();
   });
+
+  safeOn("tx-refresh-btn", "click", () => loadTransactions(true));
 
   safeOn("tx-team-filter", "change", (e) => {
     txTeamFilter = e.target.value || "ALL";
