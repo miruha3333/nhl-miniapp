@@ -41,15 +41,26 @@
   }
 
   function formatAhlPos(pos) {
-    const s = String(pos || "").trim();
+    const s = String(pos || "").trim().toUpperCase();
+    if (!s) return "";
     const map = {
+      // Стандартная 5-значная сетка
       "1": "D", "2": "C", "3": "LW", "4": "RW", "5": "G",
+      // Расширенная 8-значная сетка лиги
+      "6": "LW", "7": "C", "8": "RW", "9": "F", "10": "D",
+      // Буквенные обозначения
       "D": "D", "C": "C", "LW": "LW", "RW": "RW", "G": "G",
       "F": "F", "W": "W", "L": "LW", "R": "RW",
-      "DEFENCE": "D", "DEFENSE": "D", "CENTER": "C", "CENTRE": "C",
-      "LEFT WING": "LW", "RIGHT WING": "RW", "GOALIE": "G", "GOALTENDER": "G"
+      "LD": "D", "RD": "D",
+      "DEFENCE": "D", "DEFENSE": "D", "DEFENCEMAN": "D", "DEFENSEMAN": "D",
+      "CENTER": "C", "CENTRE": "C",
+      "LEFT WING": "LW", "RIGHT WING": "RW", "WINGER": "W", "FORWARD": "F",
+      "GOALIE": "G", "GOALTENDER": "G"
     };
-    return map[s.toUpperCase()] || map[s] || (s.length <= 3 ? s.toUpperCase() : "");
+    if (map[s]) return map[s];
+    // Если всё ещё осталась цифра — заменяем по смыслу на F
+    if (/^\d+$/.test(s)) return "F";
+    return s.length <= 3 ? s : "";
   }
 
   function hlPersonName(obj) {
@@ -707,14 +718,23 @@
         html += `<div class="section-title">Очные встречи в сезоне (${series.length})</div><div class="card" style="padding:0;">`;
         series.forEach(sg => {
           const dStr = sg.date ? new Date(sg.date).toLocaleDateString("ru-RU") : "";
+          const as = sg.awayScore;
+          const hs = sg.homeScore;
+          let aCol = "inherit", hCol = "inherit";
+
+          if (sg.isFinal && as != null && hs != null && as !== hs) {
+            aCol = as > hs ? "#2ecc71" : "#ff4d4d";
+            hCol = hs > as ? "#2ecc71" : "#ff4d4d";
+          }
+
           html += `
             <div class="h2h-game-row ${sg.isFinal ? "clickable-row" : ""}" ${sg.isFinal ? `data-ahl-game-id="${escapeHtml(sg.id)}" data-ahl-away="${escapeHtml(sg.awayAbbrev)}" data-ahl-home="${escapeHtml(sg.homeAbbrev)}" style="cursor:pointer;"` : ""}>
-              <div class="h2h-team-cell left">${escapeHtml(sg.awayAbbrev)}</div>
+              <div class="h2h-team-cell left" style="color:${aCol};font-weight:${aCol !== "inherit" ? "700" : "normal"};">${escapeHtml(sg.awayAbbrev)}</div>
               <div class="h2h-center-cell">
-                <div class="h2h-score-val">${sg.isFinal ? `${sg.awayScore} : ${sg.homeScore}` : "Предстоит"}</div>
+                <div class="h2h-score-val">${sg.isFinal && as != null && hs != null ? `${as} : ${hs}` : "Предстоит"}</div>
                 ${dStr ? `<div class="h2h-date-sub">${escapeHtml(dStr)}</div>` : ""}
               </div>
-              <div class="h2h-team-cell right">${escapeHtml(sg.homeAbbrev)}</div>
+              <div class="h2h-team-cell right" style="color:${hCol};font-weight:${hCol !== "inherit" ? "700" : "normal"};">${escapeHtml(sg.homeAbbrev)}</div>
             </div>
           `;
         });
@@ -1155,14 +1175,42 @@
       const awaySog = meta.visiting_shots ?? meta.visitor_shots ?? away.shots ?? sumShots(g.visitor_team_lineup);
       const homeSog = meta.home_shots ?? home.shots ?? sumShots(g.home_team_lineup);
 
-      // Броски по периодам (из periods/shots)
+      /// Броски по периодам: проверяем все структуры периодов
       const pArr = Array.isArray(g.periods) ? g.periods : [];
-      const s1A = pArr[0]?.visiting_shots ?? pArr[0]?.visitor_shots ?? "—";
-      const s1H = pArr[0]?.home_shots ?? "—";
-      const s2A = pArr[1]?.visiting_shots ?? pArr[1]?.visitor_shots ?? "—";
-      const s2H = pArr[1]?.home_shots ?? "—";
-      const s3A = pArr[2]?.visiting_shots ?? pArr[2]?.visitor_shots ?? "—";
-      const s3H = pArr[2]?.home_shots ?? "—";
+      const getPShots = (idx, isHome) => {
+        const per = pArr[idx];
+        if (!per) return null;
+        if (isHome) {
+          return per.home_shots ?? per.homeShots ?? per.shots?.home ?? per.shots?.home_shots ?? null;
+        }
+        return per.visiting_shots ?? per.visitor_shots ?? per.visitorShots ?? per.shots?.visitor ?? per.shots?.visiting_shots ?? null;
+      };
+
+      let s1A = getPShots(0, false), s1H = getPShots(0, true);
+      let s2A = getPShots(1, false), s2H = getPShots(1, true);
+      let s3A = getPShots(2, false), s3H = getPShots(2, true);
+
+      // Если в периодах было пусто — считаем точно по событиям из PXP
+      if ((s1A == null || s1H == null) && Array.isArray(g.pxp)) {
+        const pxpShots = g.pxp.filter(ev => {
+          const k = String(ev?.event || ev?.type || "").toLowerCase();
+          return k === "shot" || k === "goal";
+        });
+        const countPxp = (pNum, isH) => pxpShots.filter(ev => {
+          const p = Number(ev.period_id || ev.period || 0);
+          if (p !== pNum) return false;
+          const tId = String(ev.team_id || ev.home_or_visitor || "");
+          return isH ? (tId === homeId || tId === "home") : (tId === awayId || tId === "visitor");
+        }).length;
+
+        if (pxpShots.length) {
+          s1A = countPxp(1, false); s1H = countPxp(1, true);
+          s2A = countPxp(2, false); s2H = countPxp(2, true);
+          s3A = countPxp(3, false); s3H = countPxp(3, true);
+        }
+      }
+
+      const fmtS = (v) => (v != null && v !== "" ? v : "0");
 
       // Большинство и штраф
       const awayPim = penalties.filter(p => String(p.team_id || "") !== homeId).reduce((s, p) => s + (Number(p.minutes) || 0), 0);
@@ -1184,7 +1232,7 @@
             <div class="teamstat-side-flex right"><span>${escapeHtml(homeAbbr)}</span> <img class="team-logo" src="${escapeHtml(homeLogo)}" onerror="this.style.display='none'"></div>
           </div>
           <div class="teamstat-row-flex"><div class="teamstat-val-flex left" style="font-weight:800;">${escapeHtml(awaySog)}</div><div class="teamstat-label-flex">Броски всего</div><div class="teamstat-val-flex right" style="font-weight:800;">${escapeHtml(homeSog)}</div></div>
-          <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${escapeHtml(s1A)} | ${escapeHtml(s2A)} | ${escapeHtml(s3A)}</div><div class="teamstat-label-flex">Броски по периодам (1|2|3)</div><div class="teamstat-val-flex right">${escapeHtml(s1H)} | ${escapeHtml(s2H)} | ${escapeHtml(s3H)}</div></div>
+          <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${escapeHtml(fmtS(s1A))} | ${escapeHtml(fmtS(s2A))} | ${escapeHtml(fmtS(s3A))}</div><div class="teamstat-label-flex">Броски по периодам (1|2|3)</div><div class="teamstat-val-flex right">${escapeHtml(fmtS(s1H))} | ${escapeHtml(fmtS(s2H))} | ${escapeHtml(fmtS(s3H))}</div></div>
           <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${escapeHtml(awayPpStr)} (${awayPpPct})</div><div class="teamstat-label-flex">Большинство (%PP)</div><div class="teamstat-val-flex right">${escapeHtml(homePpStr)} (${homePpPct})</div></div>
           <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${escapeHtml(awayPim)} (${penalties.filter(p => String(p.team_id || "") !== homeId).length} уд.)</div><div class="teamstat-label-flex">Штраф (мин)</div><div class="teamstat-val-flex right">${escapeHtml(homePim)} (${penalties.filter(p => String(p.team_id || "") === homeId).length} уд.)</div></div>
         </div>
@@ -1211,13 +1259,19 @@
       if (isFinal) {
         const vSlot = document.getElementById("ahl-video-recap-slot");
         if (vSlot && !vSlot.innerHTML.trim()) {
-          const awayQ = away.name || awayAbbr;
-          const homeQ = home.name || homeAbbr;
+          const cleanTeam = (nm, ab) => {
+            const s = String(nm || ab || "").trim();
+            return s.replace(/\s*hockey\s*club/i, "");
+          };
+          const awayQ = cleanTeam(away.name, awayAbbr);
+          const homeQ = cleanTeam(home.name, homeAbbr);
           const gDate = (meta.date_played || "").slice(0, 10);
+
           fetch(`${API_BASE}/api/game-youtube-recap?away=${encodeURIComponent(awayQ)}&home=${encodeURIComponent(homeQ)}&date=${encodeURIComponent(gDate)}&league=AHL`)
             .then(r => r.json())
             .then(v => {
-              if (v && v.videoId && vSlot) {
+              if (!vSlot) return;
+              if (v && v.videoId) {
                 vSlot.innerHTML = `
                   <div class="section-title">Видеообзор матча (YouTube)</div>
                   <div class="video-container">
