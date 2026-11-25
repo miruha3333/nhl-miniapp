@@ -5204,30 +5204,54 @@ function renderTeamRosterView() {
             <th class="sortable" data-tsort="penaltyMinutes">Штр${arrow("penaltyMinutes")}</th>
           </tr>
         </thead>
-       <tbody>
+        <tbody>
           ${skaters.map(p => {
             const pName = `${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim() || "Игрок";
             const rawPos = String(p.positionCode || p.position || "").toUpperCase();
             const posLabel = ({ L: "LW", R: "RW" }[rawPos]) || rawPos;
             const numHtml = p.sweaterNumber != null
-              ? `<span style="color:var(--silver-dim);font-family:'Roboto Mono',monospace;font-size:10px;display:inline-block;min-width:22px;">#${escapeHtml(p.sweaterNumber)}</span>`
+              ? `<span style="color:var(--silver-dim);font-family:'Roboto Mono',monospace;font-size:10px;display:inline-block;min-width:24px;">#${escapeHtml(p.sweaterNumber)}</span>`
               : "";
             const posHtml = posLabel
               ? ` <span style="color:var(--silver-dim);font-size:10px;font-weight:400;">${escapeHtml(posLabel)}</span>`
               : "";
             return `
-            <tr class="clickable-row" data-player-id="${escapeHtml(getPlayerId(p))}">
-              <td>${numHtml}${escapeHtml(pName)}${posHtml}</td>
-              <td class="num">${val(p.gamesPlayed, 0)}</td>
-              <td class="num">${val(p.goals, 0)}</td>
-              <td class="num">${val(p.assists, 0)}</td>
-              <td class="num" style="color:#ffffff !important;font-weight:700;">${val(p.points, 0)}</td>
-              <td class="num">${val(p.plusMinus, 0)}</td>
-              <td class="num">${val(p.penaltyMinutes ?? p.pim, 0)}</td>
-            </tr>
-          `;
+              <tr class="clickable-row" data-player-id="${escapeHtml(getPlayerId(p))}">
+                <td>${numHtml}${escapeHtml(pName)}${posHtml}</td>
+                <td class="num">${val(p.gamesPlayed, 0)}</td>
+                <td class="num">${val(p.goals, 0)}</td>
+                <td class="num">${val(p.assists, 0)}</td>
+                <td class="num" style="color:#ffffff !important;font-weight:700;">${val(p.points, 0)}</td>
+                <td class="num">${val(p.plusMinus, 0)}</td>
+                <td class="num">${val(p.penaltyMinutes ?? p.pim, 0)}</td>
+              </tr>
+            `;
           }).join("")}
         </tbody>
+      </table>
+    </div>
+  `;
+
+  if (goalies.length) {
+    goalies.sort((a, b) => Number(b.gamesPlayed ?? 0) - Number(a.gamesPlayed ?? 0));
+    html += '<div class="section-title" style="margin-top:16px;">Вратари</div>';
+    html += `
+      <div class="table-scroll">
+        <table class="stat-table">
+          <thead>
+            <tr><th>Игрок</th><th>И</th><th>В</th><th>П</th><th>%ОБ</th><th>ГКИ</th></tr>
+          </thead>
+          <tbody>
+            ${goalies.map(g => {
+              const sv = g.savePercentage ?? g.savePctg;
+              const gaa = g.goalsAgainstAverage ?? g.gaa;
+              const gName = `${nameStr(g.firstName)} ${nameStr(g.lastName)}`.trim() || "Вратарь";
+              const numHtml = g.sweaterNumber != null
+                ? `<span style="color:var(--silver-dim);font-family:'Roboto Mono',monospace;font-size:10px;display:inline-block;min-width:24px;">#${escapeHtml(g.sweaterNumber)}</span>`
+                : "";
+              return `
+                <tr class="clickable-row" data-player-id="${escapeHtml(getPlayerId(g))}">
+                  <td>${numHtml}${escapeHtml(gName)} <span style="color:var(--silver-dim);font-size:10px;font-weight:400;">G</span></td>
                   <td class="num">${val(g.gamesPlayed, 0)}</td>
                   <td class="num">${val(g.wins, 0)}</td>
                   <td class="num">${val(g.losses, 0)}</td>
