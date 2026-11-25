@@ -93,36 +93,31 @@
   async function populateSeasonSelect() {
     const select = document.getElementById("season-select");
     if (!select) return;
-    const list = await ensureSeasonsLoaded();
-    let regSeasons = list.filter(s => !s.isPlayoff);
 
-    // Если API вернул только 1 сезон, добавляем архив сезонов AHL в селектор вручную
-    if (regSeasons.length <= 1) {
-      const knownSeasons = [
-        { id: "88", name: "2024-25 Regular Season" },
-        { id: "84", name: "2023-24 Regular Season" },
-        { id: "80", name: "2022-23 Regular Season" },
-        { id: "76", name: "2021-22 Regular Season" },
-        { id: "72", name: "2020-21 Regular Season" },
-        { id: "68", name: "2019-20 Regular Season" },
-        { id: "64", name: "2018-19 Regular Season" },
-        { id: "60", name: "2017-18 Regular Season" },
-        { id: "56", name: "2016-17 Regular Season" },
-        { id: "52", name: "2015-16 Regular Season" },
-        { id: "48", name: "2014-15 Regular Season" },
-        { id: "44", name: "2013-14 Regular Season" },
-      ];
-      const existIds = new Set(regSeasons.map(s => String(s.id)));
-      knownSeasons.forEach(ks => {
-        if (!existIds.has(ks.id)) regSeasons.push({ id: ks.id, name: ks.name, isPlayoff: false });
-      });
+    // Официальные ID регулярных чемпионатов AHL из базы LeagueStat
+    const officialAhlSeasons = [
+      { id: "86", name: "2024-25 Регулярный сезон" },
+      { id: "83", name: "2023-24 Регулярный сезон" },
+      { id: "79", name: "2022-23 Регулярный сезон" },
+      { id: "73", name: "2021-22 Регулярный сезон" },
+      { id: "69", name: "2020-21 Регулярный сезон (COVID)" },
+      { id: "65", name: "2019-20 Регулярный сезон (COVID)" },
+      { id: "61", name: "2018-19 Регулярный сезон" },
+      { id: "57", name: "2017-18 Регулярный сезон" },
+      { id: "54", name: "2016-17 Регулярный сезон" },
+      { id: "51", name: "2015-16 Регулярный сезон" },
+      { id: "48", name: "2014-15 Регулярный сезон" },
+      { id: "43", name: "2013-14 Регулярный сезон" },
+      { id: "40", name: "2012-13 Регулярный сезон" },
+      { id: "37", name: "2011-12 Регулярный сезон" },
+      { id: "34", name: "2010-11 Регулярный сезон" },
+    ];
+
+    if (!ahlSelectedSeasonId) {
+      ahlSelectedSeasonId = "86";
     }
 
-    if (!ahlSelectedSeasonId && regSeasons.length) {
-      ahlSelectedSeasonId = String(regSeasons[0].id);
-    }
-
-    select.innerHTML = regSeasons.map(s => {
+    select.innerHTML = officialAhlSeasons.map(s => {
       const sel = String(s.id) === String(ahlSelectedSeasonId) ? "selected" : "";
       return `<option value="${escapeHtml(s.id)}" ${sel}>${escapeHtml(s.name)}</option>`;
     }).join("");
