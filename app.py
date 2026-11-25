@@ -1531,9 +1531,25 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 ROOT_INDEX = BASE_DIR / "index.html"
 STATIC_INDEX = STATIC_DIR / "index.html"
+ROOT_AHL_JS = BASE_DIR / "ahl.js"
+STATIC_AHL_JS = STATIC_DIR / "ahl.js"
 
 if STATIC_DIR.is_dir():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+@app.get("/ahl.js")
+async def serve_ahl_js():
+    no_cache_headers = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    }
+    if ROOT_AHL_JS.is_file():
+        return FileResponse(str(ROOT_AHL_JS), media_type="application/javascript", headers=no_cache_headers)
+    if STATIC_AHL_JS.is_file():
+        return FileResponse(str(STATIC_AHL_JS), media_type="application/javascript", headers=no_cache_headers)
+    return JSONResponse({"detail": "ahl.js not found"}, status_code=404)
 
 
 @app.get("/")
