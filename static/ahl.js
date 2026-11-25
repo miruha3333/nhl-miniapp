@@ -19,7 +19,11 @@
   let ahlTeamSortKey = "points";
   let ahlTeamSortAsc = false;
 
-  function ahlGoalStr(v, fb = "—") {
+  let ahlBoxData = null;
+  let ahlBoxSortKey = {};
+  let ahlBoxSortAsc = {};
+
+  function ahlStr(v, fb = "—") {
     return typeof val === "function" ? val(v, fb) : (v === undefined || v === null || v === "" ? fb : v);
   }
 
@@ -74,17 +78,17 @@
     const select = document.getElementById("season-select");
     if (!select) return;
     const list = await ensureSeasonsLoaded();
-    if (!list.length) {
+    const regSeasons = list.filter(s => !s.isPlayoff);
+    if (!regSeasons.length) {
       select.innerHTML = "<option value=''>Текущий сезон AHL</option>";
       return;
     }
-    select.innerHTML = list
-      .filter(s => !s.isPlayoff)
-      .slice(0, 20)
-      .map(s => {
-        const sel = String(s.id) === String(ahlSelectedSeasonId) ? "selected" : "";
-        return `<option value="${escapeHtml(s.id)}" ${sel}>${escapeHtml(s.name)}</option>`;
-      }).join("");
+    if (!ahlSelectedSeasonId) ahlSelectedSeasonId = String(regSeasons[0].id);
+
+    select.innerHTML = regSeasons.map(s => {
+      const sel = String(s.id) === String(ahlSelectedSeasonId) ? "selected" : "";
+      return `<option value="${escapeHtml(s.id)}" ${sel}>${escapeHtml(s.name)}</option>`;
+    }).join("");
   }
 
   function setSeason(seasonId) {
@@ -100,13 +104,11 @@
       btn.classList.toggle("active", btn.dataset.league === league);
     });
 
-    // Скрываем вкладки, которых нет в AHL (Драфт, Трансферы, Новости)
     ["tab-draft", "tab-transactions", "tab-news"].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = isAhl ? "none" : "";
     });
 
-    // В таблице скрываем NHL-only кнопки (Wild Card и Продвинутая)
     ["std-mode-wc", "std-mode-adv"].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = isAhl ? "none" : "";
@@ -114,7 +116,6 @@
     const bracket = document.getElementById("bracket-container");
     if (bracket && isAhl) bracket.innerHTML = "";
 
-    // В лидерах скрываем NHL-only фильтры (Защитники, Новички, Избранные) и недоступные в AHL метрики
     ["leaders-def-btn", "leaders-rookies-btn", "leaders-favs-btn"].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = isAhl ? "none" : "";
@@ -141,7 +142,7 @@
       if (["draft", "transactions", "news"].includes(lastMainTab)) {
         lastMainTab = "schedule";
       }
-      if (ahlStandingsMode !== "all" && ahlStandingsMode !== "conf" && ahlStandingsMode !== "div") {
+      if (!["all", "conf", "div"].includes(ahlStandingsMode)) {
         ahlStandingsMode = "all";
       }
     }
@@ -177,6 +178,10 @@
             ? (g.isLive ? `● ${g.statusText || "LIVE"}` : "Финал")
             : formatAhlTime(g);
 
+          const boxAttrs = g.started
+            ? `data-ahl-game-id="${escapeHtml(g.id)}"`
+            : `data-ahl-preview-id="${escapeHtml(g.id)}" data-ahl-season="${escapeHtml(g.seasonId || "")}" data-ahl-away-id="${escapeHtml(away.id)}" data-ahl-home-id="${escapeHtml(home.id)}"`;
+
           return `
             <div class="card">
               <div class="game-row">
@@ -188,7 +193,7 @@
                   </div>
                 </div>
 
-                <div class="score-box game-center ${g.started ? "clickable" : ""}" data-ahl-game-id="${escapeHtml(g.id)}" data-ahl-away="${escapeHtml(away.abbrev)}" data-ahl-home="${escapeHtml(home.abbrev)}" data-ahl-away-logo="${escapeHtml(away.logo)}" data-ahl-home-logo="${escapeHtml(home.logo)}">
+                <div class="score-box game-center clickable" ${boxAttrs} data-ahl-away="${escapeHtml(away.abbrev)}" data-ahl-home="${escapeHtml(home.abbrev)}" data-ahl-away-logo="${escapeHtml(away.logo)}" data-ahl-home-logo="${escapeHtml(home.logo)}">
                   <div class="score" style="color:#ffffff;">${g.started ? `${away.score ?? 0} : ${home.score ?? 0}` : "vs"}</div>
                   <div class="status ${g.isLive ? "live-pulse" : ""}">${escapeHtml(status)}</div>
                 </div>
@@ -218,7 +223,7 @@
     }
   }
 
-  // 2. ТАБЛИЦА AHL
+  // 2. ТАБЛИЦА AHL + СЕТКА ПЛЕЙ-ОФФ
   function setStandingsMode(mode) {
     ahlStandingsMode = ["all", "conf", "div"].includes(mode) ? mode : "all";
     document.getElementById("std-mode-all")?.classList.toggle("active", ahlStandingsMode === "all");
@@ -300,6 +305,65 @@
     body.innerHTML = html;
   }
 
+  async function loadPlayoffBracket(seasonId) {
+    const container = document.getElementById("bracket-container");
+    if (!container) return;
+    container.innerHTML = `<div class="bracket-wrap"><div class="loading">Загрузка плей-офф Кубка Колдера...</div></div>`;
+
+    try {
+      const qs = seasonId ? `?season=${encodeURIComponent(seasonId)}` : "";
+      const res = await fetch(`${API_BASE}/api/ahl/brackets${qs}`);
+      const data = await res.json();
+      const rounds = Array.isArray(data?.rounds) ? data.rounds : [];
+
+      if (!rounds.length) {
+        container.innerHTML = `
+          <div class="bracket-wrap">
+            <div class="section-title">Плей-офф Кубка Колдера</div>
+            <div class="empty">Сетка плей-офф за выбранный сезон ещё не сформирована</div>
+          </div>
+        `;
+        return;
+      }
+
+      let html = `<div class="bracket-wrap"><div class="section-title">Плей-офф (${escapeHtml(data.seasonName || "Кубок Колдера")})</div>`;
+      rounds.forEach(rd => {
+        html += `<div class="bracket-round-title">${escapeHtml(rd.roundName || "Раунд")}</div>`;
+        (rd.series || []).forEach(ser => {
+          const t1 = ser.team1 || {};
+          const t2 = ser.team2 || {};
+          const w1 = Number(t1.wins || 0);
+          const w2 = Number(t2.wins || 0);
+          const t1Win = (ser.winnerId && ser.winnerId === t1.id) || (w1 > w2 && w1 >= 2 && w2 < w1);
+          const t2Win = (ser.winnerId && ser.winnerId === t2.id) || (w2 > w1 && w2 >= 2 && w1 < w2);
+
+          html += `
+            <div class="bracket-series">
+              <div class="bracket-team-row ${t1Win ? "winner" : ""}" data-ahl-team-id="${escapeHtml(t1.id || "")}" data-ahl-team-name="${escapeHtml(t1.name || "")}" data-ahl-team-abbr="${escapeHtml(t1.abbrev || "")}" data-ahl-season-id="${escapeHtml(data.playoffSeasonId || "")}" style="cursor:pointer;">
+                <div class="bt-name">
+                  <img src="${escapeHtml(t1.logo || "")}" alt="" onerror="this.style.display='none'">
+                  <span>${escapeHtml(t1.abbrev || t1.name || "TBD")}</span>
+                </div>
+                <div class="bt-wins">${w1}</div>
+              </div>
+              <div class="bracket-team-row ${t2Win ? "winner" : ""}" data-ahl-team-id="${escapeHtml(t2.id || "")}" data-ahl-team-name="${escapeHtml(t2.name || "")}" data-ahl-team-abbr="${escapeHtml(t2.abbrev || "")}" data-ahl-season-id="${escapeHtml(data.playoffSeasonId || "")}" style="cursor:pointer;">
+                <div class="bt-name">
+                  <img src="${escapeHtml(t2.logo || "")}" alt="" onerror="this.style.display='none'">
+                  <span>${escapeHtml(t2.abbrev || t2.name || "TBD")}</span>
+                </div>
+                <div class="bt-wins">${w2}</div>
+              </div>
+            </div>
+          `;
+        });
+      });
+      html += "</div>";
+      container.innerHTML = html;
+    } catch (_) {
+      container.innerHTML = `<div class="bracket-wrap"><div class="empty">Не удалось загрузить сетку плей-офф</div></div>`;
+    }
+  }
+
   async function loadStandings() {
     const body = document.getElementById("standings-body");
     if (body) body.innerHTML = '<div class="loading">Загрузка таблицы AHL...</div>';
@@ -311,6 +375,7 @@
       const data = await res.json();
       ahlStandingsData = Array.isArray(data?.standings) ? data.standings : [];
       setStandingsMode(ahlStandingsMode);
+      loadPlayoffBracket(ahlSelectedSeasonId);
     } catch (_) {
       if (body) body.innerHTML = '<div class="empty">Не удалось загрузить таблицу AHL</div>';
     }
@@ -455,7 +520,462 @@
     renderLeadersList();
   }
 
-  // 4. ПРОТОКОЛ МАТЧА AHL
+  // 4. ПРЕВЬЮ НЕНАЧАВШЕГОСЯ МАТЧА AHL
+  async function openFutureGamePreview(gameId, awayFallback = {}, homeFallback = {}, seasonId = "") {
+    openDetail({ type: "ahl-preview", fn: () => openFutureGamePreview(gameId, awayFallback, homeFallback, seasonId) });
+    const body = document.getElementById("detail-body");
+
+    try {
+      const qs = new URLSearchParams();
+      if (seasonId) qs.set("season", seasonId);
+      if (awayFallback.id) qs.set("awayId", awayFallback.id);
+      if (homeFallback.id) qs.set("homeId", homeFallback.id);
+
+      const [res, voteRes] = await Promise.all([
+        fetch(`${API_BASE}/api/ahl/preview/${encodeURIComponent(gameId)}?${qs}`),
+        fetch(`${API_BASE}/api/vote/ahl_${encodeURIComponent(gameId)}`).catch(() => null),
+      ]);
+      const data = await res.json();
+      const voteData = voteRes && voteRes.ok ? await voteRes.json() : { total: 0, awayPct: 0, tiePct: 0, homePct: 0 };
+
+      const away = data.awayTeam || awayFallback || {};
+      const home = data.homeTeam || homeFallback || {};
+      const awayCode = away.abbrev || awayFallback.abbrev || "AWAY";
+      const homeCode = home.abbrev || homeFallback.abbrev || "HOME";
+      const startTime = data.startTimeUTC
+        ? new Date(data.startTimeUTC).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Moscow" }) + " (МСК)"
+        : "Время уточняется";
+
+      const renderPickem = (v) => {
+        const picked = localStorage.getItem(`nhl_pick_ahl_${gameId}`) || "";
+        const tot = v?.total || 0;
+        const aP = v?.awayPct ?? 0;
+        const tP = v?.tiePct ?? 0;
+        const hP = v?.homePct ?? 0;
+        return `
+          <div class="card">
+            <div class="pregame-pickem-grid">
+              <button class="pickem-btn ${picked === "away" ? "selected" : ""}" data-ahl-vote="away" type="button">
+                <span>${escapeHtml(awayCode)}</span>
+                <span style="font-family:'Roboto Mono',monospace;font-size:13px;color:#fff;">${aP}%</span>
+              </button>
+              <button class="pickem-btn ${picked === "tie" ? "selected" : ""}" data-ahl-vote="tie" type="button">
+                <span>Ничья (ОТ/Б)</span>
+                <span style="font-family:'Roboto Mono',monospace;font-size:13px;color:#fff;">${tP}%</span>
+              </button>
+              <button class="pickem-btn ${picked === "home" ? "selected" : ""}" data-ahl-vote="home" type="button">
+                <span>${escapeHtml(homeCode)}</span>
+                <span style="font-family:'Roboto Mono',monospace;font-size:13px;color:#fff;">${hP}%</span>
+              </button>
+            </div>
+            ${tot > 0 ? `
+              <div class="pickem-bar">
+                <div style="width:${aP}%;background:#3a86ff;"></div>
+                <div style="width:${tP}%;background:#f39c12;"></div>
+                <div style="width:${hP}%;background:#2ecc71;"></div>
+              </div>
+              <div style="font-size:10px;color:var(--silver-dim);text-align:center;margin-top:6px;">Всего голосов: ${tot}</div>
+            ` : '<div style="font-size:10px;color:var(--silver-dim);text-align:center;margin-top:8px;">Сделайте свой прогноз на матч</div>'}
+          </div>
+        `;
+      };
+
+      let html = `
+        <div class="detail-head-game">
+          <img class="team-logo" src="${escapeHtml(away.logo || awayFallback.logo || "")}" alt="" data-ahl-team-id="${escapeHtml(away.id || "")}" data-ahl-team-name="${escapeHtml(away.name || awayCode)}" style="cursor:pointer;" onerror="this.style.visibility='hidden'">
+          <div>
+            <div class="title">${escapeHtml(awayCode)} — ${escapeHtml(homeCode)}</div>
+            <div class="subtitle" style="color:#2ecc71;font-weight:700;">НАЧАЛО (AHL): ${escapeHtml(startTime)}</div>
+          </div>
+          <img class="team-logo" src="${escapeHtml(home.logo || homeFallback.logo || "")}" alt="" data-ahl-team-id="${escapeHtml(home.id || "")}" data-ahl-team-name="${escapeHtml(home.name || homeCode)}" style="cursor:pointer;" onerror="this.style.visibility='hidden'">
+        </div>
+
+        <div class="section-title">Прогноз болельщиков (Pick'em)</div>
+        <div id="ahl-pickem-slot">${renderPickem(voteData)}</div>
+
+        <div class="section-title">Сравнение показателей команд</div>
+        <div class="card" style="padding:10px 14px;">
+      `;
+
+      (data.preGameStats || []).forEach(st => {
+        const aNum = parseFloat(String(st.awayValue).replace("%", ""));
+        const hNum = parseFloat(String(st.homeValue).replace("%", ""));
+        let aCol = "#ffffff", hCol = "#ffffff";
+        if (!Number.isNaN(aNum) && !Number.isNaN(hNum) && aNum !== hNum) {
+          const awayBest = st.higherIsBetter === false ? (aNum < hNum) : (aNum > hNum);
+          aCol = awayBest ? "#2ecc71" : "#ff4d4d";
+          hCol = awayBest ? "#ff4d4d" : "#2ecc71";
+        }
+        html += `
+          <div class="comp-row">
+            <div class="val away" style="color:${aCol} !important;font-weight:700;">${escapeHtml(ahlStr(st.awayValue))}</div>
+            <div class="metric">${escapeHtml(st.label)}</div>
+            <div class="val home" style="color:${hCol} !important;font-weight:700;">${escapeHtml(ahlStr(st.homeValue))}</div>
+          </div>
+        `;
+      });
+      html += `</div>`;
+
+      const topScorers = data.topScorers || { away: [], home: [] };
+      if ((topScorers.away?.length || 0) > 0 || (topScorers.home?.length || 0) > 0) {
+        const renderScCol = (list, label) => `
+          <div class="injury-team-col">
+            <h4>${escapeHtml(label)}</h4>
+            ${(list || []).map(p => `
+              <div class="injury-item" data-ahl-player-id="${escapeHtml(p.id)}" style="cursor:pointer;display:flex;align-items:center;gap:8px;">
+                <img src="${escapeHtml(p.headshot)}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;background:var(--surface-2);flex-shrink:0;" onerror="this.src='https://assets.nhle.com/mugs/nhl/default-player.png'">
+                <div style="min-width:0;flex:1;">
+                  <div class="injury-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.name)}</div>
+                  <div style="font-family:'Roboto Mono',monospace;font-size:11px;font-weight:700;"><span style="color:#3a86ff;">${p.gamesPlayed}</span> <span style="color:#2ecc71;">${p.goals}+${p.assists}=${p.points}</span></div>
+                </div>
+              </div>
+            `).join("") || '<div class="empty">Нет данных</div>'}
+          </div>
+        `;
+        html += `
+          <div class="section-title">Топ-3 бомбардира команд</div>
+          <div class="pregame-injuries-grid">
+            ${renderScCol(topScorers.away, awayCode)}
+            ${renderScCol(topScorers.home, homeCode)}
+          </div>
+        `;
+      }
+
+      const clubGoalies = data.clubGoalies || { away: [], home: [] };
+      if ((clubGoalies.away?.length || 0) > 0 || (clubGoalies.home?.length || 0) > 0) {
+        const renderGlCol = (list, label) => `
+          <div class="injury-team-col">
+            <h4>${escapeHtml(label)}</h4>
+            ${(list || []).map(g => `
+              <div class="injury-item" data-ahl-player-id="${escapeHtml(g.id)}" style="cursor:pointer;">
+                <div class="injury-item-top">
+                  <div class="injury-name">${escapeHtml(g.name)}</div>
+                  <span style="font-family:'Roboto Mono',monospace;font-size:10px;color:#2ecc71;font-weight:700;">${Number(g.savePctg || 0).toFixed(3)}</span>
+                </div>
+                <div class="injury-desc">И: ${g.gamesPlayed} · ${g.wins}-${g.losses}-${g.otLosses} · ГКИ ${Number(g.gaa || 0).toFixed(2)}${g.shutouts ? ` · ${g.shutouts} сух.` : ""}</div>
+              </div>
+            `).join("") || '<div class="empty">Нет данных</div>'}
+          </div>
+        `;
+        html += `
+          <div class="section-title">Вратари команд в сезоне</div>
+          <div class="pregame-injuries-grid">
+            ${renderGlCol(clubGoalies.away, awayCode)}
+            ${renderGlCol(clubGoalies.home, homeCode)}
+          </div>
+        `;
+      }
+
+      html += `
+        <div class="section-title">Форма и рекорды команд</div>
+        <div class="card" style="padding:10px 14px;">
+          <div class="comp-row"><div class="val away">${escapeHtml(ahlStr(away.record))}</div><div class="metric">Рекорд (В-П-ОТ)</div><div class="val home">${escapeHtml(ahlStr(home.record))}</div></div>
+          ${away.streak || home.streak ? `<div class="comp-row"><div class="val away">${escapeHtml(ahlStr(away.streak))}</div><div class="metric">Серия</div><div class="val home">${escapeHtml(ahlStr(home.streak))}</div></div>` : ""}
+          ${away.past10 || home.past10 ? `<div class="comp-row"><div class="val away">${escapeHtml(ahlStr(away.past10))}</div><div class="metric">Посл. 10</div><div class="val home">${escapeHtml(ahlStr(home.past10))}</div></div>` : ""}
+          ${away.roadRecord || home.homeRecord ? `<div class="comp-row"><div class="val away">${escapeHtml(ahlStr(away.roadRecord))} (Г)</div><div class="metric">В гостях / Дома</div><div class="val home">${escapeHtml(ahlStr(home.homeRecord))} (Д)</div></div>` : ""}
+        </div>
+      `;
+
+      const series = Array.isArray(data.seasonSeries) ? data.seasonSeries : [];
+      if (series.length) {
+        html += `<div class="section-title">Очные встречи в сезоне (${series.length})</div><div class="card" style="padding:0;">`;
+        series.forEach(sg => {
+          const dStr = sg.date ? new Date(sg.date).toLocaleDateString("ru-RU") : "";
+          html += `
+            <div class="h2h-game-row ${sg.isFinal ? "clickable-row" : ""}" ${sg.isFinal ? `data-ahl-game-id="${escapeHtml(sg.id)}" data-ahl-away="${escapeHtml(sg.awayAbbrev)}" data-ahl-home="${escapeHtml(sg.homeAbbrev)}" style="cursor:pointer;"` : ""}>
+              <div class="h2h-team-cell left">${escapeHtml(sg.awayAbbrev)}</div>
+              <div class="h2h-center-cell">
+                <div class="h2h-score-val">${sg.isFinal ? `${sg.awayScore} : ${sg.homeScore}` : "Предстоит"}</div>
+                ${dStr ? `<div class="h2h-date-sub">${escapeHtml(dStr)}</div>` : ""}
+              </div>
+              <div class="h2h-team-cell right">${escapeHtml(sg.homeAbbrev)}</div>
+            </div>
+          `;
+        });
+        html += `</div>`;
+      }
+
+      if (body) body.innerHTML = html;
+
+      const pickemSlot = document.getElementById("ahl-pickem-slot");
+      if (pickemSlot) {
+        pickemSlot.addEventListener("click", async (e) => {
+          const btn = e.target.closest("[data-ahl-vote]");
+          if (!btn) return;
+          const pick = btn.dataset.ahlVote;
+          const key = `nhl_pick_ahl_${gameId}`;
+          if (localStorage.getItem(key)) return;
+          localStorage.setItem(key, pick);
+          try {
+            const vRes = await fetch(`${API_BASE}/api/vote/ahl_${encodeURIComponent(gameId)}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pick }),
+            });
+            pickemSlot.innerHTML = renderPickem(await vRes.json());
+          } catch (_) {}
+        });
+      }
+    } catch (_) {
+      if (body) body.innerHTML = '<div class="empty">Не удалось загрузить превью матча AHL</div>';
+    }
+  }
+
+  // 5. КАРТА БРОСКОВ И ПРОТОКОЛ СЫГРАННОГО / LIVE МАТЧА AHL
+  function renderAhlShotMap(pxp, homeId, awayId, homeAbbr, awayAbbr) {
+    if (!Array.isArray(pxp) || !pxp.length) return "";
+    const shots = pxp.filter(ev => {
+      const k = String(ev.event || ev.type || "").toLowerCase();
+      return (k === "shot" || k === "goal" || k === "missed_shot") &&
+        ev.x_location != null && ev.y_location != null &&
+        (Number(ev.x_location) !== 0 || Number(ev.y_location) !== 0);
+    });
+    if (!shots.length) return "";
+
+    let maxX = 0, maxY = 0;
+    shots.forEach(s => {
+      maxX = Math.max(maxX, Math.abs(Number(s.x_location)));
+      maxY = Math.max(maxY, Math.abs(Number(s.y_location)));
+    });
+    const isPixel600 = maxX > 110;
+    const isPixel200 = !isPixel600 && shots.every(s => Number(s.x_location) >= 0 && Number(s.y_location) >= 0);
+
+    let perFilter = "all";
+    let typeFilter = "sog";
+
+    const buildSvg = () => {
+      const filtered = shots.filter(ev => {
+        const k = String(ev.event || ev.type || "").toLowerCase();
+        if (typeFilter === "sog" && k === "missed_shot") return false;
+        const per = String(ev.period_id || ev.period || "");
+        if (perFilter !== "all" && per !== perFilter) return false;
+        return true;
+      });
+
+      let awaySog = 0, homeSog = 0, awayG = 0, homeG = 0;
+      const dots = filtered.map(ev => {
+        const rx = Number(ev.x_location);
+        const ry = Number(ev.y_location);
+        let svgX = 200, svgY = 85;
+        if (isPixel600) {
+          svgX = Math.max(12, Math.min(388, (rx / 600) * 400));
+          svgY = Math.max(10, Math.min(160, (ry / 300) * 170));
+        } else if (isPixel200) {
+          svgX = Math.max(12, Math.min(388, (rx / Math.max(200, maxX)) * 400));
+          svgY = Math.max(10, Math.min(160, (ry / Math.max(85, maxY)) * 170));
+        } else {
+          svgX = Math.max(12, Math.min(388, (rx + 100) * 2));
+          svgY = Math.max(10, Math.min(160, (42.5 - ry) * 2));
+        }
+
+        const k = String(ev.event || ev.type || "").toLowerCase();
+        const isGoal = k === "goal";
+        const isMiss = k === "missed_shot";
+        const evTeamId = String(ev.team_id || ev.home_or_visitor || "");
+        const isHome = evTeamId === homeId || evTeamId === "home";
+
+        if (!isMiss) {
+          if (isHome) homeSog++;
+          else awaySog++;
+        }
+        if (isGoal) {
+          if (isHome) homeG++;
+          else awayG++;
+        }
+
+        const col = isHome ? "#ff595e" : "#3a86ff";
+        const r = isGoal ? 6 : (isMiss ? 3 : 4);
+        const op = isMiss ? 0.45 : (isGoal ? 1 : 0.85);
+        const stroke = isGoal ? "#f1c40f" : "#ffffff";
+        const pName = hlPersonName(ev.player) || ev.player_name || "Игрок";
+        const tCode = isHome ? homeAbbr : awayAbbr;
+        const tip = `${tCode} · ${pName} — ${isGoal ? "ГОЛ" : (isMiss ? "Мимо" : "В створ")}, ${ev.period_id || ev.period || 1}П ${ev.time || ""}`;
+
+        return `<circle cx="${svgX.toFixed(1)}" cy="${svgY.toFixed(1)}" r="${r}" fill="${col}" fill-opacity="${op}" stroke="${stroke}" stroke-width="${isGoal ? 2 : 0.7}" class="shot-pt" data-shot-info="${escapeHtml(tip)}" style="cursor:pointer;" />`;
+      }).join("");
+
+      return {
+        svg: `
+          <svg class="shot-map-svg" viewBox="0 0 400 170" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="2" width="396" height="166" rx="34" ry="34" fill="#101a26" stroke="#3b4a5e" stroke-width="2"/>
+            <line x1="22" y1="6" x2="22" y2="164" stroke="#c8102e" stroke-width="1.2" opacity="0.65"/>
+            <line x1="378" y1="6" x2="378" y2="164" stroke="#c8102e" stroke-width="1.2" opacity="0.65"/>
+            <line x1="150" y1="2" x2="150" y2="168" stroke="#1f5fce" stroke-width="2" opacity="0.7"/>
+            <line x1="250" y1="2" x2="250" y2="168" stroke="#1f5fce" stroke-width="2" opacity="0.7"/>
+            <line x1="200" y1="2" x2="200" y2="168" stroke="#c8102e" stroke-width="1.8" stroke-dasharray="4 3" opacity="0.75"/>
+            <circle cx="200" cy="85" r="24" fill="none" stroke="#1f5fce" stroke-width="1.2" opacity="0.6"/>
+            <circle cx="62" cy="41" r="22" fill="none" stroke="#c8102e" stroke-width="1" opacity="0.45"/>
+            <circle cx="62" cy="129" r="22" fill="none" stroke="#c8102e" stroke-width="1" opacity="0.45"/>
+            <circle cx="338" cy="41" r="22" fill="none" stroke="#c8102e" stroke-width="1" opacity="0.45"/>
+            <circle cx="338" cy="129" r="22" fill="none" stroke="#c8102e" stroke-width="1" opacity="0.45"/>
+            ${dots}
+          </svg>
+        `,
+        awaySog, homeSog, awayG, homeG
+      };
+    };
+
+    const initial = buildSvg();
+    const wrapId = `ahl-shotmap-${Date.now()}`;
+    setTimeout(() => {
+      const wrap = document.getElementById(wrapId);
+      if (!wrap) return;
+      const svgSlot = wrap.querySelector(".shotmap-svg-slot");
+      const cntSlot = wrap.querySelector(".shotmap-counts");
+      const tipSlot = wrap.querySelector(".shotmap-tip");
+      const refresh = () => {
+        const r = buildSvg();
+        if (svgSlot) svgSlot.innerHTML = r.svg;
+        if (cntSlot) {
+          cntSlot.innerHTML = `
+            <span class="shot-legend-item"><span class="shot-dot-swatch" style="background:#3a86ff;"></span>${escapeHtml(awayAbbr)}: ${r.awaySog} б/с (${r.awayG} г)</span>
+            <span class="shot-legend-item"><span class="shot-dot-swatch" style="background:#ff595e;"></span>${escapeHtml(homeAbbr)}: ${r.homeSog} б/с (${r.homeG} г)</span>
+            <span class="shot-legend-item"><span class="shot-dot-swatch" style="background:#f1c40f;"></span>Гол</span>
+          `;
+        }
+      };
+      wrap.addEventListener("click", (e) => {
+        const pt = e.target.closest(".shot-pt");
+        if (pt && tipSlot) { tipSlot.textContent = pt.dataset.shotInfo || ""; return; }
+        const tb = e.target.closest("[data-shot-type]");
+        if (tb) {
+          typeFilter = tb.dataset.shotType;
+          wrap.querySelectorAll("[data-shot-type]").forEach(b => b.classList.toggle("active", b === tb));
+          refresh();
+          return;
+        }
+        const pb = e.target.closest("[data-shot-period]");
+        if (pb) {
+          perFilter = pb.dataset.shotPeriod;
+          wrap.querySelectorAll("[data-shot-period]").forEach(b => b.classList.toggle("active", b === pb));
+          refresh();
+        }
+      });
+    }, 0);
+
+    return `
+      <div class="section-title">Карта бросков (Play-by-Play)</div>
+      <div class="shot-map-wrap" id="${wrapId}">
+        <div class="filter-chips-row" style="margin-bottom:8px;">
+          <button class="filter-chip active" data-shot-type="sog" type="button">В створ + Голы</button>
+          <button class="filter-chip" data-shot-type="all" type="button">Все (с мимо)</button>
+          <button class="filter-chip active" data-shot-period="all" type="button">Весь матч</button>
+          <button class="filter-chip" data-shot-period="1" type="button">1П</button>
+          <button class="filter-chip" data-shot-period="2" type="button">2П</button>
+          <button class="filter-chip" data-shot-period="3" type="button">3П</button>
+          <button class="filter-chip" data-shot-period="4" type="button">ОТ</button>
+        </div>
+        <div class="shotmap-svg-slot">${initial.svg}</div>
+        <div class="shot-legend shotmap-counts">
+          <span class="shot-legend-item"><span class="shot-dot-swatch" style="background:#3a86ff;"></span>${escapeHtml(awayAbbr)}: ${initial.awaySog} б/с (${initial.awayG} г)</span>
+          <span class="shot-legend-item"><span class="shot-dot-swatch" style="background:#ff595e;"></span>${escapeHtml(homeAbbr)}: ${initial.homeSog} б/с (${initial.homeG} г)</span>
+          <span class="shot-legend-item"><span class="shot-dot-swatch" style="background:#f1c40f;"></span>Гол</span>
+        </div>
+        <div class="shotmap-tip" style="margin-top:6px;font-size:11px;color:var(--silver);min-height:14px;">Нажмите на точку на площадке, чтобы увидеть детали броска</div>
+      </div>
+    `;
+  }
+
+  function renderAhlBoxTables(awayAbbr, homeAbbr) {
+    const container = document.getElementById("ahl-boxscore-container");
+    if (!container || !ahlBoxData) return;
+
+    const arrow = (sec, col) => ahlBoxSortKey[sec] === col ? `<span class="sort-arrow">${ahlBoxSortAsc[sec] ? "▲" : "▼"}</span>` : "";
+
+    const sortRows = (list, sec, defCol) => {
+      const k = ahlBoxSortKey[sec] || defCol;
+      const asc = !!ahlBoxSortAsc[sec];
+      return [...list].sort((a, b) => (asc ? (Number(a[k] ?? 0) - Number(b[k] ?? 0)) : (Number(b[k] ?? 0) - Number(a[k] ?? 0))));
+    };
+
+    const renderSide = (lineup, abbr, pfx) => {
+      const players = Array.isArray(lineup?.players) ? lineup.players : [];
+      const goalies = Array.isArray(lineup?.goalies) ? lineup.goalies : [];
+      let out = "";
+      if (players.length) {
+        const sorted = sortRows(players, `${pfx}_sk`, "points");
+        out += `
+          <div class="section-title">Полевые игроки — ${escapeHtml(abbr)}</div>
+          <div class="table-scroll"><table class="stat-table">
+            <thead><tr>
+              <th>Игрок</th>
+              <th class="sortable" data-ahl-bsec="${pfx}_sk" data-ahl-bcol="goals">Г${arrow(`${pfx}_sk`, "goals")}</th>
+              <th class="sortable" data-ahl-bsec="${pfx}_sk" data-ahl-bcol="assists">П${arrow(`${pfx}_sk`, "assists")}</th>
+              <th class="sortable" data-ahl-bsec="${pfx}_sk" data-ahl-bcol="points">О${arrow(`${pfx}_sk`, "points")}</th>
+              <th class="sortable" data-ahl-bsec="${pfx}_sk" data-ahl-bcol="plus_minus">+/-${arrow(`${pfx}_sk`, "plus_minus")}</th>
+              <th class="sortable" data-ahl-bsec="${pfx}_sk" data-ahl-bcol="shots">Б${arrow(`${pfx}_sk`, "shots")}</th>
+              <th class="sortable" data-ahl-bsec="${pfx}_sk" data-ahl-bcol="pim">Штр${arrow(`${pfx}_sk`, "pim")}</th>
+            </tr></thead>
+            <tbody>
+              ${sorted.map(pl => {
+                const pid = hlPersonId(pl);
+                const pos = formatAhlPos(pl.position);
+                const num = pl.jersey_number != null ? `<span style="color:var(--silver-dim);font-family:'Roboto Mono',monospace;font-size:10px;display:inline-block;min-width:22px;">#${escapeHtml(pl.jersey_number)}</span>` : "";
+                const posHtml = pos ? ` <span style="color:var(--silver-dim);font-size:10px;font-weight:400;">${escapeHtml(pos)}</span>` : "";
+                return `
+                  <tr class="clickable-row" data-ahl-player-id="${escapeHtml(pid)}">
+                    <td>${num}${escapeHtml(hlPersonName(pl))}${posHtml}</td>
+                    <td class="num">${ahlStr(pl.goals, 0)}</td>
+                    <td class="num">${ahlStr(pl.assists, 0)}</td>
+                    <td class="num" style="color:#fff;font-weight:700;">${ahlStr(pl.points, 0)}</td>
+                    <td class="num">${ahlStr(pl.plus_minus, 0)}</td>
+                    <td class="num">${ahlStr(pl.shots, 0)}</td>
+                    <td class="num">${ahlStr(pl.pim, 0)}</td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table></div>
+        `;
+      }
+      if (goalies.length) {
+        const sortedG = sortRows(goalies, `${pfx}_gk`, "saves");
+        out += `
+          <div class="section-title" style="margin-top:12px;">Вратари — ${escapeHtml(abbr)}</div>
+          <div class="table-scroll"><table class="stat-table">
+            <thead><tr>
+              <th>Вратарь</th>
+              <th class="sortable" data-ahl-bsec="${pfx}_gk" data-ahl-bcol="shots_against">Бр${arrow(`${pfx}_gk`, "shots_against")}</th>
+              <th class="sortable" data-ahl-bsec="${pfx}_gk" data-ahl-bcol="saves">ОБ${arrow(`${pfx}_gk`, "saves")}</th>
+              <th>%ОБ</th>
+              <th class="sortable" data-ahl-bsec="${pfx}_gk" data-ahl-bcol="goals_against">ПШ${arrow(`${pfx}_gk`, "goals_against")}</th>
+              <th>ВП</th>
+            </tr></thead>
+            <tbody>
+              ${sortedG.map(gl => {
+                const sa = Number(gl.shots_against || 0);
+                const sv = Number(gl.saves || 0);
+                const pct = sa > 0 ? (sv / sa).toFixed(3) : "—";
+                return `
+                  <tr class="clickable-row" data-ahl-player-id="${escapeHtml(hlPersonId(gl))}">
+                    <td>${escapeHtml(hlPersonName(gl))} <span style="color:var(--silver-dim);font-size:10px;font-weight:400;">G</span></td>
+                    <td class="num">${sa}</td>
+                    <td class="num">${sv}</td>
+                    <td class="num" style="color:#fff;font-weight:700;">${pct}</td>
+                    <td class="num">${ahlStr(gl.goals_against, 0)}</td>
+                    <td class="num" style="color:var(--silver-dim);">${escapeHtml(ahlStr(gl.toi))}</td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table></div>
+        `;
+      }
+      return out;
+    };
+
+    container.innerHTML = renderSide(ahlBoxData.visitor_team_lineup, awayAbbr, "away") + renderSide(ahlBoxData.home_team_lineup, homeAbbr, "home");
+    container.querySelectorAll("th[data-ahl-bsec]").forEach(th => {
+      th.onclick = () => {
+        const sec = th.dataset.ahlBsec;
+        const col = th.dataset.ahlBcol;
+        ahlBoxSortAsc[sec] = ahlBoxSortKey[sec] === col ? !ahlBoxSortAsc[sec] : false;
+        ahlBoxSortKey[sec] = col;
+        renderAhlBoxTables(awayAbbr, homeAbbr);
+      };
+    });
+  }
+
   async function openGameDetail(gameId, awayFallback = {}, homeFallback = {}, silent = false) {
     if (!silent) {
       openDetail({ type: "ahl-game", fn: () => openGameDetail(gameId, awayFallback, homeFallback) });
@@ -465,6 +985,8 @@
     try {
       const res = await fetch(`${API_BASE}/api/ahl/game/${encodeURIComponent(gameId)}`);
       const g = await res.json();
+      ahlBoxData = g;
+
       const meta = g.meta || {};
       const away = g.visitor || awayFallback || {};
       const home = g.home || homeFallback || {};
@@ -518,7 +1040,8 @@
         `;
       }
 
-      // Голы
+      html += renderAhlShotMap(g.pxp, homeId, awayId, homeAbbr, awayAbbr);
+
       html += '<div class="section-title">Голы</div>';
       const goals = Array.isArray(g.goals) ? g.goals : [];
       if (!goals.length) {
@@ -549,7 +1072,7 @@
 
           html += `
             <div class="goal-row">
-              <div class="time">${escapeHtml(ahlGoalStr(gl.time))}</div>
+              <div class="time">${escapeHtml(ahlStr(gl.time))}</div>
               <div class="desc">
                 <div class="scorer">
                   <span class="${scorerId ? "player-link-inline" : ""}" data-ahl-player-id="${escapeHtml(scorerId)}">${escapeHtml(scorerName)}</span>${gNum}
@@ -564,7 +1087,6 @@
         });
       }
 
-      // Удаления
       html += '<div class="section-title">Удаления (Penalties)</div>';
       const penalties = Array.isArray(g.penalties) ? g.penalties : [];
       if (!penalties.length) {
@@ -583,76 +1105,58 @@
           const desc = typeof formatPenaltyName === "function" ? formatPenaltyName(p.description || p.lang_penalty_description) : (p.description || "Штраф");
           html += `
             <div class="goal-row">
-              <div class="time">${escapeHtml(ahlGoalStr(p.time))}</div>
+              <div class="time">${escapeHtml(ahlStr(p.time))}</div>
               <div class="desc">
                 <div class="scorer"><span class="${pid ? "player-link-inline" : ""}" data-ahl-player-id="${escapeHtml(pid)}">${escapeHtml(pName)}</span> (${escapeHtml(teamCode)})</div>
                 <div class="assists">${escapeHtml(desc)}</div>
               </div>
-              <div class="scoreline" style="color:#ff4d4d !important;">${escapeHtml(ahlGoalStr(p.minutes, 2))} мин</div>
+              <div class="scoreline" style="color:#ff4d4d !important;">${escapeHtml(ahlStr(p.minutes, 2))} мин</div>
             </div>
           `;
         });
       }
 
-      // Составы и статистика игроков
-      const renderSideBox = (lineup, abbr) => {
-        const players = Array.isArray(lineup?.players) ? lineup.players : [];
-        const goalies = Array.isArray(lineup?.goalies) ? lineup.goalies : [];
-        let out = "";
-        if (players.length) {
-          const sorted = [...players].sort((a, b) => (Number(b.points) || 0) - (Number(a.points) || 0) || (Number(b.goals) || 0) - (Number(a.goals) || 0));
-          out += `
-            <div class="section-title">Полевые игроки — ${escapeHtml(abbr)}</div>
-            <div class="table-scroll"><table class="stat-table">
-              <thead><tr><th>Игрок</th><th>Г</th><th>П</th><th>О</th><th>+/-</th><th>Б</th><th>Штр</th></tr></thead>
-              <tbody>
-                ${sorted.map(pl => {
-                  const pid = hlPersonId(pl);
-                  const pos = formatAhlPos(pl.position);
-                  const num = pl.jersey_number != null ? `<span style="color:var(--silver-dim);font-family:'Roboto Mono',monospace;font-size:10px;display:inline-block;min-width:22px;">#${escapeHtml(pl.jersey_number)}</span>` : "";
-                  const posHtml = pos ? ` <span style="color:var(--silver-dim);font-size:10px;font-weight:400;">${escapeHtml(pos)}</span>` : "";
-                  return `
-                    <tr class="clickable-row" data-ahl-player-id="${escapeHtml(pid)}">
-                      <td>${num}${escapeHtml(hlPersonName(pl))}${posHtml}</td>
-                      <td class="num">${ahlGoalStr(pl.goals, 0)}</td>
-                      <td class="num">${ahlGoalStr(pl.assists, 0)}</td>
-                      <td class="num" style="color:#fff;font-weight:700;">${ahlGoalStr(pl.points, 0)}</td>
-                      <td class="num">${ahlGoalStr(pl.plus_minus, 0)}</td>
-                      <td class="num">${ahlGoalStr(pl.shots, 0)}</td>
-                      <td class="num">${ahlGoalStr(pl.pim, 0)}</td>
-                    </tr>
-                  `;
-                }).join("")}
-              </tbody>
-            </table></div>
-          `;
-        }
-        if (goalies.length) {
-          out += `
-            <div class="section-title" style="margin-top:12px;">Вратари — ${escapeHtml(abbr)}</div>
-            <div class="table-scroll"><table class="stat-table">
-              <thead><tr><th>Вратарь</th><th>Бр</th><th>ОБ</th><th>ПШ</th><th>ВП</th></tr></thead>
-              <tbody>
-                ${goalies.map(gl => `
-                  <tr class="clickable-row" data-ahl-player-id="${escapeHtml(hlPersonId(gl))}">
-                    <td>${escapeHtml(hlPersonName(gl))} <span style="color:var(--silver-dim);font-size:10px;font-weight:400;">G</span></td>
-                    <td class="num">${ahlGoalStr(gl.shots_against, 0)}</td>
-                    <td class="num" style="color:#fff;font-weight:700;">${ahlGoalStr(gl.saves, 0)}</td>
-                    <td class="num">${ahlGoalStr(gl.goals_against, 0)}</td>
-                    <td class="num" style="color:var(--silver-dim);">${escapeHtml(ahlGoalStr(gl.toi))}</td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table></div>
-          `;
-        }
-        return out;
-      };
+      // Статистика команд (из meta/lineup/penalties/goals)
+      const sumShots = (lineup) => (Array.isArray(lineup?.players) ? lineup.players : []).reduce((s, p) => s + (Number(p.shots) || 0), 0);
+      const awaySog = meta.visiting_shots ?? meta.visitor_shots ?? away.shots ?? sumShots(g.visitor_team_lineup);
+      const homeSog = meta.home_shots ?? home.shots ?? sumShots(g.home_team_lineup);
+      const awayPim = penalties.filter(p => String(p.team_id || "") !== homeId).reduce((s, p) => s + (Number(p.minutes) || 0), 0);
+      const homePim = penalties.filter(p => String(p.team_id || "") === homeId).reduce((s, p) => s + (Number(p.minutes) || 0), 0);
+      const awayPpg = goals.filter(gl => String(gl.team_id || "") !== homeId && gl.power_play === "1").length;
+      const homePpg = goals.filter(gl => String(gl.team_id || "") === homeId && gl.power_play === "1").length;
+      const awayPpStr = meta.visiting_power_play || `${awayPpg}`;
+      const homePpStr = meta.home_power_play || `${homePpg}`;
 
-      html += renderSideBox(g.visitor_team_lineup, awayAbbr);
-      html += renderSideBox(g.home_team_lineup, homeAbbr);
+      html += `
+        <div class="section-title">Статистика команд</div>
+        <div class="card" style="padding:0;">
+          <div class="teamstat-header-flex">
+            <div class="teamstat-side-flex"><img class="team-logo" src="${escapeHtml(awayLogo)}" onerror="this.style.display='none'"> <span>${escapeHtml(awayAbbr)}</span></div>
+            <div class="teamstat-side-flex right"><span>${escapeHtml(homeAbbr)}</span> <img class="team-logo" src="${escapeHtml(homeLogo)}" onerror="this.style.display='none'"></div>
+          </div>
+          <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${escapeHtml(awaySog)}</div><div class="teamstat-label-flex">Броски в створ</div><div class="teamstat-val-flex right">${escapeHtml(homeSog)}</div></div>
+          <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${escapeHtml(awayPpStr)}</div><div class="teamstat-label-flex">Голы в большинстве</div><div class="teamstat-val-flex right">${escapeHtml(homePpStr)}</div></div>
+          <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${escapeHtml(awayPim)}</div><div class="teamstat-label-flex">Штраф (мин)</div><div class="teamstat-val-flex right">${escapeHtml(homePim)}</div></div>
+        </div>
+      `;
+
+      // Судьи и тренеры
+      const refs = Array.isArray(g.referees) ? g.referees.map(r => hlPersonName(r)).filter(Boolean) : [];
+      const lines = Array.isArray(g.linesmen) ? g.linesmen.map(r => hlPersonName(r)).filter(Boolean) : [];
+      const awayCoach = Array.isArray(away.coaches) ? away.coaches.map(c => hlPersonName(c)).filter(Boolean).join(", ") : "";
+      const homeCoach = Array.isArray(home.coaches) ? home.coaches.map(c => hlPersonName(c)).filter(Boolean).join(", ") : "";
+      if (refs.length || lines.length || awayCoach || homeCoach) {
+        html += `<div class="section-title">Официальные лица</div><div class="card">`;
+        if (awayCoach || homeCoach) html += `<div style="font-size:12px;margin-bottom:6px;"><strong style="color:var(--silver-dim);">Тренеры:</strong> ${escapeHtml(awayAbbr)} — ${escapeHtml(awayCoach || "—")} · ${escapeHtml(homeAbbr)} — ${escapeHtml(homeCoach || "—")}</div>`;
+        if (refs.length) html += `<div style="font-size:12px;margin-bottom:4px;"><strong style="color:var(--silver-dim);">Главные арбитры:</strong> ${escapeHtml(refs.join(", "))}</div>`;
+        if (lines.length) html += `<div style="font-size:12px;"><strong style="color:var(--silver-dim);">Линейные судьи:</strong> ${escapeHtml(lines.join(", "))}</div>`;
+        html += `</div>`;
+      }
+
+      html += '<div id="ahl-boxscore-container"></div>';
 
       if (body) body.innerHTML = html;
+      renderAhlBoxTables(awayAbbr, homeAbbr);
 
       if (isLive) {
         startLivePolling(() => openGameDetail(gameId, awayFallback, homeFallback, true), 20000);
@@ -664,7 +1168,7 @@
     }
   }
 
-  // 5. КАРТОЧКА КЛУБА AHL
+  // 6. КАРТОЧКА КЛУБА AHL
   function renderTeamRoster() {
     const container = document.getElementById("ahl-team-container");
     if (!container || !ahlTeamData) return;
@@ -765,11 +1269,14 @@
     const abbr = ahlTeamData.team?.abbrev || "";
     container.innerHTML = `<div class="section-title">Матчи сезона</div><div class="card" style="padding:0;">` +
       games.map(g => {
-        const dStr = g.date ? new Date(g.date).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) : "";
+        const dStr = g.date ? new Date(g.date).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
         const fin = g.isFinal || (g.awayScore != null && g.homeScore != null);
+        const attr = fin
+          ? `data-ahl-game-id="${escapeHtml(g.id)}"`
+          : `data-ahl-preview-id="${escapeHtml(g.id)}" data-ahl-away-id="${escapeHtml(g.awayId)}" data-ahl-home-id="${escapeHtml(g.homeId)}"`;
         return `
-          <div class="h2h-game-row clickable-row" style="cursor:pointer;" data-ahl-game-id="${escapeHtml(g.id)}" data-ahl-away="${escapeHtml(g.awayAbbrev)}" data-ahl-home="${escapeHtml(g.homeAbbrev)}">
-            <div style="font-family:'Roboto Mono',monospace;font-size:11px;color:var(--silver-dim);width:45px;">${escapeHtml(dStr)}</div>
+          <div class="h2h-game-row clickable-row" style="cursor:pointer;" ${attr} data-ahl-away="${escapeHtml(g.awayAbbrev)}" data-ahl-home="${escapeHtml(g.homeAbbrev)}">
+            <div style="font-family:'Roboto Mono',monospace;font-size:10px;color:var(--silver-dim);width:66px;">${escapeHtml(dStr)}</div>
             <div class="h2h-team-cell left" style="${g.awayAbbrev === abbr ? "color:#fff;font-weight:700;" : ""}">${escapeHtml(g.awayAbbrev)}</div>
             <div class="h2h-center-cell"><span class="h2h-score-val">${fin ? `${g.awayScore} : ${g.homeScore}` : "vs"}</span></div>
             <div class="h2h-team-cell right" style="${g.homeAbbrev === abbr ? "color:#fff;font-weight:700;" : ""}">${escapeHtml(g.homeAbbrev)}</div>
@@ -836,7 +1343,7 @@
     }
   }
 
-  // 6. КАРТОЧКА ИГРОКА AHL
+  // 7. КАРТОЧКА ИГРОКА AHL
   async function openPlayerDetail(playerId) {
     openDetail({ type: "ahl-player", fn: () => openPlayerDetail(playerId) });
     const body = document.getElementById("detail-body");
@@ -866,26 +1373,41 @@
 
         <div class="section-title">Личные данные</div>
         <div class="bio-grid">
-          <div><div class="label">Дата рождения</div><div class="value">${escapeHtml(ahlGoalStr(info.birthdate || info.birth_date))}</div></div>
-          <div><div class="label">Место рождения</div><div class="value">${escapeHtml(ahlGoalStr(info.birthplace || info.hometown))}</div></div>
-          <div><div class="label">Рост / Вес</div><div class="value">${escapeHtml(ahlGoalStr(info.height))} / ${escapeHtml(ahlGoalStr(info.weight))}</div></div>
-          <div><div class="label">Хват</div><div class="value">${escapeHtml(ahlGoalStr(info.shoots || info.catches))}</div></div>
+          <div><div class="label">Дата рождения</div><div class="value">${escapeHtml(ahlStr(info.birthdate || info.birth_date))}</div></div>
+          <div><div class="label">Место рождения</div><div class="value">${escapeHtml(ahlStr(info.birthplace || info.hometown))}</div></div>
+          <div><div class="label">Рост / Вес</div><div class="value">${escapeHtml(ahlStr(info.height))} / ${escapeHtml(ahlStr(info.weight))}</div></div>
+          <div><div class="label">Хват</div><div class="value">${escapeHtml(ahlStr(info.shoots || info.catches))}</div></div>
         </div>
       `;
 
       if (gbg.length) {
         const last10 = gbg.slice(0, 10);
+        let sG = 0, sA = 0, sP = 0, sPm = 0, sB = 0, sSa = 0, sSv = 0, sGa = 0;
         html += `<div class="section-title">Последние матчи AHL</div><div class="table-scroll"><table class="stat-table"><thead><tr><th>Дата</th><th>Матч</th>${isGoalie ? "<th>Бр</th><th>ОБ</th><th>ПШ</th>" : "<th>Г</th><th>П</th><th>О</th><th>+/-</th><th>Б</th>"}</tr></thead><tbody>`;
         last10.forEach(m => {
           const dStr = m.date_played ? new Date(m.date_played).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
+          if (isGoalie) {
+            sSa += Number(m.shots_against || 0);
+            sSv += Number(m.saves || 0);
+            sGa += Number(m.goals_against || 0);
+          } else {
+            sG += Number(m.goals || 0);
+            sA += Number(m.assists || 0);
+            sP += Number(m.points || 0);
+            sPm += Number(m.plus_minus || 0);
+            sB += Number(m.shots || 0);
+          }
           html += `<tr class="clickable-row" data-ahl-game-id="${escapeHtml(m.game_id || "")}">
             <td class="num">${escapeHtml(dStr)}</td>
             <td>${escapeHtml(m.opponent_team_code || m.opponent || "—")}</td>
             ${isGoalie
-              ? `<td class="num">${ahlGoalStr(m.shots_against, 0)}</td><td class="num" style="color:#fff;font-weight:700;">${ahlGoalStr(m.saves, 0)}</td><td class="num">${ahlGoalStr(m.goals_against, 0)}</td>`
-              : `<td class="num">${ahlGoalStr(m.goals, 0)}</td><td class="num">${ahlGoalStr(m.assists, 0)}</td><td class="num" style="color:#fff;font-weight:700;">${ahlGoalStr(m.points, 0)}</td><td class="num">${ahlGoalStr(m.plus_minus, 0)}</td><td class="num">${ahlGoalStr(m.shots, 0)}</td>`}
+              ? `<td class="num">${ahlStr(m.shots_against, 0)}</td><td class="num" style="color:#fff;font-weight:700;">${ahlStr(m.saves, 0)}</td><td class="num">${ahlStr(m.goals_against, 0)}</td>`
+              : `<td class="num">${ahlStr(m.goals, 0)}</td><td class="num">${ahlStr(m.assists, 0)}</td><td class="num" style="color:#fff;font-weight:700;">${ahlStr(m.points, 0)}</td><td class="num">${ahlStr(m.plus_minus, 0)}</td><td class="num">${ahlStr(m.shots, 0)}</td>`}
           </tr>`;
         });
+        html += isGoalie
+          ? `<tr style="background:var(--surface-2);font-weight:700;"><td colspan="2" style="color:#fff;">Итого (${last10.length} и)</td><td class="num" style="color:#fff;">${sSa}</td><td class="num" style="color:#2ecc71;">${sSv}</td><td class="num" style="color:#fff;">${sGa}</td></tr>`
+          : `<tr style="background:var(--surface-2);font-weight:700;"><td colspan="2" style="color:#fff;">Итого (${last10.length} и)</td><td class="num" style="color:#2ecc71;">${sG}</td><td class="num" style="color:#3a86ff;">${sA}</td><td class="num" style="color:#fff;">${sP}</td><td class="num" style="color:${sPm >= 0 ? "#2ecc71" : "#ff4d4d"};">${sPm > 0 ? `+${sPm}` : sPm}</td><td class="num" style="color:#fff;">${sB}</td></tr>`;
         html += `</tbody></table></div>`;
       }
 
@@ -901,10 +1423,10 @@
                     ? `<span class="tx-player-link" data-ahl-team-id="${escapeHtml(s.team_id)}" data-ahl-team-name="${escapeHtml(s.team_name || "")}" data-ahl-season-id="${escapeHtml(s.season_id || "")}">${escapeHtml(s.team_name || s.shortname || "—")}</span>`
                     : escapeHtml(s.team_name || s.shortname || "—")}
                 </td>
-                <td class="num">${ahlGoalStr(s.games_played, 0)}</td>
+                <td class="num">${ahlStr(s.games_played, 0)}</td>
                 ${isGoalie
-                  ? `<td class="num">${ahlGoalStr(s.wins, 0)}</td><td class="num">${ahlGoalStr(s.losses, 0)}</td><td class="num" style="color:#fff;font-weight:700;">${ahlGoalStr(s.save_percentage)}</td><td class="num">${ahlGoalStr(s.goals_against_average)}</td>`
-                  : `<td class="num">${ahlGoalStr(s.goals, 0)}</td><td class="num">${ahlGoalStr(s.assists, 0)}</td><td class="num" style="color:#fff;font-weight:700;">${ahlGoalStr(s.points, 0)}</td><td class="num">${ahlGoalStr(s.plus_minus, 0)}</td><td class="num">${ahlGoalStr(s.penalty_minutes, 0)}</td>`}
+                  ? `<td class="num">${ahlStr(s.wins, 0)}</td><td class="num">${ahlStr(s.losses, 0)}</td><td class="num" style="color:#fff;font-weight:700;">${ahlStr(s.save_percentage)}</td><td class="num">${ahlStr(s.goals_against_average)}</td>`
+                  : `<td class="num">${ahlStr(s.goals, 0)}</td><td class="num">${ahlStr(s.assists, 0)}</td><td class="num" style="color:#fff;font-weight:700;">${ahlStr(s.points, 0)}</td><td class="num">${ahlStr(s.plus_minus, 0)}</td><td class="num">${ahlStr(s.penalty_minutes, 0)}</td>`}
               </tr>
             `).join("");
         };
@@ -932,6 +1454,17 @@
     const ahlPlayer = e.target.closest("[data-ahl-player-id]");
     if (ahlPlayer && ahlPlayer.dataset.ahlPlayerId) {
       openPlayerDetail(ahlPlayer.dataset.ahlPlayerId);
+      return;
+    }
+
+    const ahlPrev = e.target.closest("[data-ahl-preview-id]");
+    if (ahlPrev && ahlPrev.dataset.ahlPreviewId) {
+      openFutureGamePreview(
+        ahlPrev.dataset.ahlPreviewId,
+        { id: ahlPrev.dataset.ahlAwayId || "", abbrev: ahlPrev.dataset.ahlAway || "", logo: ahlPrev.dataset.ahlAwayLogo || "" },
+        { id: ahlPrev.dataset.ahlHomeId || "", abbrev: ahlPrev.dataset.ahlHome || "", logo: ahlPrev.dataset.ahlHomeLogo || "" },
+        ahlPrev.dataset.ahlSeason || ""
+      );
       return;
     }
 
@@ -968,6 +1501,7 @@
     loadPlayers,
     setLeadersMode,
     setSearchFilter,
+    openFutureGamePreview,
     openGameDetail,
     openTeamDetail,
     openPlayerDetail,
