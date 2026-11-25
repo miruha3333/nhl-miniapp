@@ -5877,7 +5877,7 @@ function initApp() {
   safeOn("leaders-def-btn", "click", () => setLeadersSubgroup("defensemen"));
   safeOn("leaders-rookies-btn", "click", () => setLeadersSubgroup("rookies"));
   safeOn("leaders-favs-btn", "click", renderFavoritePlayers);
-  safeOn("leaders-goalies-btn", () => {
+  safeOn("leaders-goalies-btn", "click", () => {
     leadersMode = "goalies";
     document.getElementById("leaders-goalies-btn")?.classList.add("active");
     document.getElementById("leaders-all-btn")?.classList.remove("active");
