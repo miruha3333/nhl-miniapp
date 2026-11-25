@@ -406,13 +406,15 @@
     if (body) body.innerHTML = '<div class="loading">Загрузка таблицы AHL...</div>';
     await populateSeasonSelect();
 
+    const targetSeason = ahlSelectedSeasonId || (document.getElementById("season-select")?.value || "");
+
     try {
-      const qs = ahlSelectedSeasonId ? `?season=${encodeURIComponent(ahlSelectedSeasonId)}` : "";
+      const qs = targetSeason ? `?season=${encodeURIComponent(targetSeason)}` : "";
       const res = await fetch(`${API_BASE}/api/ahl/standings${qs}`);
       const data = await res.json();
       ahlStandingsData = Array.isArray(data?.standings) ? data.standings : [];
       setStandingsMode(ahlStandingsMode);
-      loadPlayoffBracket(ahlSelectedSeasonId);
+      loadPlayoffBracket(targetSeason);
     } catch (_) {
       if (body) body.innerHTML = '<div class="empty">Не удалось загрузить таблицу AHL</div>';
     }
