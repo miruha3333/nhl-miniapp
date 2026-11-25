@@ -73,6 +73,44 @@ header {
   align-items: center;
 }
 
+.league-switch {
+  display: inline-flex;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 2px;
+  gap: 2px;
+}
+.league-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--silver-dim);
+  font-family: "Oswald", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.league-btn .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 6px var(--red);
+}
+.league-btn.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 8px var(--accent-glow);
+}
 header h1 {
   display: inline-flex;
   align-items: center;
@@ -1555,7 +1593,10 @@ select.date-input option {
     <button class="header-back-btn" id="back-btn" style="display:none;">‹ Назад</button>
   </div>
   <div class="header-brand">
-    <h1><span class="dot"></span>NHL LIVE</h1>
+    <div class="league-switch" id="league-switch">
+      <button type="button" class="league-btn active" data-league="NHL"><span class="dot"></span>NHL</button>
+      <button type="button" class="league-btn" data-league="AHL">AHL</button>
+    </div>
   </div>
   <button class="my-team-btn" id="my-team-trigger">
     <span id="my-team-label">
@@ -1805,6 +1846,7 @@ select.date-input option {
 </div>
 
 <script>
+  <script src="/ahl.js?v=1"></script>
 window.addEventListener("error", function (e) {
   var box = document.getElementById("games");
   if (box && box.textContent.indexOf("Загрузка") !== -1) {
@@ -1852,7 +1894,8 @@ let currentDraftYear = String(new Date().getFullYear());
 let currentDraftRound = "all";
 let cachedDraftPicks = [];
 
-let lastMainTab = "schedule";
+let currentLeague = "NHL";
+let lastMainTab = "schedule";let lastMainTab = "schedule";
 let currentDate = new Date();
 let currentCat = "points";
 let currentLimit = 25;
@@ -2221,6 +2264,13 @@ function switchTab(tab, fromBack = false) {
   if (nav) nav.style.display = "grid";
 
   lastMainTab = safeTab;
+
+  if (currentLeague === "AHL" && window.AHL) {
+    if (safeTab === "schedule") window.AHL.loadSchedule();
+    else if (safeTab === "standings") window.AHL.loadStandings();
+    else if (safeTab === "players") window.AHL.loadPlayers();
+    return;
+  }
 
   if (safeTab === "schedule") loadSchedule();
   if (safeTab === "standings") {
@@ -2594,6 +2644,7 @@ function renderDraftPicks() {
 
 // 1. ВКЛАДКА: МАТЧИ
 async function loadSchedule(silent = false) {
+  if (currentLeague === "AHL" && window.AHL) return window.AHL.loadSchedule(silent);
   const games = document.getElementById("games");
   const dateInput = document.getElementById("date-picker");
   const liveBanner = document.getElementById("live-status-banner");
@@ -3423,9 +3474,12 @@ function renderCareerRow(season, position) {
   const isPlayoff = season.gameTypeId === 3 || season.gameTypeCode === 3;
   const nhlAbbr = league === "NHL" ? resolveHistoricalNhlAbbr(teamName, season.teamAbbrev) : "";
 
-  const teamCellHtml = (nhlAbbr && /^\d{8}$/.test(rawSeason))
-    ? `<span class="tx-player-link" data-team-abbr="${escapeHtml(nhlAbbr)}" data-team-name="${escapeHtml(teamName)}" data-team-season="${escapeHtml(rawSeason)}" data-team-gt="${isPlayoff ? "playoff" : "regular"}">${escapeHtml(teamName)}</span>`
-    : escapeHtml(teamName);
+  let teamCellHtml = escapeHtml(teamName);
+  if (nhlAbbr && /^\d{8}$/.test(rawSeason)) {
+    teamCellHtml = `<span class="tx-player-link" data-team-abbr="${escapeHtml(nhlAbbr)}" data-team-name="${escapeHtml(teamName)}" data-team-season="${escapeHtml(rawSeason)}" data-team-gt="${isPlayoff ? "playoff" : "regular"}">${escapeHtml(teamName)}</span>`;
+  } else if (league === "AHL" && teamName && teamName !== "—" && /^\d{8}$/.test(rawSeason)) {
+    teamCellHtml = `<span class="tx-player-link" data-ahl-team-name="${escapeHtml(teamName)}" data-ahl-season-label="${escapeHtml(rawSeason)}">${escapeHtml(teamName)}</span>`;
+  }
 
   let html = `
     <tr>
@@ -5816,7 +5870,25 @@ function initApp() {
     }
   });
 
+  document.querySelectorAll("#league-switch .league-btn").forEach(btn => {
+    btn.onclick = () => {
+      const target = btn.dataset.league || "NHL";
+      if (target === currentLeague) return;
+      currentLeague = target;
+      window.AHL?.updateUiForLeague(target);
+      if (target === "NHL") {
+        buildSeasonOptions();
+      }
+      switchTab(lastMainTab);
+    };
+  });
+
   safeOn("season-select", "change", event => {
+    if (currentLeague === "AHL" && window.AHL) {
+      window.AHL.setSeason(event.target.value);
+      window.AHL.loadStandings();
+      return;
+    }
     selectedSeasonEndDate = event.target.value;
     currentStandingsData = [];
     currentAdvancedTeamsData = [];
@@ -5838,15 +5910,23 @@ function initApp() {
     };
   });
 
-  safeOn("std-mode-all", "click", () => setStandingsMode("all"));
-  safeOn("std-mode-conf", "click", () => setStandingsMode("conf"));
-  safeOn("std-mode-div", "click", () => setStandingsMode("div"));
-  safeOn("std-mode-wc", "click", () => setStandingsMode("wc"));
-  safeOn("std-mode-adv", "click", () => setStandingsMode("adv"));
+  const handleStdBtn = (mode) => {
+    if (currentLeague === "AHL" && window.AHL) window.AHL.setStandingsMode(mode);
+    else setStandingsMode(mode);
+  };
+  safeOn("std-mode-all", "click", () => handleStdBtn("all"));
+  safeOn("std-mode-conf", "click", () => handleStdBtn("conf"));
+  safeOn("std-mode-div", "click", () => handleStdBtn("div"));
+  safeOn("std-mode-wc", "click", () => handleStdBtn("wc"));
+  safeOn("std-mode-adv", "click", () => handleStdBtn("adv"));
 
   document.querySelectorAll("#standings-table-regular .sortable").forEach(header => {
     header.onclick = () => {
       const key = header.dataset.sort;
+      if (currentLeague === "AHL" && window.AHL) {
+        window.AHL.sortStandingsBy(key);
+        return;
+      }
       standingsSortAsc = standingsSortKey === key ? !standingsSortAsc : false;
       standingsSortKey = key;
       renderStandings();
@@ -5865,19 +5945,31 @@ function initApp() {
   if (searchInput) {
     searchInput.addEventListener("input", () => {
       clearTimeout(searchDebounceTimer);
+      if (currentLeague === "AHL" && window.AHL) {
+        searchDebounceTimer = setTimeout(() => window.AHL.setSearchFilter(searchInput.value), 150);
+        return;
+      }
       searchDebounceTimer = setTimeout(() => runGlobalPlayerSearch(searchInput.value), 350);
     });
   }
   safeOn("player-search-clear", "click", () => {
     if (searchInput) searchInput.value = "";
-    runGlobalPlayerSearch("");
+    if (currentLeague === "AHL" && window.AHL) window.AHL.setSearchFilter("");
+    else runGlobalPlayerSearch("");
   });
 
-  safeOn("leaders-all-btn", "click", () => setLeadersSubgroup("all"));
+  safeOn("leaders-all-btn", "click", () => {
+    if (currentLeague === "AHL" && window.AHL) window.AHL.setLeadersMode("skaters");
+    else setLeadersSubgroup("all");
+  });
   safeOn("leaders-def-btn", "click", () => setLeadersSubgroup("defensemen"));
   safeOn("leaders-rookies-btn", "click", () => setLeadersSubgroup("rookies"));
   safeOn("leaders-favs-btn", "click", renderFavoritePlayers);
   safeOn("leaders-goalies-btn", "click", () => {
+    if (currentLeague === "AHL" && window.AHL) {
+      window.AHL.setLeadersMode("goalies");
+      return;
+    }
     leadersMode = "goalies";
     document.getElementById("leaders-goalies-btn")?.classList.add("active");
     document.getElementById("leaders-all-btn")?.classList.remove("active");
@@ -5894,10 +5986,14 @@ function initApp() {
     else loadGoalieCards();
   });
 
-  document.querySelectorAll("#skater-categories button").forEach(button => {
+ document.querySelectorAll("#skater-categories button").forEach(button => {
     button.onclick = () => {
       document.querySelectorAll("#skater-categories button").forEach(item => item.classList.remove("active"));
       button.classList.add("active");
+      if (currentLeague === "AHL" && window.AHL) {
+        window.AHL.setLeadersMode("skaters", button.dataset.cat);
+        return;
+      }
       currentCat = button.dataset.cat;
       currentLimit = 25;
       loadPlayers();
@@ -5910,6 +6006,10 @@ function initApp() {
       button.classList.add("active");
 
       const key = button.dataset.goalieSort;
+      if (currentLeague === "AHL" && window.AHL) {
+        window.AHL.setLeadersMode("goalies", key);
+        return;
+      }
       currentGoalieSortAsc = currentGoalieSortKey === key ? !currentGoalieSortAsc : (key === "gaa" || key === "losses");
       currentGoalieSortKey = key;
 
