@@ -1016,6 +1016,7 @@
           </div>
           <img class="team-logo" src="${escapeHtml(homeLogo)}" alt="" data-ahl-team-id="${escapeHtml(homeId)}" data-ahl-team-name="${escapeHtml(home.name || homeAbbr)}" data-ahl-team-abbr="${escapeHtml(homeAbbr)}" data-ahl-team-logo="${escapeHtml(homeLogo)}" style="cursor:pointer;" onerror="this.style.visibility='hidden'">
         </div>
+        <div id="ahl-video-recap-slot"></div>
       `;
 
       const stars = Array.isArray(g.mvp) ? g.mvp : (Array.isArray(g.three_stars) ? g.three_stars : []);
@@ -1063,7 +1064,7 @@
           const assistsHtml = assists.map((a, idx) => {
             const aid = hlPersonId(a);
             const aname = hlPersonName(a);
-            const anum = idx === 0 ? gl.assist1_num : gl.assist2_num;
+            const anum = idx === 0 ? (gl.assist1_num ?? gl.assist1_season_num) : (gl.assist2_num ?? gl.assist2_season_num);
             const numHtml = anum ? ` <span style="color:#3a86ff;font-family:'Roboto Mono',monospace;font-weight:700;">(${escapeHtml(anum)})</span>` : "";
             return `<span class="player-link-inline" data-ahl-player-id="${escapeHtml(aid)}">${escapeHtml(aname)}</span>${numHtml}`;
           }).join(", ");
@@ -1099,8 +1100,12 @@
             curPer = perLabel;
             html += `<div class="period-label">${escapeHtml(perLabel)}</div>`;
           }
-          const pid = hlPersonId(p.player_penalized) || hlPersonId(p.player_served);
-          const pName = hlPersonName(p.player_penalized) || (hlPersonName(p.player_served) ? `Командный штраф (отб. ${hlPersonName(p.player_served)})` : "Командный штраф");
+          const rawOffender = p.player_penalized || p.taken_by || p.takenBy || p.player || p.offender || null;
+          const rawServed = p.player_served || p.served_by || p.servedBy || null;
+          const pid = hlPersonId(rawOffender) || hlPersonId(rawServed);
+          const offenderName = hlPersonName(rawOffender);
+          const servedName = hlPersonName(rawServed);
+          const pName = offenderName || (servedName ? `Командный штраф (отб. ${servedName})` : "Командный штраф");
           const teamCode = String(p.team_id || "") === homeId ? homeAbbr : awayAbbr;
           const desc = typeof formatPenaltyName === "function" ? formatPenaltyName(p.description || p.lang_penalty_description) : (p.description || "Штраф");
           html += `
@@ -1157,6 +1162,27 @@
 
       if (body) body.innerHTML = html;
       renderAhlBoxTables(awayAbbr, homeAbbr);
+
+      if (isFinal) {
+        const vSlot = document.getElementById("ahl-video-recap-slot");
+        if (vSlot && !vSlot.innerHTML.trim()) {
+          const awayQ = away.name || awayAbbr;
+          const homeQ = home.name || homeAbbr;
+          const gDate = (meta.date_played || "").slice(0, 10);
+          fetch(`${API_BASE}/api/game-youtube-recap?away=${encodeURIComponent(awayQ)}&home=${encodeURIComponent(homeQ)}&date=${encodeURIComponent(gDate)}&league=AHL`)
+            .then(r => r.json())
+            .then(v => {
+              if (v && v.videoId && vSlot) {
+                vSlot.innerHTML = `
+                  <div class="section-title">Видеообзор матча (YouTube)</div>
+                  <div class="video-container">
+                    <iframe src="https://www.youtube.com/embed/${escapeHtml(v.videoId)}?playsinline=1&rel=0" allowfullscreen></iframe>
+                  </div>
+                `;
+              }
+            }).catch(() => {});
+        }
+      }
 
       if (isLive) {
         startLivePolling(() => openGameDetail(gameId, awayFallback, homeFallback, true), 20000);
@@ -1267,19 +1293,35 @@
     }
 
     const abbr = ahlTeamData.team?.abbrev || "";
-    container.innerHTML = `<div class="section-title">Матчи сезона</div><div class="card" style="padding:0;">` +
+   container.innerHTML = `<div class="section-title">Матчи сезона</div><div class="card" style="padding:0;">` +
       games.map(g => {
         const dStr = g.date ? new Date(g.date).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
         const fin = g.isFinal || (g.awayScore != null && g.homeScore != null);
         const attr = fin
           ? `data-ahl-game-id="${escapeHtml(g.id)}"`
           : `data-ahl-preview-id="${escapeHtml(g.id)}" data-ahl-away-id="${escapeHtml(g.awayId)}" data-ahl-home-id="${escapeHtml(g.homeId)}"`;
+
+        let resBadge = "—";
+        if (fin) {
+          const isWin = (g.awayAbbrev === abbr && g.awayScore > g.homeScore) || (g.homeAbbrev === abbr && g.homeScore > g.awayScore);
+          if (isWin) {
+            if (g.isSo) resBadge = '<span style="color:#2ecc71;font-weight:700;" title="Победа по буллитам">ВБ</span>';
+            else if (g.isOt) resBadge = '<span style="color:#2ecc71;font-weight:700;" title="Победа в овертайме">ВО</span>';
+            else resBadge = '<span style="color:#2ecc71;font-weight:700;" title="Победа в основное время">В</span>';
+          } else {
+            if (g.isSo) resBadge = '<span style="color:#e67e22;font-weight:700;" title="Поражение по буллитам">ПБ</span>';
+            else if (g.isOt) resBadge = '<span style="color:#f39c12;font-weight:700;" title="Поражение в овертайме">ПО</span>';
+            else resBadge = '<span style="color:#e74c3c;font-weight:700;" title="Поражение в основное время">П</span>';
+          }
+        }
+
         return `
           <div class="h2h-game-row clickable-row" style="cursor:pointer;" ${attr} data-ahl-away="${escapeHtml(g.awayAbbrev)}" data-ahl-home="${escapeHtml(g.homeAbbrev)}">
-            <div style="font-family:'Roboto Mono',monospace;font-size:10px;color:var(--silver-dim);width:66px;">${escapeHtml(dStr)}</div>
+            <div style="font-family:'Roboto Mono',monospace;font-size:10px;color:var(--silver-dim);width:66px;flex-shrink:0;">${escapeHtml(dStr)}</div>
             <div class="h2h-team-cell left" style="${g.awayAbbrev === abbr ? "color:#fff;font-weight:700;" : ""}">${escapeHtml(g.awayAbbrev)}</div>
             <div class="h2h-center-cell"><span class="h2h-score-val">${fin ? `${g.awayScore} : ${g.homeScore}` : "vs"}</span></div>
             <div class="h2h-team-cell right" style="${g.homeAbbrev === abbr ? "color:#fff;font-weight:700;" : ""}">${escapeHtml(g.homeAbbrev)}</div>
+            <div style="width:28px;text-align:right;font-family:'Oswald',sans-serif;flex-shrink:0;">${resBadge}</div>
           </div>
         `;
       }).join("") + `</div>`;
