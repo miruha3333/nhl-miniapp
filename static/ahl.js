@@ -1103,7 +1103,6 @@
             html += `<div class="period-label">${escapeHtml(perLabel)}</div>`;
           }
           const rawOffender = p.resolved_offender || p.player_penalized_info || p.player_penalized || p.taken_by || p.takenBy || p.player || p.offender || null;
-          const rawOffender = p.resolved_offender || p.player_penalized_info || p.player_penalized || p.taken_by || p.takenBy || p.player || p.offender || null;
           const rawServed = p.resolved_served || p.player_served_info || p.player_served || p.served_by || p.servedBy || null;
           const pid = hlPersonId(rawOffender) || hlPersonId(rawServed);
           const offenderName = hlPersonName(rawOffender);
