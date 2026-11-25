@@ -1064,7 +1064,9 @@
           const assistsHtml = assists.map((a, idx) => {
             const aid = hlPersonId(a);
             const aname = hlPersonName(a);
-            const anum = idx === 0 ? (gl.assist1_num ?? gl.assist1_season_num) : (gl.assist2_num ?? gl.assist2_season_num);
+            const rawNum = idx === 0 ? gl.assist1_num : gl.assist2_num;
+            const fbNum = idx === 0 ? gl.assist1_season_num : gl.assist2_season_num;
+            const anum = (rawNum !== undefined && rawNum !== null && rawNum !== "" && Number(rawNum) > 0) ? rawNum : fbNum;
             const numHtml = anum ? ` <span style="color:#3a86ff;font-family:'Roboto Mono',monospace;font-weight:700;">(${escapeHtml(anum)})</span>` : "";
             return `<span class="player-link-inline" data-ahl-player-id="${escapeHtml(aid)}">${escapeHtml(aname)}</span>${numHtml}`;
           }).join(", ");
@@ -1100,7 +1102,8 @@
             curPer = perLabel;
             html += `<div class="period-label">${escapeHtml(perLabel)}</div>`;
           }
-          const rawOffender = p.player_penalized || p.taken_by || p.takenBy || p.player || p.offender || null;
+          const rawOffender = p.resolved_offender || p.player_penalized_info || p.player_penalized || p.taken_by || p.takenBy || p.player || p.offender || null;
+          const rawServed = p.resolved_served || p.player_served_info || p.player_served || p.served_by || p.servedBy || null;
           const rawServed = p.player_served || p.served_by || p.servedBy || null;
           const pid = hlPersonId(rawOffender) || hlPersonId(rawServed);
           const offenderName = hlPersonName(rawOffender);
