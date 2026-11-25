@@ -1090,6 +1090,7 @@
         });
       }
 
+      // Удаления
       html += '<div class="section-title">Удаления (Penalties)</div>';
       const penalties = Array.isArray(g.penalties) ? g.penalties : [];
       if (!penalties.length) {
@@ -1122,6 +1123,8 @@
           `;
         });
       }
+
+      // Статистика команд (из meta/lineup/penalties/goals)
 
       // Статистика команд (из meta/lineup/penalties/goals)
       const sumShots = (lineup) => (Array.isArray(lineup?.players) ? lineup.players : []).reduce((s, p) => s + (Number(p.shots) || 0), 0);
