@@ -94,30 +94,19 @@
     const select = document.getElementById("season-select");
     if (!select) return;
 
-    // Официальные ID регулярных чемпионатов AHL из базы LeagueStat
-    const officialAhlSeasons = [
-      { id: "86", name: "2024-25 Регулярный сезон" },
-      { id: "83", name: "2023-24 Регулярный сезон" },
-      { id: "79", name: "2022-23 Регулярный сезон" },
-      { id: "73", name: "2021-22 Регулярный сезон" },
-      { id: "69", name: "2020-21 Регулярный сезон (COVID)" },
-      { id: "65", name: "2019-20 Регулярный сезон (COVID)" },
-      { id: "61", name: "2018-19 Регулярный сезон" },
-      { id: "57", name: "2017-18 Регулярный сезон" },
-      { id: "54", name: "2016-17 Регулярный сезон" },
-      { id: "51", name: "2015-16 Регулярный сезон" },
-      { id: "48", name: "2014-15 Регулярный сезон" },
-      { id: "43", name: "2013-14 Регулярный сезон" },
-      { id: "40", name: "2012-13 Регулярный сезон" },
-      { id: "37", name: "2011-12 Регулярный сезон" },
-      { id: "34", name: "2010-11 Регулярный сезон" },
-    ];
+    const list = await ensureSeasonsLoaded();
+    const regSeasons = list.filter((s) => !s.isPlayoff);
 
-    if (!ahlSelectedSeasonId) {
-      ahlSelectedSeasonId = "86";
+    if (!regSeasons.length) {
+      select.innerHTML = "<option value=''>Текущий сезон AHL</option>";
+      return;
     }
 
-    select.innerHTML = officialAhlSeasons.map(s => {
+    if (!ahlSelectedSeasonId || !regSeasons.some((s) => String(s.id) === String(ahlSelectedSeasonId))) {
+      ahlSelectedSeasonId = String(regSeasons[0].id);
+    }
+
+    select.innerHTML = regSeasons.map((s) => {
       const sel = String(s.id) === String(ahlSelectedSeasonId) ? "selected" : "";
       return `<option value="${escapeHtml(s.id)}" ${sel}>${escapeHtml(s.name)}</option>`;
     }).join("");
