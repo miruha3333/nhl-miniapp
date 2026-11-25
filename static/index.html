@@ -1841,7 +1841,7 @@ select.date-input option {
     <div style="font-size:11px;color:var(--silver-dim);margin-bottom:12px;">
       Приложение подстроится под клубные цвета, а матчи выбранной команды будут первыми в списке расписания.
     </div>
-    <script src="/ahl.js?v=1"></script>
+    <script src="/ahl.js?v=2"></script>
 <script>
 window.addEventListener("error", function (e) {
   var box = document.getElementById("games");
@@ -5870,6 +5870,10 @@ function initApp() {
     btn.onclick = () => {
       const target = btn.dataset.league || "NHL";
       if (target === currentLeague) return;
+      if (target === "AHL" && !window.AHL) {
+        alert("Файл ahl.js не загрузился. Проверьте /ahl.js и обновление app.py.");
+        return;
+      }
       currentLeague = target;
       window.AHL?.updateUiForLeague(target);
       if (target === "NHL") {
