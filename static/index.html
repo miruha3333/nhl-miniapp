@@ -3371,16 +3371,67 @@ async function runGlobalPlayerSearch(query) {
   }
 }
 
+const NHL_CLUB_NAME_TO_ABBR = {
+  "anaheim ducks": "ANA", "mighty ducks of anaheim": "ANA",
+  "arizona coyotes": "ARI", "phoenix coyotes": "PHX",
+  "atlanta thrashers": "ATL",
+  "boston bruins": "BOS",
+  "buffalo sabres": "BUF",
+  "calgary flames": "CGY",
+  "carolina hurricanes": "CAR", "hartford whalers": "HFD",
+  "chicago blackhawks": "CHI",
+  "colorado avalanche": "COL", "quebec nordiques": "QUE",
+  "columbus blue jackets": "CBJ",
+  "dallas stars": "DAL", "minnesota north stars": "MNS",
+  "detroit red wings": "DET",
+  "edmonton oilers": "EDM",
+  "florida panthers": "FLA",
+  "los angeles kings": "LAK",
+  "minnesota wild": "MIN",
+  "montreal canadiens": "MTL", "montréal canadiens": "MTL",
+  "nashville predators": "NSH",
+  "new jersey devils": "NJD",
+  "new york islanders": "NYI",
+  "new york rangers": "NYR",
+  "ottawa senators": "OTT",
+  "philadelphia flyers": "PHI",
+  "pittsburgh penguins": "PIT",
+  "san jose sharks": "SJS",
+  "seattle kraken": "SEA",
+  "st. louis blues": "STL", "st louis blues": "STL",
+  "tampa bay lightning": "TBL",
+  "toronto maple leafs": "TOR",
+  "utah hockey club": "UTA", "utah mammoth": "UTA",
+  "vancouver canucks": "VAN",
+  "vegas golden knights": "VGK",
+  "washington capitals": "WSH",
+  "winnipeg jets": "WPG",
+};
+
+function resolveHistoricalNhlAbbr(teamName, fallbackAbbr = "") {
+  const clean = String(teamName || "").trim().toLowerCase().replace(/é/g, "e");
+  if (NHL_CLUB_NAME_TO_ABBR[clean]) return NHL_CLUB_NAME_TO_ABBR[clean];
+  if (fallbackAbbr) return String(fallbackAbbr).trim().toUpperCase();
+  return "";
+}
+
 function renderCareerRow(season, position) {
-  const seasonName = String(season.season || "").replace(/^(\d{4})(\d{4})$/, "$1-$2");
+  const rawSeason = String(season.season || "");
+  const seasonName = rawSeason.replace(/^(\d{4})(\d{4})$/, "$1-$2");
   const teamName = season.teamName?.default || season.teamName || season.teamAbbrev || "—";
   const league = season.leagueAbbrev || season.leagueName || "—";
+  const isPlayoff = season.gameTypeId === 3 || season.gameTypeCode === 3;
+  const nhlAbbr = league === "NHL" ? resolveHistoricalNhlAbbr(teamName, season.teamAbbrev) : "";
+
+  const teamCellHtml = (nhlAbbr && /^\d{8}$/.test(rawSeason))
+    ? `<span class="tx-player-link" data-team-abbr="${escapeHtml(nhlAbbr)}" data-team-name="${escapeHtml(teamName)}" data-team-season="${escapeHtml(rawSeason)}" data-team-gt="${isPlayoff ? "playoff" : "regular"}">${escapeHtml(teamName)}</span>`
+    : escapeHtml(teamName);
 
   let html = `
     <tr>
       <td>${escapeHtml(seasonName)}</td>
       <td>${escapeHtml(league)}</td>
-      <td style="text-align:left;">${escapeHtml(teamName)}</td>
+      <td style="text-align:left;">${teamCellHtml}</td>
       <td class="num">${escapeHtml(val(season.gamesPlayed, 0))}</td>
   `;
 
@@ -3511,6 +3562,9 @@ function renderPlayerGameLogTable(gameLog, position, showAll = false) {
   }
 
   const rows = showAll ? gameLog : gameLog.slice(0, 10);
+  let sumG = 0, sumA = 0, sumPts = 0, sumPm = 0, sumSog = 0;
+  let sumSa = 0, sumGa = 0, sumToiSec = 0, toiCount = 0;
+
   let html = `
     <div class="table-scroll">
       <table class="stat-table">
@@ -3527,18 +3581,30 @@ function renderPlayerGameLogTable(gameLog, position, showAll = false) {
   `;
 
   rows.forEach(g => {
-    const dStr = g.gameDate ? new Date(g.gameDate).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) : "—";
+    const dStr = g.gameDate
+      ? new Date(g.gameDate).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" })
+      : "—";
     const opp = (g.homeRoadFlag === "R" ? "@ " : "vs ") + (g.opponentAbbrev || "—");
     const teamAb = g.teamAbbrev || "";
     const oppAb = g.opponentAbbrev || "";
     const awayAb = g.homeRoadFlag === "R" ? teamAb : oppAb;
     const homeAb = g.homeRoadFlag === "R" ? oppAb : teamAb;
 
+    if (g.toi && typeof g.toi === "string" && g.toi.includes(":")) {
+      const [m, s] = g.toi.split(":").map(Number);
+      if (!Number.isNaN(m) && !Number.isNaN(s)) {
+        sumToiSec += m * 60 + s;
+        toiCount++;
+      }
+    }
+
     html += `<tr class="clickable-row" data-open-game-id="${escapeHtml(g.gameId || "")}" data-away="${escapeHtml(awayAb)}" data-home="${escapeHtml(homeAb)}">`;
     html += `<td class="num">${escapeHtml(dStr)}</td><td>${escapeHtml(opp)}</td>`;
 
     if (position === "G") {
       const sv = g.savePctg;
+      sumSa += Number(g.shotsAgainst) || 0;
+      sumGa += Number(g.goalsAgainst) || 0;
       html += `
         <td>${escapeHtml(val(g.decision))}</td>
         <td class="num">${val(g.shotsAgainst, 0)}</td>
@@ -3547,17 +3613,58 @@ function renderPlayerGameLogTable(gameLog, position, showAll = false) {
         <td class="num" style="color:var(--silver-dim);">${escapeHtml(val(g.toi))}</td>
       `;
     } else {
+      const goals = Number(g.goals) || 0;
+      const assists = Number(g.assists) || 0;
+      const pts = g.points != null ? Number(g.points) : (goals + assists);
+      const pm = Number(g.plusMinus) || 0;
+      const sog = Number(g.shots) || 0;
+      sumG += goals;
+      sumA += assists;
+      sumPts += pts;
+      sumPm += pm;
+      sumSog += sog;
       html += `
-        <td class="num">${val(g.goals, 0)}</td>
-        <td class="num">${val(g.assists, 0)}</td>
-        <td class="num" style="color:#fff;font-weight:700;">${val(g.points, (g.goals || 0) + (g.assists || 0))}</td>
-        <td class="num">${val(g.plusMinus, 0)}</td>
-        <td class="num">${val(g.shots, 0)}</td>
+        <td class="num">${goals}</td>
+        <td class="num">${assists}</td>
+        <td class="num" style="color:#fff;font-weight:700;">${pts}</td>
+        <td class="num">${pm > 0 ? `+${pm}` : pm}</td>
+        <td class="num">${sog}</td>
         <td class="num" style="color:var(--silver-dim);">${escapeHtml(val(g.toi))}</td>
       `;
     }
     html += "</tr>";
   });
+
+  let avgToiStr = "—";
+  if (toiCount > 0) {
+    const avgSec = Math.round(sumToiSec / toiCount);
+    avgToiStr = `~${Math.floor(avgSec / 60)}:${String(avgSec % 60).padStart(2, "0")}`;
+  }
+
+  if (position === "G") {
+    const totalSv = sumSa > 0 ? ((sumSa - sumGa) / sumSa).toFixed(3) : "—";
+    html += `
+      <tr style="background:var(--surface-2);font-weight:700;">
+        <td colspan="3" style="color:#fff;">Итого (${rows.length} и)</td>
+        <td class="num" style="color:#fff;">${sumSa}</td>
+        <td class="num" style="color:#fff;">${sumGa}</td>
+        <td class="num" style="color:#2ecc71;">${totalSv}</td>
+        <td class="num" style="color:var(--silver-dim);font-weight:400;">${escapeHtml(avgToiStr)}</td>
+      </tr>
+    `;
+  } else {
+    html += `
+      <tr style="background:var(--surface-2);font-weight:700;">
+        <td colspan="2" style="color:#fff;">Итого (${rows.length} и)</td>
+        <td class="num" style="color:#2ecc71;">${sumG}</td>
+        <td class="num" style="color:#3a86ff;">${sumA}</td>
+        <td class="num" style="color:#fff;">${sumPts}</td>
+        <td class="num" style="color:${sumPm >= 0 ? "#2ecc71" : "#ff4d4d"};">${sumPm > 0 ? `+${sumPm}` : sumPm}</td>
+        <td class="num" style="color:#fff;">${sumSog}</td>
+        <td class="num" style="color:var(--silver-dim);font-weight:400;">${escapeHtml(avgToiStr)}</td>
+      </tr>
+    `;
+  }
 
   html += "</tbody></table></div>";
   if (!showAll && gameLog.length > 10) {
@@ -4816,9 +4923,9 @@ function renderMatchupHistory(games, awayAbbrev, homeAbbrev) {
   return html;
 }
 
-// СОСТАВ И КАРТОЧКА КЛУБА (+ NHL EDGE)
-async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
-  openDetail({ type: "team", fn: () => openTeamDetail(teamAbbrev, teamName, teamLogo) });
+/// СОСТАВ И КАРТОЧКА КЛУБА (+ NHL EDGE)
+async function openTeamDetail(teamAbbrev, teamName, teamLogo, explicitSeason = "", explicitGameType = "regular") {
+  openDetail({ type: "team", fn: () => openTeamDetail(teamAbbrev, teamName, teamLogo, explicitSeason, explicitGameType) });
   const body = document.getElementById("detail-body");
 
   const isDuplicate = teamName && teamName.trim().toUpperCase() === teamAbbrev.trim().toUpperCase();
@@ -4826,19 +4933,31 @@ async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
   const select = document.getElementById("season-select");
   const opt = select?.options[select.selectedIndex];
   const startYear = opt?.dataset.startYear;
-  const targetSeason = startYear ? `${startYear}${Number(startYear) + 1}` : (seasonIdFromEndDate(selectedSeasonEndDate) || "now");
+  const targetSeason = explicitSeason
+    || (startYear ? `${startYear}${Number(startYear) + 1}` : (seasonIdFromEndDate(selectedSeasonEndDate) || "now"));
+
+  const seasonLabel = /^\d{8}$/.test(targetSeason)
+    ? `Сезон ${targetSeason.slice(0, 4)}-${targetSeason.slice(6, 8)}`
+    : "";
+  const subtitleParts = [!isDuplicate ? teamAbbrev : "", seasonLabel].filter(Boolean);
+
+  currentTeamFullData = null;
+  currentTeamPlayoffData = null;
+  currentTeamType = explicitGameType === "playoff" ? "playoff" : "regular";
+  currentTeamSortKey = "points";
+  currentTeamSortAsc = false;
 
   body.innerHTML = `
     <div class="detail-head">
       <img class="team-logo" src="https://assets.nhle.com/logos/nhl/svg/${escapeHtml(teamAbbrev)}_light.svg" alt="" onerror="this.src='https://assets.nhle.com/logos/nhl/svg/${escapeHtml(teamAbbrev)}_dark.svg';">
       <div>
         <div class="title">${escapeHtml(teamName || teamAbbrev)}</div>
-        ${!isDuplicate ? `<div class="subtitle">${escapeHtml(teamAbbrev)}</div>` : ""}
+        ${subtitleParts.length ? `<div class="subtitle">${escapeHtml(subtitleParts.join(" · "))}</div>` : ""}
       </div>
     </div>
     <div class="cat-row" style="margin-top:14px;">
-      <button id="btn-team-reg" class="active">Регулярный</button>
-      <button id="btn-team-po">Плей-офф</button>
+      <button id="btn-team-reg" class="${currentTeamType === "regular" ? "active" : ""}">Регулярный</button>
+      <button id="btn-team-po" class="${currentTeamType === "playoff" ? "active" : ""}">Плей-офф</button>
       <button id="btn-team-sched">Расписание</button>
       <button id="btn-team-edge">NHL EDGE</button>
     </div>
@@ -4851,25 +4970,33 @@ async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
     });
   }
 
-  safeOn("btn-team-reg", "click", () => {
+  async function loadTeamTypeData(type) {
+    const gt = type === "playoff" ? "3" : "2";
+    const container = document.getElementById("team-tables-container");
+    if (container) container.innerHTML = `<div class="loading">Загрузка статистики (${type === "playoff" ? "плей-офф" : "регулярный сезон"})...</div>`;
+    try {
+      const res = await fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(teamAbbrev)}?season=${encodeURIComponent(targetSeason)}&gameType=${gt}`);
+      const json = await res.json();
+      if (type === "playoff") currentTeamPlayoffData = json;
+      else currentTeamFullData = json;
+      renderTeamRosterView();
+    } catch (_) {
+      if (container) container.innerHTML = `<div class="empty">Данные за этот период не найдены</div>`;
+    }
+  }
+
+  safeOn("btn-team-reg", "click", async () => {
     currentTeamType = "regular";
     setTeamSubTab("btn-team-reg");
-    renderTeamRosterView();
+    if (currentTeamFullData) renderTeamRosterView();
+    else await loadTeamTypeData("regular");
   });
 
   safeOn("btn-team-po", "click", async () => {
     currentTeamType = "playoff";
     setTeamSubTab("btn-team-po");
-
-    const container = document.getElementById("team-tables-container");
-    if (container) container.innerHTML = '<div class="loading">Загрузка статистики плей-офф...</div>';
-    try {
-      const res = await fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(teamAbbrev)}?season=${encodeURIComponent(targetSeason)}&gameType=3`);
-      currentTeamPlayoffData = await res.json();
-      renderTeamRosterView();
-    } catch (_) {
-      if (container) container.innerHTML = '<div class="empty">Клуб не выступал в плей-офф в этом сезоне</div>';
-    }
+    if (currentTeamPlayoffData) renderTeamRosterView();
+    else await loadTeamTypeData("playoff");
   });
 
   safeOn("btn-team-sched", "click", async () => {
@@ -4882,16 +5009,7 @@ async function openTeamDetail(teamAbbrev, teamName, teamLogo) {
     await renderTeamEdgeView(teamAbbrev, targetSeason);
   });
 
-  try {
-    const res = await fetch(`${API_BASE}/api/roster-stats/${encodeURIComponent(teamAbbrev)}?season=${encodeURIComponent(targetSeason)}&gameType=2`);
-    currentTeamFullData = await res.json();
-    currentTeamSortKey = "points";
-    currentTeamSortAsc = false;
-    renderTeamRosterView();
-  } catch (e) {
-    const c = document.getElementById("team-tables-container");
-    if (c) c.innerHTML = '<div class="empty">Не удалось загрузить состав</div>';
-  }
+  await loadTeamTypeData(currentTeamType);
 }
 
 async function renderTeamEdgeView(teamAbbrev, seasonId) {
@@ -5086,10 +5204,20 @@ function renderTeamRosterView() {
             <th class="sortable" data-tsort="penaltyMinutes">Штр${arrow("penaltyMinutes")}</th>
           </tr>
         </thead>
-        <tbody>
-          ${skaters.map(p => `
+       <tbody>
+          ${skaters.map(p => {
+            const pName = `${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim() || "Игрок";
+            const rawPos = String(p.positionCode || p.position || "").toUpperCase();
+            const posLabel = ({ L: "LW", R: "RW" }[rawPos]) || rawPos;
+            const numHtml = p.sweaterNumber != null
+              ? `<span style="color:var(--silver-dim);font-family:'Roboto Mono',monospace;font-size:10px;display:inline-block;min-width:22px;">#${escapeHtml(p.sweaterNumber)}</span>`
+              : "";
+            const posHtml = posLabel
+              ? ` <span style="color:var(--silver-dim);font-size:10px;font-weight:400;">${escapeHtml(posLabel)}</span>`
+              : "";
+            return `
             <tr class="clickable-row" data-player-id="${escapeHtml(getPlayerId(p))}">
-              <td>${escapeHtml(`${nameStr(p.firstName)} ${nameStr(p.lastName)}`.trim() || "Игрок")}</td>
+              <td>${numHtml}${escapeHtml(pName)}${posHtml}</td>
               <td class="num">${val(p.gamesPlayed, 0)}</td>
               <td class="num">${val(p.goals, 0)}</td>
               <td class="num">${val(p.assists, 0)}</td>
@@ -5097,28 +5225,9 @@ function renderTeamRosterView() {
               <td class="num">${val(p.plusMinus, 0)}</td>
               <td class="num">${val(p.penaltyMinutes ?? p.pim, 0)}</td>
             </tr>
-          `).join("")}
+          `;
+          }).join("")}
         </tbody>
-      </table>
-    </div>
-  `;
-
-  if (goalies.length) {
-    goalies.sort((a, b) => Number(b.gamesPlayed ?? 0) - Number(a.gamesPlayed ?? 0));
-    html += '<div class="section-title" style="margin-top:16px;">Вратари</div>';
-    html += `
-      <div class="table-scroll">
-        <table class="stat-table">
-          <thead>
-            <tr><th>Игрок</th><th>И</th><th>В</th><th>П</th><th>%ОБ</th><th>ГКИ</th></tr>
-          </thead>
-          <tbody>
-            ${goalies.map(g => {
-              const sv = g.savePercentage ?? g.savePctg;
-              const gaa = g.goalsAgainstAverage ?? g.gaa;
-              return `
-                <tr class="clickable-row" data-player-id="${escapeHtml(getPlayerId(g))}">
-                  <td>${escapeHtml(`${nameStr(g.firstName)} ${nameStr(g.lastName)}`.trim() || "Вратарь")}</td>
                   <td class="num">${val(g.gamesPlayed, 0)}</td>
                   <td class="num">${val(g.wins, 0)}</td>
                   <td class="num">${val(g.losses, 0)}</td>
@@ -5617,7 +5726,17 @@ document.addEventListener("click", (event) => {
     }
     return;
   }
-
+  const teamSeasonEl = event.target.closest("[data-team-abbr][data-team-season]");
+  if (teamSeasonEl) {
+    openTeamDetail(
+      teamSeasonEl.dataset.teamAbbr,
+      teamSeasonEl.dataset.teamName || teamSeasonEl.dataset.teamAbbr,
+      "",
+      teamSeasonEl.dataset.teamSeason,
+      teamSeasonEl.dataset.teamGt || "regular"
+    );
+    return;
+  }
   const playerEl = event.target.closest("[data-player-id]");
   if (playerEl && playerEl.dataset.playerId) {
     openPlayerDetail(playerEl.dataset.playerId);
