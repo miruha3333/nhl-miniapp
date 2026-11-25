@@ -1841,12 +1841,8 @@ select.date-input option {
     <div style="font-size:11px;color:var(--silver-dim);margin-bottom:12px;">
       Приложение подстроится под клубные цвета, а матчи выбранной команды будут первыми в списке расписания.
     </div>
-    <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:8px;max-height:60vh;overflow-y:auto;padding-right:4px;" id="team-selector-grid"></div>
-  </div>
-</div>
-
+    <script src="/ahl.js?v=1"></script>
 <script>
-  <script src="/ahl.js?v=1"></script>
 window.addEventListener("error", function (e) {
   var box = document.getElementById("games");
   if (box && box.textContent.indexOf("Загрузка") !== -1) {
@@ -1855,7 +1851,6 @@ window.addEventListener("error", function (e) {
 });
 </script>
 <script>
-const tg = window.Telegram?.WebApp;
 tg?.ready();
 tg?.expand();
 
