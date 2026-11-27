@@ -1156,12 +1156,12 @@
         });
       }
 
-      // Расширенная статистика команд
+      // Полная расширенная статистика команд (AHL)
       const sumShots = (lineup) => (Array.isArray(lineup?.players) ? lineup.players : []).reduce((s, p) => s + (Number(p.shots) || 0), 0);
       const awaySog = meta.visiting_shots ?? meta.visitor_shots ?? away.shots ?? sumShots(g.visitor_team_lineup);
       const homeSog = meta.home_shots ?? home.shots ?? sumShots(g.home_team_lineup);
 
-      /// Броски по периодам: проверяем все структуры периодов
+      // Броски по периодам
       const pArr = Array.isArray(g.periods) ? g.periods : [];
       const getPShots = (idx, isHome) => {
         const per = pArr[idx];
@@ -1176,7 +1176,7 @@
       let s2A = getPShots(1, false), s2H = getPShots(1, true);
       let s3A = getPShots(2, false), s3H = getPShots(2, true);
 
-      // Если в периодах было пусто — считаем точно по событиям из PXP
+      // Подсчёт из PXP если в periods пусто
       if ((s1A == null || s1H == null) && Array.isArray(g.pxp)) {
         const pxpShots = g.pxp.filter(ev => {
           const k = String(ev?.event || ev?.type || "").toLowerCase();
@@ -1195,20 +1195,49 @@
           s3A = countPxp(3, false); s3H = countPxp(3, true);
         }
       }
-
       const fmtS = (v) => (v != null && v !== "" ? v : "0");
 
-      // Большинство и штраф
-      const awayPim = penalties.filter(p => String(p.team_id || "") !== homeId).reduce((s, p) => s + (Number(p.minutes) || 0), 0);
-      const homePim = penalties.filter(p => String(p.team_id || "") === homeId).reduce((s, p) => s + (Number(p.minutes) || 0), 0);
+      // Большинство, меньшинство и штраф
+      const awayPens = penalties.filter(p => String(p.team_id || "") !== homeId);
+      const homePens = penalties.filter(p => String(p.team_id || "") === homeId);
+      const awayPim = awayPens.reduce((s, p) => s + (Number(p.minutes) || 0), 0);
+      const homePim = homePens.reduce((s, p) => s + (Number(p.minutes) || 0), 0);
+
       const awayPpg = goals.filter(gl => String(gl.team_id || "") !== homeId && gl.power_play === "1").length;
       const homePpg = goals.filter(gl => String(gl.team_id || "") === homeId && gl.power_play === "1").length;
-      const awayPpOpp = penalties.filter(p => String(p.team_id || "") === homeId && Number(p.minutes || 0) <= 4).length;
-      const homePpOpp = penalties.filter(p => String(p.team_id || "") !== homeId && Number(p.minutes || 0) <= 4).length;
+      const awayShg = goals.filter(gl => String(gl.team_id || "") !== homeId && gl.short_handed === "1").length;
+      const homeShg = goals.filter(gl => String(gl.team_id || "") === homeId && gl.short_handed === "1").length;
+      const awayEng = goals.filter(gl => String(gl.team_id || "") !== homeId && gl.empty_net === "1").length;
+      const homeEng = goals.filter(gl => String(gl.team_id || "") === homeId && gl.empty_net === "1").length;
+
+      const awayPpOpp = homePens.filter(p => Number(p.minutes || 0) <= 4).length;
+      const homePpOpp = awayPens.filter(p => Number(p.minutes || 0) <= 4).length;
+
       const awayPpStr = meta.visiting_power_play || `${awayPpg} / ${Math.max(awayPpg, awayPpOpp)}`;
       const homePpStr = meta.home_power_play || `${homePpg} / ${Math.max(homePpg, homePpOpp)}`;
       const awayPpPct = Math.max(awayPpg, awayPpOpp) > 0 ? `${((awayPpg / Math.max(awayPpg, awayPpOpp)) * 100).toFixed(1)}%` : "0.0%";
       const homePpPct = Math.max(homePpg, homePpOpp) > 0 ? `${((homePpg / Math.max(homePpg, homePpOpp)) * 100).toFixed(1)}%` : "0.0%";
+
+      // Нейтрализация меньшинства (% PK)
+      const awayPkKilled = Math.max(0, homePpOpp - homePpg);
+      const homePkKilled = Math.max(0, awayPpOpp - awayPpg);
+      const awayPkPct = homePpOpp > 0 ? `${((awayPkKilled / homePpOpp) * 100).toFixed(1)}%` : "100.0%";
+      const homePkPct = awayPpOpp > 0 ? `${((homePkKilled / awayPpOpp) * 100).toFixed(1)}%` : "100.0%";
+
+      // Вбрасывания из PXP (если есть события faceoff)
+      let foAway = 0, foHome = 0;
+      if (Array.isArray(g.pxp)) {
+        g.pxp.forEach(ev => {
+          if (String(ev?.event || ev?.type || "").toLowerCase() === "faceoff") {
+            const tId = String(ev.team_id || ev.home_or_visitor || "");
+            if (tId === homeId || tId === "home") foHome++;
+            else foAway++;
+          }
+        });
+      }
+      const foTotal = foAway + foHome;
+      const foAwayPct = foTotal > 0 ? `${((foAway / foTotal) * 100).toFixed(1)}%` : null;
+      const foHomePct = foTotal > 0 ? `${((foHome / foTotal) * 100).toFixed(1)}%` : null;
 
       html += `
         <div class="section-title">Статистика команд</div>
@@ -1220,7 +1249,12 @@
           <div class="teamstat-row-flex"><div class="teamstat-val-flex left" style="font-weight:800;">${escapeHtml(awaySog)}</div><div class="teamstat-label-flex">Броски всего</div><div class="teamstat-val-flex right" style="font-weight:800;">${escapeHtml(homeSog)}</div></div>
           <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${escapeHtml(fmtS(s1A))} | ${escapeHtml(fmtS(s2A))} | ${escapeHtml(fmtS(s3A))}</div><div class="teamstat-label-flex">Броски по периодам (1|2|3)</div><div class="teamstat-val-flex right">${escapeHtml(fmtS(s1H))} | ${escapeHtml(fmtS(s2H))} | ${escapeHtml(fmtS(s3H))}</div></div>
           <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${escapeHtml(awayPpStr)} (${awayPpPct})</div><div class="teamstat-label-flex">Большинство (%PP)</div><div class="teamstat-val-flex right">${escapeHtml(homePpStr)} (${homePpPct})</div></div>
-          <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${escapeHtml(awayPim)} (${penalties.filter(p => String(p.team_id || "") !== homeId).length} уд.)</div><div class="teamstat-label-flex">Штраф (мин)</div><div class="teamstat-val-flex right">${escapeHtml(homePim)} (${penalties.filter(p => String(p.team_id || "") === homeId).length} уд.)</div></div>
+          <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${awayPkKilled}/${homePpOpp} (${awayPkPct})</div><div class="teamstat-label-flex">Меньшинство (%PK)</div><div class="teamstat-val-flex right">${homePkKilled}/${awayPpOpp} (${homePkPct})</div></div>
+          ${foTotal > 0 ? `<div class="teamstat-row-flex"><div class="teamstat-val-flex left">${foAway} (${foAwayPct})</div><div class="teamstat-label-flex">Вбрасывания (%FO)</div><div class="teamstat-val-flex right">${foHome} (${foHomePct})</div></div>` : ""}
+          <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${escapeHtml(awayPim)} мин (${awayPens.length} уд.)</div><div class="teamstat-label-flex">Штрафное время</div><div class="teamstat-val-flex right">${escapeHtml(homePim)} мин (${homePens.length} уд.)</div></div>
+          <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${awayScore - awayPpg - awayShg} / ${awayPpg} / ${awayShg}${awayEng ? ` (${awayEng} ПВ)` : ""}</div><div class="teamstat-label-flex">Голы (Равн / Больш / Меньш)</div><div class="teamstat-val-flex right">${homeScore - homePpg - homeShg} / ${homePpg} / ${homeShg}${homeEng ? ` (${homeEng} ПВ)` : ""}</div></div>
+        </div>
+      `;
         </div>
       `;
 
