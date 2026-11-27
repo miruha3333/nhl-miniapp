@@ -2619,23 +2619,20 @@ function renderDraftPicks() {
     `;
   }).join("");
 
-  if (list.length > 20) {
-    html += `<button class="show-more" id="draft-load-more-stats">Подгрузить статистику НХЛ для остальных пиков (${list.length - 20})</button>`;
-  }
-
   container.innerHTML = html;
 
-  const btnMore = document.getElementById("draft-load-more-stats");
-  if (btnMore) {
-    btnMore.onclick = async () => {
-      btnMore.disabled = true;
-      btnMore.textContent = "Загрузка статистики...";
-      await hydrateDraftBatch(list, 20, Math.min(list.length, 60));
-      btnMore.remove();
-    };
-  }
-
-  hydrateDraftBatch(list, 0, Math.min(list.length, 20));
+  // Автоматическая загрузка: сначала первые 15 пиков, затем все остальные в фоновом режиме
+  (async () => {
+    await hydrateDraftBatch(list, 0, Math.min(list.length, 15));
+    if (list.length > 15) {
+      for (let start = 15; start < list.length; start += 10) {
+        // Если пользователь уже сменил раунд или вкладку, прерываем
+        if (currentDraftRound !== (document.querySelector("#draft-rounds-bar button.active")?.dataset.draftRound || "all")) break;
+        await hydrateDraftBatch(list, start, Math.min(list.length, start + 10));
+        await new Promise(r => setTimeout(r, 80));
+      }
+    }
+  })();
 }
 
 // 1. ВКЛАДКА: МАТЧИ
@@ -5426,7 +5423,7 @@ function formatTxDate(raw) {
 }
 
 function translateTransactionDescription(rawDesc, teamAbbr = "") {
-  const stopWords = /\b(from|to|on|and|for|with|in|at|into|off|injured|reserve|waivers|roster|non-roster|long-term|conditioning|loan|assignment|suspension|cleared|two-way|one-way|entry-level|extension|contract|a|an|the)\b/i;
+  const stopWords = /\b(from|to|on|and|for|with|in|at|into|off|injured|reserve|waivers|roster|non-roster|long-term|conditioning|loan|assignment|suspension|cleared|two-way|one-way|entry-level|extension|contract|a|an|the|him|her)\b/i;
   const tokens = [];
 
   function savePlayerToken(rawName) {
@@ -5441,28 +5438,52 @@ function translateTransactionDescription(rawDesc, teamAbbr = "") {
     return `@@PLAYER_${idx}@@`;
   }
 
- let text = String(rawDesc || "")
+  let text = String(rawDesc || "")
     .replace(/\bRe-assigned\b/gi, "Reassigned")
     .replace(/\bRe-called\b/gi, "Recalled")
-    .replace(/\bRe-activated\b/gi, "Activated");
+    .replace(/\bRe-activated\b/gi, "Activated")
+    .replace(/\bRe-instated\b/gi, "Reinstated");
 
+  // Маскируем имена хоккеистов
   text = text.replace(/\b(forward|forwards|defenseman|defenceman|defensemen|goaltender|goalie|center|centre|winger|left wing|right wing|F|D|G|C|LW|RW)\b\s+([A-ZÀ-ÿ][a-zA-ZÀ-ÿ'\-]+(?:\s+[A-ZÀ-ÿ][a-zA-ZÀ-ÿ'\-]+){1,2})/g, (m, pos, pName) => {
     return `${pos} ${savePlayerToken(pName)}`;
   });
 
-  text = text.replace(/\b(Signed|Re-signed|Traded|Recalled|Claimed|Assigned|Reassigned|Activated|Placed|Waived|Loaned|Acquired|Released|Suspended|Returned|Designated)\b\s+([A-ZÀ-ÿ][a-zA-ZÀ-ÿ'\-]+(?:\s+[A-ZÀ-ÿ][a-zA-ZÀ-ÿ'\-]+){1,2})/g, (m, act, pName) => {
+  text = text.replace(/\b(Signed|Re-signed|Traded|Recalled|Claimed|Assigned|Reassigned|Activated|Reinstated|Placed|Waived|Loaned|Acquired|Released|Suspended|Returned|Designated)\b\s+([A-ZÀ-ÿ][a-zA-ZÀ-ÿ'\-]+(?:\s+[A-ZÀ-ÿ][a-zA-ZÀ-ÿ'\-]+){1,2})/g, (m, act, pName) => {
     return `${act} ${savePlayerToken(pName)}`;
   });
 
-  // Переставляем "Глагол [Позиция] @@PLAYER_k@@" -> "[Позиция] @@PLAYER_k@@ глагол"
+  // Перестановка: "Глагол [Позиция] Имя" -> "[Позиция] Имя глагол"
   text = text.replace(
-    /(^|[.;]\s*)(Agreed to terms with|Signed|Re-signed|Traded|Recalled|Claimed|Assigned|Reassigned|Activated|Placed|Waived|Loaned|Acquired|Released|Suspended|Returned|Designated)\s+(?:(?:unrestricted |restricted )?free agent\s+)?((?:forward|forwards|defenseman|defenceman|defensemen|goaltender|goalie|center|centre|winger|left wing|right wing|F|D|G|C|LW|RW)\s+)?(@@PLAYER_\d+@@)/gi,
+    /(^|[.;]\s*)(Agreed to terms with|Signed|Re-signed|Traded|Recalled|Claimed|Assigned|Reassigned|Activated|Reinstated|Placed|Waived|Loaned|Acquired|Released|Suspended|Returned|Designated)\s+(?:(?:unrestricted |restricted )?free agent\s+)?((?:forward|forwards|defenseman|defenceman|defensemen|goaltender|goalie|center|centre|winger|left wing|right wing|F|D|G|C|LW|RW)\s+)?(@@PLAYER_\d+@@)/gi,
     (m, lead, verb, posPart, playerTok) => {
       return `${lead}${posPart || ""}${playerTok} ${verb.toLowerCase()}`;
     }
   );
 
+  // Словарь переводов
+  const numWords = { one: "1", two: "2", three: "3", four: "4", five: "5", six: "6", seven: "7", eight: "8", nine: "9", ten: "10" };
+  text = text.replace(/\breceived an? (one|two|three|four|five|six|seven|eight|nine|ten|\d+)-game suspension\b/gi, (m, n) => {
+    const digit = numWords[n.toLowerCase()] || n;
+    return `дисквалифицирован на ${digit} матча(ей)`;
+  });
+
   const rules = [
+    [/\breinstated\b/gi, "восстановлен"],
+    [/\bfrom the non-roster injured\b/gi, "из внезаявочного списка травмированных"],
+    [/\bto the non-roster injured\b/gi, "во внезаявочный список травмированных"],
+    [/\bnon-roster injured\b/gi, "внезаявочный список травмированных"],
+    [/\bfrom the injured reserve\b/gi, "из списка травмированных (IR)"],
+    [/\bto the injured reserve\b/gi, "в список травмированных (IR)"],
+    [/\bfrom the long-term injured reserve\b/gi, "из долгосрочного списка травмированных (LTIR)"],
+    [/\bto the long-term injured reserve\b/gi, "в долгосрочный список травмированных (LTIR)"],
+    [/\band assigned him to\b/gi, "и отправлен в фарм-клуб в"],
+    [/\band loaned him to\b/gi, "и отдан в аренду в"],
+    [/\band reassigned him to\b/gi, "и отправлен в фарм-клуб в"],
+    [/\band recalled him from\b/gi, "и вызван из"],
+    [/\bfor an illegal check to the head of\b/gi, "за удар в голову игрока"],
+    [/\bfor an illegal check to the head\b/gi, "за удар в голову"],
+    [/\billegal check to the head\b/gi, "удар в голову"],
     [/\bagreed to terms on\b/gi, "согласовал"],
     [/\bagreed to terms with\b/gi, "согласовал контракт с"],
     [/\bsigned to a\b/gi, "подписал"],
@@ -5510,8 +5531,6 @@ function translateTransactionDescription(rawDesc, teamAbbr = "") {
     [/\bsix-year\b/gi, "шестилетний"],
     [/\bseven-year\b/gi, "семилетний"],
     [/\beight-year\b/gi, "восьмилетний"],
-    [/\bto a\b/gi, "на"],
-    [/\bon a\b/gi, "на"],
     [/\bcontract\b/gi, "контракт"],
     [/\bdefenseman\b/gi, "защитник"],
     [/\bdefenceman\b/gi, "защитник"],
@@ -5522,6 +5541,10 @@ function translateTransactionDescription(rawDesc, teamAbbr = "") {
     [/\bright wing\b/gi, "правый крайний"],
     [/\bcenter\b/gi, "центрфорвард"],
     [/\bwinger\b/gi, "крайний нападающий"],
+    [/\bfrom the\b/gi, "из"],
+    [/\bto the\b/gi, "в"],
+    [/\bin the\b/gi, "в"],
+    [/\bof the\b/gi, ""],
     [/\bfrom\b/gi, "из"],
     [/\bto\b/gi, "в"],
     [/\bfor\b/gi, "за"],
@@ -5532,6 +5555,12 @@ function translateTransactionDescription(rawDesc, teamAbbr = "") {
   rules.forEach(([regex, repl]) => {
     text = text.replace(regex, repl);
   });
+
+  // Удаляем оставшиеся изолированные артикли и местоимения
+  text = text
+    .replace(/\b(the|a|an|him|her)\b\s*/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 
   text = text.replace(/^[а-яё]/, ch => ch.toUpperCase());
 
