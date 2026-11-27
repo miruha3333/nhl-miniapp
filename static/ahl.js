@@ -44,11 +44,8 @@
     const s = String(pos || "").trim().toUpperCase();
     if (!s) return "";
     const map = {
-      // Стандартная 5-значная сетка
       "1": "D", "2": "C", "3": "LW", "4": "RW", "5": "G",
-      // Расширенная 8-значная сетка лиги
       "6": "LW", "7": "C", "8": "RW", "9": "F", "10": "D",
-      // Буквенные обозначения
       "D": "D", "C": "C", "LW": "LW", "RW": "RW", "G": "G",
       "F": "F", "W": "W", "L": "LW", "R": "RW",
       "LD": "D", "RD": "D",
@@ -58,7 +55,6 @@
       "GOALIE": "G", "GOALTENDER": "G"
     };
     if (map[s]) return map[s];
-    // Если всё ещё осталась цифра — заменяем по смыслу на F
     if (/^\d+$/.test(s)) return "F";
     return s.length <= 3 ? s : "";
   }
@@ -93,7 +89,6 @@
   async function populateSeasonSelect() {
     const select = document.getElementById("season-select");
     if (!select) return;
-
     const list = await ensureSeasonsLoaded();
     const regSeasons = list.filter((s) => !s.isPlayoff);
 
@@ -106,7 +101,7 @@
       ahlSelectedSeasonId = String(regSeasons[0].id);
     }
 
-    select.innerHTML = regSeasons.map((s) => {
+    select.innerHTML = regSeasons.map(s => {
       const sel = String(s.id) === String(ahlSelectedSeasonId) ? "selected" : "";
       return `<option value="${escapeHtml(s.id)}" ${sel}>${escapeHtml(s.name)}</option>`;
     }).join("");
@@ -355,8 +350,8 @@
           const t2 = ser.team2 || {};
           const w1 = Number(t1.wins || 0);
           const w2 = Number(t2.wins || 0);
-          const t1Win = (ser.winnerId && ser.winnerId === t1.id) || (w1 > w2 && w1 >= 2 && w2 < w1);
-          const t2Win = (ser.winnerId && ser.winnerId === t2.id) || (w2 > w1 && w2 >= 2 && w1 < w2);
+          const t1Win = (ser.winnerId && ser.winnerId === t1.id) || (w1 > w2 && w1 >= 2);
+          const t2Win = (ser.winnerId && ser.winnerId === t2.id) || (w2 > w1 && w2 >= 2);
 
           html += `
             <div class="bracket-series">
@@ -542,8 +537,7 @@
     if (clearBtn) clearBtn.style.display = ahlSearchFilter ? "flex" : "none";
     renderLeadersList();
   }
-
-  // 4. ПРЕВЬЮ НЕНАЧАВШЕГОСЯ МАТЧА AHL
+// 4. ПРЕВЬЮ НЕНАЧАВШЕГОСЯ МАТЧА AHL
   async function openFutureGamePreview(gameId, awayFallback = {}, homeFallback = {}, seasonId = "") {
     openDetail({ type: "ahl-preview", fn: () => openFutureGamePreview(gameId, awayFallback, homeFallback, seasonId) });
     const body = document.getElementById("detail-body");
@@ -707,12 +701,10 @@
           const as = sg.awayScore;
           const hs = sg.homeScore;
           let aCol = "inherit", hCol = "inherit";
-
           if (sg.isFinal && as != null && hs != null && as !== hs) {
             aCol = as > hs ? "#2ecc71" : "#ff4d4d";
             hCol = hs > as ? "#2ecc71" : "#ff4d4d";
           }
-
           html += `
             <div class="h2h-game-row ${sg.isFinal ? "clickable-row" : ""}" ${sg.isFinal ? `data-ahl-game-id="${escapeHtml(sg.id)}" data-ahl-away="${escapeHtml(sg.awayAbbrev)}" data-ahl-home="${escapeHtml(sg.homeAbbrev)}" style="cursor:pointer;"` : ""}>
               <div class="h2h-team-cell left" style="color:${aCol};font-weight:${aCol !== "inherit" ? "700" : "normal"};">${escapeHtml(sg.awayAbbrev)}</div>
@@ -1030,8 +1022,8 @@
       const awayLogo = away.logo || awayFallback.logo || (awayId ? `https://assets.leaguestat.com/ahl/logos/${awayId}.png` : "");
       const homeLogo = home.logo || homeFallback.logo || (homeId ? `https://assets.leaguestat.com/ahl/logos/${homeId}.png` : "");
 
-      const awayScore = meta.visiting_goal_count ?? meta.visitor_score ?? away.goals ?? 0;
-      const homeScore = meta.home_goal_count ?? meta.home_score ?? home.goals ?? 0;
+      const awayScore = Number(meta.visiting_goal_count ?? meta.visitor_score ?? away.goals ?? 0);
+      const homeScore = Number(meta.home_goal_count ?? meta.home_score ?? home.goals ?? 0);
       const isFinal = meta.final === "1" || meta.status === "4" || /final/i.test(meta.game_status || "");
       const isLive = !isFinal && (meta.started === "1" || meta.status === "2" || meta.status === "3");
 
@@ -1122,7 +1114,6 @@
         });
       }
 
-      // Удаления
       html += '<div class="section-title">Удаления (Penalties)</div>';
       const penalties = Array.isArray(g.penalties) ? g.penalties : [];
       if (!penalties.length) {
@@ -1156,19 +1147,16 @@
         });
       }
 
-      // Полная расширенная статистика команд (AHL)
+      // Расширенная статистика команд (AHL)
       const sumShots = (lineup) => (Array.isArray(lineup?.players) ? lineup.players : []).reduce((s, p) => s + (Number(p.shots) || 0), 0);
       const awaySog = meta.visiting_shots ?? meta.visitor_shots ?? away.shots ?? sumShots(g.visitor_team_lineup);
       const homeSog = meta.home_shots ?? home.shots ?? sumShots(g.home_team_lineup);
 
-      // Броски по периодам
       const pArr = Array.isArray(g.periods) ? g.periods : [];
       const getPShots = (idx, isHome) => {
         const per = pArr[idx];
         if (!per) return null;
-        if (isHome) {
-          return per.home_shots ?? per.homeShots ?? per.shots?.home ?? per.shots?.home_shots ?? null;
-        }
+        if (isHome) return per.home_shots ?? per.homeShots ?? per.shots?.home ?? per.shots?.home_shots ?? null;
         return per.visiting_shots ?? per.visitor_shots ?? per.visitorShots ?? per.shots?.visitor ?? per.shots?.visiting_shots ?? null;
       };
 
@@ -1176,19 +1164,16 @@
       let s2A = getPShots(1, false), s2H = getPShots(1, true);
       let s3A = getPShots(2, false), s3H = getPShots(2, true);
 
-      // Подсчёт из PXP если в periods пусто
       if ((s1A == null || s1H == null) && Array.isArray(g.pxp)) {
         const pxpShots = g.pxp.filter(ev => {
           const k = String(ev?.event || ev?.type || "").toLowerCase();
           return k === "shot" || k === "goal";
         });
         const countPxp = (pNum, isH) => pxpShots.filter(ev => {
-          const p = Number(ev.period_id || ev.period || 0);
-          if (p !== pNum) return false;
+          if (Number(ev.period_id || ev.period || 0) !== pNum) return false;
           const tId = String(ev.team_id || ev.home_or_visitor || "");
           return isH ? (tId === homeId || tId === "home") : (tId === awayId || tId === "visitor");
         }).length;
-
         if (pxpShots.length) {
           s1A = countPxp(1, false); s1H = countPxp(1, true);
           s2A = countPxp(2, false); s2H = countPxp(2, true);
@@ -1197,7 +1182,6 @@
       }
       const fmtS = (v) => (v != null && v !== "" ? v : "0");
 
-      // Большинство, меньшинство и штраф
       const awayPens = penalties.filter(p => String(p.team_id || "") !== homeId);
       const homePens = penalties.filter(p => String(p.team_id || "") === homeId);
       const awayPim = awayPens.reduce((s, p) => s + (Number(p.minutes) || 0), 0);
@@ -1218,13 +1202,11 @@
       const awayPpPct = Math.max(awayPpg, awayPpOpp) > 0 ? `${((awayPpg / Math.max(awayPpg, awayPpOpp)) * 100).toFixed(1)}%` : "0.0%";
       const homePpPct = Math.max(homePpg, homePpOpp) > 0 ? `${((homePpg / Math.max(homePpg, homePpOpp)) * 100).toFixed(1)}%` : "0.0%";
 
-      // Нейтрализация меньшинства (% PK)
       const awayPkKilled = Math.max(0, homePpOpp - homePpg);
       const homePkKilled = Math.max(0, awayPpOpp - awayPpg);
       const awayPkPct = homePpOpp > 0 ? `${((awayPkKilled / homePpOpp) * 100).toFixed(1)}%` : "100.0%";
       const homePkPct = awayPpOpp > 0 ? `${((homePkKilled / awayPpOpp) * 100).toFixed(1)}%` : "100.0%";
 
-      // Вбрасывания из PXP (если есть события faceoff)
       let foAway = 0, foHome = 0;
       if (Array.isArray(g.pxp)) {
         g.pxp.forEach(ev => {
@@ -1236,8 +1218,13 @@
         });
       }
       const foTotal = foAway + foHome;
-      const foAwayPct = foTotal > 0 ? `${((foAway / foTotal) * 100).toFixed(1)}%` : null;
-      const foHomePct = foTotal > 0 ? `${((foHome / foTotal) * 100).toFixed(1)}%` : null;
+      const foAwayPct = foTotal > 0 ? `${((foAway / foTotal) * 100).toFixed(1)}%` : "";
+      const foHomePct = foTotal > 0 ? `${((foHome / foTotal) * 100).toFixed(1)}%` : "";
+
+      const evGoalsAway = Math.max(0, awayScore - awayPpg - awayShg);
+      const evGoalsHome = Math.max(0, homeScore - homePpg - homeShg);
+      const enAwayText = awayEng ? ` (${awayEng} ПВ)` : "";
+      const enHomeText = homeEng ? ` (${homeEng} ПВ)` : "";
 
       html += `
         <div class="section-title">Статистика команд</div>
@@ -1252,13 +1239,10 @@
           <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${awayPkKilled}/${homePpOpp} (${awayPkPct})</div><div class="teamstat-label-flex">Меньшинство (%PK)</div><div class="teamstat-val-flex right">${homePkKilled}/${awayPpOpp} (${homePkPct})</div></div>
           ${foTotal > 0 ? `<div class="teamstat-row-flex"><div class="teamstat-val-flex left">${foAway} (${foAwayPct})</div><div class="teamstat-label-flex">Вбрасывания (%FO)</div><div class="teamstat-val-flex right">${foHome} (${foHomePct})</div></div>` : ""}
           <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${escapeHtml(awayPim)} мин (${awayPens.length} уд.)</div><div class="teamstat-label-flex">Штрафное время</div><div class="teamstat-val-flex right">${escapeHtml(homePim)} мин (${homePens.length} уд.)</div></div>
-          <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${awayScore - awayPpg - awayShg} / ${awayPpg} / ${awayShg}${awayEng ? ` (${awayEng} ПВ)` : ""}</div><div class="teamstat-label-flex">Голы (Равн / Больш / Меньш)</div><div class="teamstat-val-flex right">${homeScore - homePpg - homeShg} / ${homePpg} / ${homeShg}${homeEng ? ` (${homeEng} ПВ)` : ""}</div></div>
-        </div>
-      `;
+          <div class="teamstat-row-flex"><div class="teamstat-val-flex left">${evGoalsAway} / ${awayPpg} / ${awayShg}${escapeHtml(enAwayText)}</div><div class="teamstat-label-flex">Голы (Равн / Больш / Меньш)</div><div class="teamstat-val-flex right">${evGoalsHome} / ${homePpg} / ${homeShg}${escapeHtml(enHomeText)}</div></div>
         </div>
       `;
 
-      // Судьи и тренеры
       const refs = Array.isArray(g.referees) ? g.referees.map(r => hlPersonName(r)).filter(Boolean) : [];
       const lines = Array.isArray(g.linesmen) ? g.linesmen.map(r => hlPersonName(r)).filter(Boolean) : [];
       const awayCoach = Array.isArray(away.coaches) ? away.coaches.map(c => hlPersonName(c)).filter(Boolean).join(", ") : "";
@@ -1279,10 +1263,7 @@
       if (isFinal) {
         const vSlot = document.getElementById("ahl-video-recap-slot");
         if (vSlot && !vSlot.innerHTML.trim()) {
-          const cleanTeam = (nm, ab) => {
-            const s = String(nm || ab || "").trim();
-            return s.replace(/\s*hockey\s*club/i, "");
-          };
+          const cleanTeam = (nm, ab) => String(nm || ab || "").trim().replace(/\s*hockey\s*club/i, "");
           const awayQ = cleanTeam(away.name, awayAbbr);
           const homeQ = cleanTeam(home.name, homeAbbr);
           const gDate = (meta.date_played || "").slice(0, 10);
@@ -1290,8 +1271,7 @@
           fetch(`${API_BASE}/api/game-youtube-recap?away=${encodeURIComponent(awayQ)}&home=${encodeURIComponent(homeQ)}&date=${encodeURIComponent(gDate)}&league=AHL`)
             .then(r => r.json())
             .then(v => {
-              if (!vSlot) return;
-              if (v && v.videoId) {
+              if (v && v.videoId && vSlot) {
                 vSlot.innerHTML = `
                   <div class="section-title">Видеообзор матча (YouTube)</div>
                   <div class="video-container">
@@ -1412,7 +1392,7 @@
     }
 
     const abbr = ahlTeamData.team?.abbrev || "";
-   container.innerHTML = `<div class="section-title">Матчи сезона</div><div class="card" style="padding:0;">` +
+    container.innerHTML = `<div class="section-title">Матчи сезона</div><div class="card" style="padding:0;">` +
       games.map(g => {
         const dStr = g.date ? new Date(g.date).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
         const fin = g.isFinal || (g.awayScore != null && g.homeScore != null);
